@@ -1365,103 +1365,103 @@ const TIPS={
   ventas:{emoji:'📦',title:'Ventas / Ingresos',color:'#2563eb',tag:'CUENTA DE RESULTADOS',
     def:'El total de dinero cobrado a clientes en un período. Es la primera línea del P&L y el punto de partida de todo análisis. Sin crecimiento de ventas sostenido, el resto del castillo se tambalea.',
     formula:'Ventas = Precio × Unidades vendidas\n(o suma de todos los contratos/suscripciones cobradas)',
-    example:'CSU 2025: $11.623M (+17% vs 2024). En 10 años ha pasado de $2.125M a $11.623M — un CAGR del 21%. Ni un solo año en negativo desde 2016.',
+    example:(c)=>`${c.name} 2025: $${N(c.sales[9])}M (+${pct(c.sales[9],c.sales[8]).toFixed(1)}% vs 2024). En 10 años: de $${N(c.sales[0])}M (2016) a $${N(c.sales[9])}M — CAGR del ${P(cagr(c.sales[9],c.sales[0],9))}.`,
     bench:[{v:'>20%/año',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'10-20%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'<5%',c:'#dc2626',bg:'#fef2f2',label:'Mediocre'}],
     ref:'Buffett: "El precio es lo que pagas. El valor es lo que obtienes."'},
   ebitda:{emoji:'💼',title:'EBITDA',color:'#b45309',tag:'CUENTA DE RESULTADOS',
     def:'Beneficio antes de intereses, impuestos, amortización y depreciación. Proxy del cash flow operativo, elimina decisiones financieras y contables.',
     formula:'EBITDA = Beneficio Neto + Intereses + Impuestos + Depreciación + Amortización',
-    example:'CSU 2025: $2.629M → margen 22.6%. ASML: 38%. Amazon: 20.3% (subiendo desde 9% en 2016 gracias a AWS).',
+    example:(c)=>`${c.name} 2025: $${N(c.ebitda[9])}M → margen ${P(c.ebitdaM[9])}. En 2016 era $${N(c.ebitda[0])}M (margen ${P(c.ebitdaM[0])}). CAGR 10Y: ${P(cagr(c.ebitda[9],c.ebitda[0],9))}.`,
     bench:[{v:'>30%',c:'#16a34a',bg:'#f0fdf4',label:'Excelente'},{v:'20-30%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'<10%',c:'#dc2626',bg:'#fef2f2',label:'Bajo'}],
     ref:'"Security Analysis", Graham & Dodd (1934). Buffett: "EBITDA pretende que la depreciación no existe, pero las fábricas sí se desgastan."'},
   fcf:{emoji:'💵',title:'Free Cash Flow (FCF)',color:'#16a34a',tag:'FLUJO DE CAJA',
     def:'El dinero real que queda en caja después de pagar TODOS los gastos operativos y CapEx necesarios. Para Buffett: "Los beneficios son opinión, el cash es realidad."',
     formula:'FCF = Flujo de Caja Operativo − CapEx de mantenimiento',
-    example:'CSU 2025: $2.272M de FCF → margen 19.5%. Cada año positivo desde 2016.',
+    example:(c)=>`${c.name} 2025: $${N(c.fcf[9])}M de FCF → margen ${P(c.fcfM[9])}. FCF/acción: $${N(c.fcfps[9],2)}. De $${N(c.fcf[0])}M (2016) — CAGR ${P(cagr(c.fcf[9],c.fcf[0],9))}.`,
     bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'15-20%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'Negativo',c:'#dc2626',bg:'#fef2f2',label:'⚠️ Alerta'}],
     ref:'"Warren Buffett and the Interpretation of Financial Statements"'},
   roic:{emoji:'🎯',title:'ROIC — Retorno sobre Capital Invertido',color:'#b45309',tag:'RENTABILIDAD',
     def:'La métrica favorita de Buffett. Mide el beneficio operativo por cada euro de capital invertido. ROIC > WACC = crea valor. ROIC < WACC = destruye valor.',
     formula:'ROIC = NOPAT / Capital Invertido\nNOPAT = EBIT × (1 − Tax rate)',
-    example:'CSU: bajando de 32% (2016) a 15% (2025). ASML: 39% en 2025. Visa: >40% desde hace 15 años.',
+    example:(c)=>`${c.name}: ROIC ${P(c.roic[9])} en 2025 vs ${P(c.roic[0])} en 2016. WACC ~${c.wacc}% → spread de ${(c.roic[9]-c.wacc).toFixed(1)}pp. ${c.roic[9]>=30?'Excepcional, clase mundial.':c.roic[9]>=20?'Muy sólido, crea valor significativo.':'Razonable.'}`,
     bench:[{v:'>25%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'15-25%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'<10%',c:'#dc2626',bg:'#fef2f2',label:'Pobre'}],
     ref:'"The Little Book That Builds Wealth", P. Dorsey.'},
   eps:{emoji:'📈',title:'EPS — Beneficio por Acción',color:'#d97706',tag:'POR ACCIÓN',
     def:'Beneficio neto total dividido entre acciones diluidas. Mide cuánto gana la empresa por acción. El FCF/acción es más fiable para validar calidad.',
     formula:'EPS = Beneficio Neto / Acciones Diluidas',
-    example:'CSU 2025: EPS $60.55. En 2016 era $11.09. CAGR del 21% en 10 años.',
+    example:(c)=>`${c.name} 2025: EPS $${N(c.eps[9],2)}. En 2016 era $${N(c.eps[0],2)}. CAGR del ${P(cagr(c.eps[9],c.eps[0],9))} en 10 años. FCF/acción: $${N(c.fcfps[9],2)}.`,
     bench:[{v:'>15%/año',c:'#16a34a',bg:'#f0fdf4',label:'Excelente CAGR'},{v:'10-15%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'Irregular',c:'#dc2626',bg:'#fef2f2',label:'Verificar con FCF'}],
     ref:'"One Up On Wall Street", Peter Lynch (1989).'},
   per:{emoji:'💹',title:'PER — Price to Earnings Ratio',color:'#7c3aed',tag:'VALORACIÓN',
     def:'Cuántas veces el precio paga los beneficios anuales. Un PER de 30 = pagas $30 por cada $1 de beneficio. Puede ser engañoso con beneficios irregulares.',
     formula:'PER = Precio por Acción / EPS',
-    example:'CSU: mediana histórica 62x. Amazon cotizó a PER >200x — el mercado anticipaba expansión de márgenes.',
+    example:(c)=>`${c.name}: PER actual ${(price/c.eps[9]).toFixed(1)}x (precio $${N(price,2)} / EPS $${N(c.eps[9],2)}). Mediana histórica: ${c.medPER}x. ${price/c.eps[9]<c.medPER?'Descuento del '+((1-price/c.eps[9]/c.medPER)*100).toFixed(0)+'% vs media.':'Prima del '+((price/c.eps[9]/c.medPER-1)*100).toFixed(0)+'% vs media.'}`,
     bench:[{v:'<15x',c:'#16a34a',bg:'#f0fdf4',label:'Barato'},{v:'15-30x',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>50x',c:'#7c3aed',bg:'#f5f3ff',label:'Requiere mucho crecimiento'}],
     ref:'"The Intelligent Investor", Benjamin Graham (1949).'},
   evfcf:{emoji:'🏆',title:'EV/FCF — Enterprise Value / Free Cash Flow',color:'#b45309',tag:'VALORACIÓN',
     def:'El múltiplo rey para empresas de calidad. Mide cuántas veces el EV equivale al FCF anual. No se puede manipular con amortizaciones como el PER.',
     formula:'EV/FCF = Enterprise Value / Free Cash Flow\ndonde EV = Market Cap + Deuda Neta',
-    example:'CSU: mediana histórica 37x. En 2025 cotizaba a ~24x → descuento del 35% vs media.',
+    example:(c)=>{const evfcf=Math.round((price*c.shares+c.netDebt[9])/c.fcf[9]);const diff=((evfcf-c.medEvFcf)/c.medEvFcf*100);return`${c.name}: EV/FCF actual ${evfcf}x vs mediana histórica ${c.medEvFcf}x. ${diff<0?'Descuento del '+Math.abs(diff).toFixed(0)+'% sobre su media histórica — atractivo.':'Prima del '+diff.toFixed(0)+'% sobre su media histórica.'}`},
     bench:[{v:'<15x',c:'#16a34a',bg:'#f0fdf4',label:'Muy barato'},{v:'15-25x',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>40x',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],
     ref:'"Quality Investing", Cunningham, Packer & Vinke (2016).'},
   evEbitda:{emoji:'📊',title:'EV/EBITDA',color:'#2563eb',tag:'VALORACIÓN',
     def:'Alternativa al PER para comparar empresas con distintas estructuras de capital. Muy usado en M&A. Normaliza diferencias contables entre países.',
     formula:'EV/EBITDA = Enterprise Value / EBITDA',
-    example:'CSU: mediana 36x. CSU adquiere empresas VMS a 3-7x EBITDA y genera retornos de 15-25%.',
+    example:(c)=>{const eveb=Math.round((price*c.shares+c.netDebt[9])/c.ebitda[9]);return`${c.name}: EV/EBITDA actual ${eveb}x vs mediana histórica ${c.medEvEbitda}x. EBITDA 2025: $${N(c.ebitda[9])}M (margen ${P(c.ebitdaM[9])}).`},
     bench:[{v:'<10x',c:'#16a34a',bg:'#f0fdf4',label:'Barato'},{v:'10-20x',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>30x',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],
     ref:'"Valuation", McKinsey & Company.'},
   dcf:{emoji:'📐',title:'DCF — Descuento de Flujos de Caja',color:'#2563eb',tag:'VALORACIÓN',
     def:'Calcula el valor presente de todos los flujos futuros. Un euro hoy vale más que un euro mañana. Traduce flujos futuros a valor de hoy.',
     formula:'Valor = Σ [FCF_n / (1+r)^n] + TV / (1+r)^10\nTV = FCF_10 × (1+g) / (r−g)',
-    example:'Si CSU crece al 15% anual durante 10 años con descuento del 10%, valor intrínseco ~$3.800/acción.',
+    example:(c)=>`Si ${c.name} crece FCF al ${gr}% anual 10 años con tasa descuento ${dr}%, el valor intrínseco es ~$${N(calcDCF())} por acción (precio actual $${N(price)}).`,
     bench:[{v:'Crec >15%',c:'#16a34a',bg:'#f0fdf4',label:'Asume alto crecimiento'},{v:'Tasa 9-11%',c:'#d97706',bg:'#fffbeb',label:'Descuento razonable'}],
     ref:'John Burr Williams, "The Theory of Investment Value" (1938).'},
   margenSeg:{emoji:'🛡️',title:'Margen de Seguridad',color:'#16a34a',tag:'PRINCIPIO VALUE',
     def:'El concepto más importante del value investing. Diferencia entre valor intrínseco y precio pagado. Actúa como colchón contra errores de estimación.',
     formula:'MdS = (Valor Intrínseco − Precio) / Valor Intrínseco × 100\nRegla: comprar con ≥20-30% de descuento',
-    example:'Graham compraba a 2/3 del valor de liquidación. Buffett compró See\'s Candies en 1972 con ~17% MdS.',
+    example:(c)=>{const mult=calcMult();const ms=Math.min((calcDCF()-price)/price*100,(mult.avg-price)/price*100);return`${c.name} hoy: MdS ${ms.toFixed(1)}%. ${ms>20?'Precio atractivo con margen amplio.':ms>0?'Precio razonable, margen ajustado.':'Precio por encima del valor estimado — sin margen de seguridad.'}`},
     bench:[{v:'>30%',c:'#16a34a',bg:'#f0fdf4',label:'Amplio — ideal'},{v:'15-30%',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'<0%',c:'#dc2626',bg:'#fef2f2',label:'Sobrevalorado'}],
     ref:'"The Intelligent Investor", Capítulo 20. Graham: "El margen de seguridad hace innecesaria la predicción precisa."'},
   netDebt:{emoji:'🏦',title:'Deuda Neta',color:'#dc2626',tag:'BALANCE',
     def:'Deuda financiera total menos efectivo disponible. Negativo = más caja que deuda — "fortín financiero" que Buffett admira.',
     formula:'Deuda Neta = Deuda CP + LP − Efectivo\nRatio: Deuda Neta / EBITDA',
-    example:'AMZN 2025: −$46.020M (CAJA neta). CSU 2025: $2.223M = 0.8x EBITDA — manejable.',
+    example:(c)=>{const dd=(c.netDebt[9]/c.ebitda[9]);return`${c.name} 2025: Deuda Neta $${N(c.netDebt[9])}M → ${dd.toFixed(1)}x EBITDA. ${c.netDebt[9]<0?'Posición de CAJA NETA — balance excepcional.':dd<1?'Deuda muy manejable.':dd<2?'Cómodo — sin presión financiera.':'Vigilar.'}`},
     bench:[{v:'<0x (caja)',c:'#16a34a',bg:'#f0fdf4',label:'Fortín financiero'},{v:'0-2x',c:'#d97706',bg:'#fffbeb',label:'Cómodo'},{v:'>3x',c:'#dc2626',bg:'#fef2f2',label:'⚠️ Arriesgado'}],
     ref:'Buffett: "Me gustan los negocios que pueden prosperar sin deuda."'},
   cagr:{emoji:'📈',title:'CAGR — Tasa de Crecimiento Anual Compuesta',color:'#16a34a',tag:'CRECIMIENTO',
     def:'Tasa de crecimiento anual equivalente. Elimina la volatilidad año a año y permite comparar crecimientos de distintos períodos.',
     formula:'CAGR = (Valor Final / Valor Inicial) ^ (1/Años) − 1',
-    example:'CSU ventas: CAGR 21% en 9 años. Buffett/Berkshire: ~20% anual durante 50 años.',
+    example:(c)=>`${c.name} ventas: CAGR ${P(cagr(c.sales[9],c.sales[0],9))} en 9 años. FCF: CAGR ${P(cagr(c.fcf[9],c.fcf[0],9))}. EPS: CAGR ${P(cagr(c.eps[9],c.eps[0],9))}.`,
     bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'10-20%',c:'#d97706',bg:'#fffbeb',label:'Muy bueno'},{v:'<5%',c:'#dc2626',bg:'#fef2f2',label:'Por debajo inflación'}],
     ref:'"The Most Important Thing", Howard Marks (2011).'},
   wacc:{emoji:'⚖️',title:'WACC / Tasa de Descuento',color:'#2563eb',tag:'VALORACIÓN',
     def:'Coste medio ponderado del capital — rentabilidad mínima que debe generar la empresa. A mayor incertidumbre, mayor tasa exigida.',
     formula:'WACC = (E/V) × Re + (D/V) × Rd × (1−Tax)\nSimplificado: Rf + Prima riesgo × Beta',
-    example:'Con tipos actuales ~4.5%: WACC conservador 10-11%. Buffett usa ~10% como regla general.',
+    example:(c)=>`WACC asumido para ${c.name}: ~${c.wacc}%. ROIC actual ${P(c.roic[9])} → spread de ${(c.roic[9]-c.wacc).toFixed(1)}pp. ${c.roic[9]>c.wacc?'Crea valor económico.':'Destruye valor vs coste de capital.'}`,
     bench:[{v:'8-10%',c:'#16a34a',bg:'#f0fdf4',label:'Para compounders'},{v:'10-12%',c:'#d97706',bg:'#fffbeb',label:'Estándar'},{v:'>14%',c:'#dc2626',bg:'#fef2f2',label:'Alto riesgo'}],
     ref:'"Valuation", McKinsey & Company.'},
   capex:{emoji:'🔨',title:'CapEx — Capital Expenditure',color:'#d97706',tag:'FLUJO DE CAJA',
     def:'Inversión en activos físicos. Los mejores negocios para Buffett son los que generan mucho FCF con poco CapEx — "ligeros en activos".',
     formula:'FCF real = Flujo Operativo − CapEx de mantenimiento',
-    example:'CSU: CapEx 0.6% de ventas — extraordinariamente ligero. Amazon: ~9% (data centers AWS).',
+    example:(c)=>`${c.name}: CapEx/Ventas ${P(co.isD.cx[0])} — ${co.isD.cx[0]<3?'extraordinariamente ligero en activos':co.isD.cx[0]<7?'moderado':'capital intensivo'}. FCF margin resultante: ${P(c.fcfM[9])}.`,
     bench:[{v:'<3%',c:'#16a34a',bg:'#f0fdf4',label:'Ligero en activos'},{v:'3-8%',c:'#d97706',bg:'#fffbeb',label:'Moderado'},{v:'>12%',c:'#dc2626',bg:'#fef2f2',label:'Capital intensivo'}],
     ref:'Buffett Annual Letter 1992: "Los negocios maravillosos no requieren mucho capital para crecer."'},
   wc:{emoji:'🔄',title:'Working Capital (Capital Circulante)',color:'#0891b2',tag:'BALANCE',
     def:'WC negativo = clientes pagan ANTES de que la empresa incurra en costes. Ventaja financiera estructural enorme. La empresa crece con dinero ajeno.',
     formula:'WC = Activos Corrientes − Pasivos Corrientes\nΔWC positivo = consume caja | ΔWC negativo = genera caja',
-    example:'CSU: WC −20% → $2.333M en ingresos diferidos 2025. Amazon: −7% → cobra en 1-2 días, paga en 45-60.',
+    example:(c)=>`${c.name}: WC/Ventas ${P(co.isD.wc[0])}. ${co.isD.wc[0]<-10?'Los clientes financian el crecimiento — ventaja estructural excepcional.':co.isD.wc[0]<0?'WC ligeramente favorable.':'WC positivo — la empresa financia a sus clientes.'}`,
     bench:[{v:'WC negativo',c:'#16a34a',bg:'#f0fdf4',label:'Ventaja'},{v:'WC neutro',c:'#d97706',bg:'#fffbeb',label:'Normal'},{v:'WC muy positivo',c:'#dc2626',bg:'#fef2f2',label:'⚠️ Consume caja'}],
     ref:'"Competition Demystified", Greenwald & Kahn (2005).'},
   moat:{emoji:'🏰',title:'MOAT — Ventaja Competitiva Duradera',color:'#1e3a5f',tag:'ANÁLISIS CUALITATIVO',
     def:'Término acuñado por Buffett. Ventaja competitiva que protege los beneficios frente a la competencia. Los 5 tipos: intangibles, switching costs, network effects, escala, efficient scale.',
     formula:'No hay fórmula — es cualitativo.\n5 tipos según Morningstar: intangibles, switching, red, escala, efficient scale',
-    example:'CSU: switching costs altísimos. ASML: monopolio tecnológico EUV, imposible de replicar en 10+ años.',
+    example:(c)=>{const m=calcMoat();return`${c.name}: MOAT Score ${m.overall}/100 — ${m.label}. ROIC ${P(c.roic[9])} sostenido vs WACC ${c.wacc}% durante 10 años confirma ventaja real.`},
     bench:[{v:'MOAT >85',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'70-84',c:'#0891b2',bg:'#f0fdfa',label:'Sólido'},{v:'<55',c:'#dc2626',bg:'#fef2f2',label:'Frágil'}],
     ref:'Buffett Annual Letter 1995. Libro: "The Little Book That Builds Wealth", Pat Dorsey.'},
   graham:{emoji:'📖',title:'Graham Number',color:'#5a5650',tag:'VALORACIÓN',
     def:'Fórmula conservadora de Benjamin Graham para el precio máximo razonable. Diseñada para proteger capital en empresas industriales de los años 40-50.',
     formula:'Graham Number = √(22.5 × EPS × Book Value por Acción)\n22.5 = 15 (PER máx Graham) × 1.5 (P/Book máx)',
-    example:'CSU 2025: Graham Number ≈ $481. Cotiza a $2.663 = 5.5x. Graham no contemplaba ROIC del 30%+ sin activos físicos.',
+    example:(c)=>{const gn=Math.sqrt(22.5*c.eps[9]*(c.equity/c.shares));return`${c.name} 2025: Graham Number ≈ $${N(gn,0)}. Cotiza a $${N(price,0)} = ${(price/gn).toFixed(1)}x Graham. ${price/gn>3?'Graham no contemplaba ROIC de '+P(c.roic[9])+' sin activos físicos.':'Precio cercano al valor Graham.'}`},
     bench:[{v:'Precio < Graham#',c:'#16a34a',bg:'#f0fdf4',label:'Ultra-conservador'},{v:'1-2x Graham#',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>3x',c:'#7c3aed',bg:'#f5f3ff',label:'Solo con ROIC muy alto'}],
     ref:'"The Intelligent Investor", B. Graham (1949).'},
 };
@@ -1475,7 +1475,7 @@ function showTip(id,el){
   document.getElementById('tip-def').textContent=t.def;
   const fBox=document.getElementById('tip-formula');
   fBox.textContent=t.formula; fBox.style.background=t.color+'0e'; fBox.style.color=t.color;
-  document.getElementById('tip-example').textContent=t.example;
+  document.getElementById('tip-example').textContent=typeof t.example==='function'?t.example(co):t.example;
   const benchRow=document.getElementById('tip-bench-row');
   const benchEl=document.getElementById('tip-bench');
   if(t.bench){
@@ -1527,7 +1527,7 @@ function rAcademia(){
       <div class="ac-expand">
         <div class="ac-section"><div class="ac-section-title">Definición completa</div><div style="font-size:12px;color:#5a5650;line-height:1.75;">${t.def}</div></div>
         <div class="ac-section"><div class="ac-section-title">Fórmula</div><div class="ac-formula" style="background:${t.color}0e;color:${t.color};">${t.formula.replace(/\n/g,'<br>')}</div></div>
-        <div class="ac-section"><div class="ac-section-title">Ejemplo real</div><div class="ac-example" style="background:${t.color}08;border-color:${t.color}40;">${t.example}</div></div>
+        <div class="ac-section"><div class="ac-section-title">Ejemplo real</div><div class="ac-example" style="background:${t.color}08;border-color:${t.color}40;">${typeof t.example==='function'?t.example(co):t.example}</div></div>
         ${t.bench?`<div class="ac-section"><div class="ac-section-title">Benchmarks</div><div class="ac-bench">${t.bench.map(b=>`<span class="ac-bench-item" style="background:${b.bg};color:${b.c};">${b.v} → ${b.label}</span>`).join('')}</div></div>`:''}
         <div class="ac-section"><div class="ac-section-title">Fuente</div><div style="font-size:11px;color:#5a5650;font-style:italic;">${t.ref}</div></div>
       </div>
@@ -1539,7 +1539,7 @@ function rAcademia(){
       <div style="font-size:36px;flex-shrink:0;">📚</div>
       <div>
         <div style="font-size:16px;font-weight:700;color:#1e3a5f;margin-bottom:4px;">Academia Value Invest</div>
-        <p style="font-size:13px;color:#5a5650;line-height:1.7;margin:0;">Todos los conceptos clave del análisis fundamental con definiciones, fórmulas y ejemplos reales de CSU / ASML / AMZN.</p>
+        <p style="font-size:13px;color:#5a5650;line-height:1.7;margin:0;">Todos los conceptos clave del análisis fundamental con definiciones, fórmulas y ejemplos reales de <strong>${co.name}</strong> (${co.ticker}). Haz clic en cualquier tarjeta para ver el análisis aplicado a la empresa activa.</p>
       </div>
     </div>
   </div>
