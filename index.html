@@ -1747,21 +1747,30 @@ function rValoracion(){
         </div>
 
         <!-- Scenario selector — above the inputs -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px;">
+        <div style="font-size:9px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Seleccionar escenario predefinido</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:14px;">
           ${(()=>{
             const scenarios=[
-              {key:'opt',  l:'🐂 Optimista',  evf:co.medEvFcf,                   per:co.medPER,                   eve:co.medEvEbitda,                   evei:me,                   c:'#16a34a', bg:'#f0fdf4', bd:'#bbf7d0'},
-              {key:'base', l:'⚖️ Base',        evf:Math.round(co.medEvFcf*0.82),  per:Math.round(co.medPER*0.82),  eve:Math.round(co.medEvEbitda*0.82),  evei:Math.round(me*0.82),  c:'#2563eb', bg:'#eff6ff', bd:'#bfdbfe'},
-              {key:'cons', l:'🐻 Conservador', evf:Math.round(co.medEvFcf*0.65),  per:Math.round(co.medPER*0.65),  eve:Math.round(co.medEvEbitda*0.65),  evei:Math.round(me*0.65),  c:'#d97706', bg:'#fffbeb', bd:'#fde68a'},
-              {key:'pes',  l:'😱 Pesimista',   evf:Math.round(co.medEvFcf*0.45),  per:Math.round(co.medPER*0.45),  eve:Math.round(co.medEvEbitda*0.45),  evei:Math.round(me*0.45),  c:'#dc2626', bg:'#fef2f2', bd:'#fecaca'},
+              {key:'opt',  l:'🐂 Optimista',  evf:co.medEvFcf,                   per:co.medPER,                   eve:co.medEvEbitda,                   evei:me,                   c:'#16a34a', bg:'#f0fdf4', bda:'#16a34a', txt:'Mediana hist.'},
+              {key:'base', l:'⚖️ Base',        evf:Math.round(co.medEvFcf*0.82),  per:Math.round(co.medPER*0.82),  eve:Math.round(co.medEvEbitda*0.82),  evei:Math.round(me*0.82),  c:'#2563eb', bg:'#eff6ff', bda:'#2563eb', txt:'−18% mediana'},
+              {key:'cons', l:'🐻 Conservador', evf:Math.round(co.medEvFcf*0.65),  per:Math.round(co.medPER*0.65),  eve:Math.round(co.medEvEbitda*0.65),  evei:Math.round(me*0.65),  c:'#d97706', bg:'#fffbeb', bda:'#d97706', txt:'−35% mediana'},
+              {key:'pes',  l:'😱 Pesimista',   evf:Math.round(co.medEvFcf*0.45),  per:Math.round(co.medPER*0.45),  eve:Math.round(co.medEvEbitda*0.45),  evei:Math.round(me*0.45),  c:'#dc2626', bg:'#fef2f2', bda:'#dc2626', txt:'−55% mediana'},
             ];
             return scenarios.map(s=>`<button id="scen-btn-${s.key}"
               onclick="applyScenario('${s.key}',${s.evf},${s.per},${s.eve},${s.evei})"
-              style="padding:7px 4px;border-radius:9px;border:2px solid ${s.bd};background:${s.bg};cursor:pointer;text-align:center;transition:all .15s;">
-              <div style="font-size:10px;font-weight:700;color:${s.c};">${s.l}</div>
-              <div style="font-size:9px;color:var(--muted);margin-top:2px;">EV/FCF: ${s.evf}x</div>
+              style="padding:8px 4px;border-radius:10px;border:2px solid ${s.bda}35;background:${s.bg};cursor:pointer;text-align:center;transition:all .18s;position:relative;">
+              <div style="font-size:10px;font-weight:700;color:${s.c};line-height:1.2;">${s.l}</div>
+              <div style="font-size:11px;font-weight:800;color:#1e3a5f;margin:4px 0 1px;">${s.evf}x</div>
+              <div style="font-size:8px;color:var(--muted);">EV/FCF · ${s.txt}</div>
             </button>`).join('');
           })()}
+        </div>
+
+        <!-- Separator -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <div style="flex:1;height:1px;background:var(--border);"></div>
+          <span style="font-size:9px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">o ajusta manualmente</span>
+          <div style="flex:1;height:1px;background:var(--border);"></div>
         </div>
 
         <!-- Inline editable multiples — orange cells like Excel -->
@@ -1816,7 +1825,7 @@ function rValoracion(){
       <div class="card" style="padding:12px 14px;margin-bottom:10px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">Precio objetivo</div>
-          <span style="font-size:9px;background:#b4530912;color:#b45309;border:1px solid #b4530930;padding:1px 7px;border-radius:10px;font-weight:700;">● EV/FCF destacado</span>
+          <span style="font-size:9px;background:#fff3e0;color:#b45309;border:1.5px solid #f59e0b;padding:2px 8px;border-radius:10px;font-weight:700;">★ Fila EV/FCF = referencia principal</span>
         </div>
         <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;">
           <thead><tr style="background:#f7f6f3;">
@@ -1826,17 +1835,17 @@ function rValoracion(){
           <tbody>
             ${[
               {id:'ptr-per', label:'PER ex Cash', data:rowPER,  c:'#7c3aed', evfRow:false},
-              {id:'ptr-evf', label:'EV / FCF',    data:rowEVF,  c:'#b45309', evfRow:true},
+              {id:'ptr-evf', label:'EV / FCF ★',  data:rowEVF,  c:'#b45309', evfRow:true},
               {id:'ptr-eveb',label:'EV / EBITDA', data:rowEVEB, c:'#2563eb', evfRow:false},
               {id:'ptr-evei',label:'EV / EBIT',   data:rowEVEI, c:'#16a34a', evfRow:false},
               {id:'ptr-avg', label:'Promedio',     data:rowAvg,  c:'#1e3a5f', bold:true, evfRow:false},
-            ].map(row=>`<tr style="border-bottom:1px solid #f0ede8;${row.bold?'background:#eff6ff;':row.evfRow?'background:#fff8f0;':''}">
+            ].map(row=>`<tr style="border-bottom:1px solid #f0ede8;${row.bold?'background:#eff6ff;':row.evfRow?'background:#fff8f0;border-top:2px solid #f59e0b;border-bottom:2px solid #f59e0b;':''}">
               <td style="padding:5px 8px;font-weight:${row.bold?'800':row.evfRow?'800':'600'};color:${row.c};border-left:3px solid ${row.c};">${row.label}${row.evfRow?' ★':''}</td>
               ${row.data.map((v,i)=>{
                 const up=(v-price)/price*100;
                 const isEVF=row.evfRow;
                 const isLast=i===row.data.length-1;
-                const cellBg=isEVF?'background:#fff3e0;border-left:2px solid #f59e0b20;':isLast?'background:#fffbeb;':'';
+                const cellBg=isEVF?'background:#fff3e0;border-bottom:2px solid #f59e0b50;':isLast?'background:#fffbeb;':'';
                 return`<td id="${row.id}-${i}" style="text-align:center;padding:5px 3px;${cellBg}border-right:1px solid #f0ede8;">
                   <div class="ptv" style="font-size:${isEVF?'13':'12'}px;font-weight:${row.bold||isEVF?'800':'600'};color:${up>15?'#16a34a':up>0?'#2563eb':up>-15?'#d97706':'#dc2626'};">$${N(v)}</div>
                   <div class="ptp" style="font-size:9px;color:${up>=0?'#16a34a':'#dc2626'};font-weight:700;">${up>=0?'+':''}${up.toFixed(0)}%</div>
@@ -2125,28 +2134,32 @@ function applyScenario(key,evf,per,eve,evei){
     const sl=document.getElementById('r'+id);
     if(sl) sl.value=window[id];
   });
-  // Update orange inputs
+  // Update orange input cells
   const map={tEVF:evf,tPER:per,tEVE:eve,tEVEI:evei};
   Object.entries(map).forEach(([id,val])=>{
     const inp=document.getElementById('ni-'+id);
-    if(inp) inp.value=val;
+    if(inp){
+      inp.value=val;
+      // Flash animation to show the value changed
+      inp.style.transition='background .15s';
+      inp.style.background='#fef08a';
+      setTimeout(()=>{if(inp) inp.style.background='#fff7e6';},350);
+    }
   });
-  // Mark active scenario button
+  // Active button styling
   const colors={opt:'#16a34a',base:'#2563eb',cons:'#d97706',pes:'#dc2626'};
-  const bgs={opt:'#f0fdf4',base:'#eff6ff',cons:'#fffbeb',pes:'#fef2f2'};
   ['opt','base','cons','pes'].forEach(k=>{
     const btn=document.getElementById('scen-btn-'+k);
     if(!btn) return;
+    const c=colors[k];
     if(k===key){
-      btn.style.borderWidth='2.5px';
-      btn.style.boxShadow='0 0 0 2px '+colors[k]+'40';
-      btn.style.transform='scale(1.03)';
-      btn.querySelector('div').style.fontWeight='800';
+      btn.style.border='2.5px solid '+c;
+      btn.style.boxShadow='0 2px 8px '+c+'35,inset 0 0 0 1px '+c+'25';
+      btn.style.transform='scale(1.04)';
     } else {
-      btn.style.borderWidth='2px';
+      btn.style.border='2px solid '+c+'35';
       btn.style.boxShadow='none';
       btn.style.transform='scale(1)';
-      btn.querySelector('div').style.fontWeight='700';
     }
   });
   recalc();
@@ -2154,17 +2167,18 @@ function applyScenario(key,evf,per,eve,evei){
 
 function clearScenBtn(){
   // Deactivate all scenario buttons when user edits manually
+  const colors={opt:'#16a34a',base:'#2563eb',cons:'#d97706',pes:'#dc2626'};
   ['opt','base','cons','pes'].forEach(k=>{
     const btn=document.getElementById('scen-btn-'+k);
-    if(btn){btn.style.boxShadow='none';btn.style.transform='scale(1)';btn.style.borderWidth='2px';}
+    if(btn){
+      btn.style.border='2px solid '+colors[k]+'35';
+      btn.style.boxShadow='none';
+      btn.style.transform='scale(1)';
+    }
   });
 }
 
 
-  if(document.getElementById('sim-inp-dcf')!==null){
-    showTab('dcf');
-  }
-}
 
 // ═══════════════════════════════════════════════════════════════════
 // PROYECCIONES
