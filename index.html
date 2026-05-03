@@ -324,7 +324,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
           Precio
           <span class="price-live-badge" id="live-badge" onclick="fetchLivePrice()" title="Clic para actualizar"><span class="price-live-dot" id="live-dot"></span><span id="live-text">LIVE</span></span>
         </div>
-        <input class="price-inp" id="price-inp" type="number" value="388" onchange="recalc()"/>
+        <input class="price-inp" id="price-inp" type="number" value="388" oninput="recalc()"/>
         <div class="price-change" id="price-change"></div>
       </div>
       <div class="price-box" style="min-width:90px;">
@@ -882,25 +882,165 @@ function calcMoat(){
 }
 
 function recalc(){
-  price=Number(document.getElementById('price-inp').value)||co.price;
+  // Sync price from whichever input was edited
+  const hdrInp=document.getElementById('price-inp');
+  const valInp=document.getElementById('val-price-inp');
+  // Use active element value if it's one of the price inputs
+  const active=document.activeElement;
+  if(active&&active.id==='val-price-inp') price=+active.value||co.price;
+  else if(active&&active.id==='price-inp') price=+active.value||co.price;
+  // Keep both inputs in sync
+  if(hdrInp&&active!==hdrInp) hdrInp.value=N(price,2);
+  if(valInp&&active!==valInp) valInp.value=N(price,2);
+
   const dcf=calcDCF(),mult=calcMult();
   const ud=(dcf-price)/price*100,um=(mult.avg-price)/price*100,ms=Math.min(ud,um);
   const verd=ms>20?"COMPRAR":ms>-5?"MANTENER":"EVITAR",vc=cu(ms);
+
+  // Header veredicto
   const vv=document.getElementById('vval'),vm=document.getElementById('vms'),vb=document.getElementById('vbox');
   if(vv){vv.textContent=verd;vv.style.color=vc;}
   if(vm){vm.textContent='MdS: '+ms.toFixed(1)+'%';vm.style.color=vc;}
   if(vb) vb.style.borderColor=vc;
-  // Update market cap display
+
+  // Market cap
   const mc=price*co.shares;
   const mcd=document.getElementById('mktcap-display');
   const mcs=document.getElementById('mktcap-sub');
-  if(mcd){
-    mcd.textContent=mc>=1e12?'$'+(mc/1e12).toFixed(2)+'T':mc>=1e9?'$'+(mc/1e9).toFixed(1)+'B':'$'+N(Math.round(mc/1e6))+'M';
+  if(mcd) mcd.textContent=mc>=1e12?'$'+(mc/1e12).toFixed(2)+'T':mc>=1e9?'$'+(mc/1e9).toFixed(1)+'B':'$'+N(Math.round(mc/1e6))+'M';
+  if(mcs) mcs.textContent='EV/FCF: '+Math.round((price*co.shares+co.netDebt[9])/co.fcf[9])+'x';
+
+  // Update valoracion tab DOM without re-rendering
+  _refreshValDOM(dcf,mult,ms,vc,verd,ud);
+}
+
+function _refreshValDOM(dcf,mult,ms,vc,verd,ud){
+  // Price input color
+  const valInp=document.getElementById('val-price-inp');
+  if(valInp) valInp.style.color=vc;
+  // Veredicto badge
+  const vbox=document.getElementById('val-verd-box');
+  if(vbox){
+    vbox.style.background=vc+'12';vbox.style.borderColor=vc+'40';
+    const vt=vbox.querySelector('.val-verd-txt');
+    const vs=vbox.querySelector('.val-verd-sub');
+    if(vt){vt.textContent=verd;vt.style.color=vc;}
+    if(vs){vs.textContent='MdS '+(ms>=0?'+':'')+ms.toFixed(1)+'%';vs.style.color=vc;}
   }
-  if(mcs){
-    const evfcf_cur=Math.round((price*co.shares+co.netDebt[9])/co.fcf[9]);
-    mcs.textContent='EV/FCF: '+evfcf_cur+'x';
+  // DCF summary in zone 3
+  const dcfEl=document.getElementById('val-dcf-val');
+  if(dcfEl){dcfEl.textContent='DCF: $'+N(dcf)+' ('+(ud>=0?'+':'')+ud.toFixed(1)+'%)';}
+  // Refresh multiples tiles
+  _refreshMultTiles();
+  // Refresh price target table
+  _refreshPriceTable();
+  // Refresh CAGR
+  _refreshCagrRow();
+  // Refresh retorno objetivo
+  _refreshRetorno();
+}
+
+function _refreshMultTiles(){
+  const me2=(co.medEvEbit||(Math.round(co.medEvEbitda*co.ebitdaM[9]/Math.max(co.ebitM[9],1))));
+  const tiles=[
+    {id:'mt-evfcf', v:+((price*co.shares+co.netDebt[9])/co.fcf[9]).toFixed(1),   m:co.medEvFcf,    c:'#b45309'},
+    {id:'mt-per',   v:+(price/co.eps[9]).toFixed(1),                             m:co.medPER,      c:'#7c3aed'},
+    {id:'mt-eveb',  v:+((price*co.shares+co.netDebt[9])/co.ebitda[9]).toFixed(1),m:co.medEvEbitda, c:'#2563eb'},
+    {id:'mt-evei',  v:+((price*co.shares+co.netDebt[9])/co.ebit[9]).toFixed(1),  m:me2,            c:'#16a34a'},
+  ];
+  tiles.forEach(t=>{
+    const el=document.getElementById(t.id);
+    if(!el) return;
+    const pct=((t.v-t.m)/t.m*100);
+    const ok=pct<=0;
+    el.style.background=ok?'#f0fdf4':'#fef2f2';
+    el.style.borderColor=ok?'#bbf7d0':'#fecaca';
+    el.querySelector('.mt-val').textContent=t.v+'x';
+    el.querySelector('.mt-val').style.color=t.c;
+    el.querySelector('.mt-pct').textContent=(pct>=0?'+':'')+pct.toFixed(0)+'%';
+    el.querySelector('.mt-pct').style.color=ok?'#16a34a':'#dc2626';
+  });
+}
+
+function _refreshPriceTable(){
+  const isM=calcISModel();
+  const rows={
+    'ptr-per':  isM.map(m=>Math.round(m.eps*tPER)),
+    'ptr-evf':  isM.map(m=>Math.round((m.fcf*tEVF-m.nd)/m.sh)),
+    'ptr-eveb': isM.map(m=>Math.round((m.eb*tEVE-m.nd)/m.sh)),
+    'ptr-evei': isM.map(m=>Math.round((m.ebit*tEVEI-m.nd)/m.sh)),
+  };
+  rows['ptr-avg']=rows['ptr-evf'].map((_,i)=>Math.round((rows['ptr-per'][i]+rows['ptr-evf'][i]+rows['ptr-eveb'][i]+rows['ptr-evei'][i])/4));
+
+  Object.entries(rows).forEach(([rowId,data])=>{
+    const isEVF=rowId==='ptr-evf';
+    data.forEach((v,i)=>{
+      const cell=document.getElementById(rowId+'-'+i);
+      if(!cell) return;
+      const up=(v-price)/price*100;
+      const ptv=cell.querySelector('.ptv');
+      const ptp=cell.querySelector('.ptp');
+      if(ptv){
+        ptv.textContent='$'+N(v);
+        ptv.style.color=up>15?'#16a34a':up>0?'#2563eb':up>-15?'#d97706':'#dc2626';
+        if(isEVF) ptv.style.fontSize='13px';
+      }
+      if(ptp){
+        ptp.textContent=(up>=0?'+':'')+up.toFixed(0)+'%';
+        ptp.style.color=up>=0?'#16a34a':'#dc2626';
+      }
+    });
+    // MdS and Potencial rows (EV/FCF only)
+    if(isEVF){
+      data.forEach((v,i)=>{
+        const mds=document.getElementById('ptr-mds-'+i);
+        const pot=document.getElementById('ptr-pot-'+i);
+        if(mds){const p=(v-price)/price*100;mds.textContent=(p>=0?'+':'')+p.toFixed(0)+'%';mds.style.color=p>=0?'#16a34a':'#dc2626';}
+        if(pot){const p=(v/price-1)*100;pot.textContent=(p>=0?'+':'')+p.toFixed(0)+'%';pot.style.color=p>=0?'#16a34a':'#dc2626';}
+      });
+    }
+  });
+}
+
+function _refreshCagrRow(){
+  const isM=calcISModel();
+  const models={
+    'cagr-per': isM.map((m,i)=>(Math.pow(Math.max(m.eps*tPER,1)/Math.max(price,1),1/(i+1))-1)*100),
+    'cagr-evf': isM.map((m,i)=>(Math.pow(Math.max((m.fcf*tEVF-m.nd)/m.sh,1)/Math.max(price,1),1/(i+1))-1)*100),
+    'cagr-eveb':isM.map((m,i)=>(Math.pow(Math.max((m.eb*tEVE-m.nd)/m.sh,1)/Math.max(price,1),1/(i+1))-1)*100),
+    'cagr-evei':isM.map((m,i)=>(Math.pow(Math.max((m.ebit*tEVEI-m.nd)/m.sh,1)/Math.max(price,1),1/(i+1))-1)*100),
+  };
+  // avg
+  models['cagr-avg']=isM.map((m,i)=>{
+    const p=(m.eps*tPER+(m.fcf*tEVF-m.nd)/m.sh+(m.eb*tEVE-m.nd)/m.sh+(m.ebit*tEVEI-m.nd)/m.sh)/4;
+    return(Math.pow(Math.max(p,1)/Math.max(price,1),1/(i+1))-1)*100;
+  });
+  const ccol=v=>v>=20?'#16a34a':v>=10?'#d97706':'#dc2626';
+  Object.entries(models).forEach(([id,data])=>{
+    // Use last year (5Y) for the row display
+    const v5=data[4];
+    const el=document.getElementById(id+'-5y');
+    if(el){el.textContent=(v5>=0?'+':'')+v5.toFixed(0)+'%';el.style.color=ccol(v5);}
+  });
+  // Big CAGR display
+  const bigCagr=document.getElementById('cagr-big');
+  if(bigCagr){
+    const avg5=models['cagr-avg'][4];
+    bigCagr.textContent=(avg5>=0?'+':'')+avg5.toFixed(0)+'%';
+    bigCagr.style.color=ccol(avg5);
   }
+}
+
+function _refreshRetorno(){
+  const idx=Math.min(hor,5)-1;
+  const isM=calcISModel();
+  const rowEVF=isM.map(m=>Math.round((m.fcf*tEVF-m.nd)/m.sh));
+  const priceForRet=Math.round(rowEVF[idx]/Math.pow(1+ret/100,idx+1));
+  const diff=((priceForRet-price)/price*100);
+  const el=document.getElementById('ret-price');
+  const el2=document.getElementById('ret-diff');
+  if(el) el.textContent='$'+N(priceForRet);
+  if(el2){el2.textContent=(diff>=0?'+':'')+diff.toFixed(0)+'%';el2.style.color=cu(diff);}
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1484,280 +1624,323 @@ function refreshSimulator(){
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// VALORACIÓN TAB — clean 5-block structure
+// VALORACIÓN TAB — inspired by Excel layout
 // ═══════════════════════════════════════════════════════════════════
 function rValoracion(){
   const dcf=calcDCF(),mult=calcMult();
   const ud=(dcf-price)/price*100,um=(mult.avg-price)/price*100,ms=Math.min(ud,um);
   const verd=ms>20?"COMPRAR":ms>-5?"MANTENER":"EVITAR",vc=cu(ms);
-  const isM=calcISModel(),last=isM[4];
+  const isM=calcISModel();
   const me=(co.medEvEbit||(Math.round(co.medEvEbitda*co.ebitdaM[9]/Math.max(co.ebitM[9],1))));
 
-  // Pre-compute rows for price table
+  // Pre-compute rows
   const rowPER  = isM.map(m=>Math.round(m.eps*tPER));
   const rowEVF  = isM.map(m=>Math.round((m.fcf*tEVF-m.nd)/m.sh));
   const rowEVEB = isM.map(m=>Math.round((m.eb*tEVE-m.nd)/m.sh));
   const rowEVEI = isM.map(m=>Math.round((m.ebit*tEVEI-m.nd)/m.sh));
   const rowAvg  = rowEVF.map((_,i)=>Math.round((rowPER[i]+rowEVF[i]+rowEVEB[i]+rowEVEI[i])/4));
 
-  return`<div class="two-col">
+  // Retorno anualizado para cada modelo (5 años)
+  const cagr5 = {
+    per:  ((Math.pow(Math.max(rowPER[4],1)/Math.max(price,1),.2)-1)*100),
+    evf:  ((Math.pow(Math.max(rowEVF[4],1)/Math.max(price,1),.2)-1)*100),
+    eveb: ((Math.pow(Math.max(rowEVEB[4],1)/Math.max(price,1),.2)-1)*100),
+    evei: ((Math.pow(Math.max(rowEVEI[4],1)/Math.max(price,1),.2)-1)*100),
+    avg:  ((Math.pow(Math.max(rowAvg[4],1)/Math.max(price,1),.2)-1)*100),
+  };
 
-  <!-- ══ LEFT COLUMN: INPUTS ══ -->
-  <div>
+  // Precio para retorno objetivo ret% en hor años (usando EV/FCF)
+  const idx=Math.min(hor,5)-1;
+  const priceForRet=Math.round(rowEVF[idx]/Math.pow(1+ret/100,idx+1));
+  const diffRet=((priceForRet-price)/price*100);
 
-    <!-- 1. MÚLTIPLOS + HISTÓRICO -->
-    <div class="card">
-      <div class="ctitle">💰 1. Múltiplos objetivo</div>
+  const ccol=v=>v>=20?'#16a34a':v>=13?'#16a34a':v>=10?'#d97706':v>=5?'#d97706':'#dc2626';
 
-      <!-- Live price banner -->
-      <div id="val-price-bar" style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:linear-gradient(135deg,#1e3a5f08,#2563eb05);border:1.5px solid var(--border);border-radius:10px;margin-bottom:12px;gap:10px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <div>
-            <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">Precio actual</div>
-            <div style="display:flex;align-items:baseline;gap:4px;margin-top:1px;">
-              <span style="font-size:24px;font-weight:800;color:#1e3a5f;" id="vp-price">$${N(price,2)}</span>
-              <span style="font-size:11px;font-weight:700;" id="vp-chg"></span>
-            </div>
-          </div>
-          <div id="vp-ratios" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">Fair Value</div>
-          <div style="font-size:20px;font-weight:800;color:${vc};" id="vp-fv">$${N(Math.round(mult.avg))}</div>
-          <div style="font-size:11px;font-weight:700;color:${vc};">${ms>=0?'+':''}${ms.toFixed(1)}% MdS</div>
-        </div>
+  return`<div style="max-width:1100px;">
+
+  <!-- ═══ ZONA 1: HISTÓRICO + GRÁFICO (ancho completo) ═══ -->
+  <div class="card" style="margin-bottom:10px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">Múltiplos de Valoración Históricos</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;" id="mult-toggle-btns">
+        <button id="btn-evfcf" class="mult-tab active" style="background:#b45309;border-color:#b45309;color:#fff;font-size:10px;padding:2px 9px;border-radius:12px;border:1.5px solid;cursor:pointer;font-weight:700;" onclick="toggleMultSeries('evfcf')">EV/FCF</button>
+        <button id="btn-per"   class="mult-tab" style="font-size:10px;padding:2px 9px;border-radius:12px;border:1.5px solid var(--border);cursor:pointer;font-weight:700;color:var(--muted);" onclick="toggleMultSeries('per')">PER</button>
+        <button id="btn-evebitda" class="mult-tab" style="font-size:10px;padding:2px 9px;border-radius:12px;border:1.5px solid var(--border);cursor:pointer;font-weight:700;color:var(--muted);" onclick="toggleMultSeries('evebitda')">EV/EBITDA</button>
+        <button id="btn-evebit"   class="mult-tab" style="font-size:10px;padding:2px 9px;border-radius:12px;border:1.5px solid var(--border);cursor:pointer;font-weight:700;color:var(--muted);" onclick="toggleMultSeries('evebit')">EV/EBIT</button>
       </div>
+    </div>
 
-      <!-- Scenario presets -->
-      <div class="scenbtns">
-        ${(()=>{return [{l:"🐂 Optimista",evf:co.medEvFcf,per:co.medPER,eve:co.medEvEbitda,evei:me,c:"#16a34a"},
-          {l:"⚖️ Base",evf:Math.round(co.medEvFcf*0.82),per:Math.round(co.medPER*0.82),eve:Math.round(co.medEvEbitda*0.82),evei:Math.round(me*0.82),c:"#2563eb"},
-          {l:"🐻 Conservador",evf:Math.round(co.medEvFcf*0.65),per:Math.round(co.medPER*0.65),eve:Math.round(co.medEvEbitda*0.65),evei:Math.round(me*0.65),c:"#d97706"},
-          {l:"😱 Pesimista",evf:Math.round(co.medEvFcf*0.45),per:Math.round(co.medPER*0.45),eve:Math.round(co.medEvEbitda*0.45),evei:Math.round(me*0.45),c:"#dc2626"}
-        ].map(s=>`<button class="scenbtn" style="border-color:${s.c};color:${s.c};background:${s.c}10;"
-          onclick="tEVF=${s.evf};tPER=${s.per};tEVE=${s.eve};tEVEI=${s.evei};
-          document.getElementById('rtEVF').value=${s.evf};
-          document.getElementById('rtPER').value=${s.per};
-          document.getElementById('rtEVE').value=${s.eve};
-          document.getElementById('rtEVEI').value=${s.evei};
-          showTab('valoracion')">${s.l}</button>`).join('');})()}
-      </div>
-
-      <!-- Sliders -->
-      ${sld('tEVF','EV/FCF objetivo',tEVF,10,80,1,'x','#b45309','Mediana histórica: '+co.medEvFcf+'x')}
-      ${sld('tPER','PER objetivo',tPER,10,120,1,'x','#7c3aed','Mediana histórica: '+co.medPER+'x')}
-      ${sld('tEVE','EV/EBITDA objetivo',tEVE,5,60,1,'x','#2563eb','Mediana histórica: '+co.medEvEbitda+'x')}
-      ${sld('tEVEI','EV/EBIT objetivo',tEVEI,5,80,1,'x','#16a34a','Mediana histórica: '+me+'x')}
-
-      <!-- Multiples chart + table -->
-      <div class="mult-hist-panel" id="mult-hist-panel" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
-          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">📈 Histórico Múltiplos 2016–2025</div>
-          <div style="display:flex;gap:5px;flex-wrap:wrap;" id="mult-toggle-btns">
-            <button id="btn-evfcf" class="mult-tab active" style="background:#b45309;border-color:#b45309;color:#fff;font-size:10px;padding:2px 9px;border-radius:12px;border:1.5px solid;cursor:pointer;font-weight:700;" onclick="toggleMultSeries('evfcf')">EV/FCF</button>
-            <button id="btn-per"   class="mult-tab" style="font-size:10px;padding:2px 9px;border-radius:12px;border:1.5px solid var(--border);cursor:pointer;font-weight:700;color:var(--muted);" onclick="toggleMultSeries('per')">PER</button>
-            <button id="btn-evebitda" class="mult-tab" style="font-size:10px;padding:2px 9px;border-radius:12px;border:1.5px solid var(--border);cursor:pointer;font-weight:700;color:var(--muted);" onclick="toggleMultSeries('evebitda')">EV/EBITDA</button>
-            <button id="btn-evebit"   class="mult-tab" style="font-size:10px;padding:2px 9px;border-radius:12px;border:1.5px solid var(--border);cursor:pointer;font-weight:700;color:var(--muted);" onclick="toggleMultSeries('evebit')">EV/EBIT</button>
-          </div>
-        </div>
-        <div style="position:relative;height:200px;margin-bottom:10px;background:#fafaf9;border-radius:10px;padding:8px;">
-          <canvas id="c-mult-hist"></canvas>
-        </div>
-        <!-- Historical table -->
-        <div style="overflow-x:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:10px;">
-            <thead><tr style="background:#f7f6f3;">
-              <th style="text-align:left;padding:4px 7px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);">Múltiplo</th>
-              ${co.years.map(y=>`<th style="text-align:center;padding:4px;font-weight:600;color:var(--muted);border-bottom:2px solid var(--border);">${y}</th>`).join('')}
-              <th style="text-align:center;padding:4px 6px;font-weight:700;color:#1e3a5f;border-bottom:2px solid var(--border);background:#eff6ff;">Med.</th>
-            </tr></thead>
-            <tbody>${[
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:14px;align-items:start;">
+      <!-- Tabla histórica -->
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;">
+          <thead><tr style="background:#f7f6f3;">
+            <th style="text-align:left;padding:5px 8px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);white-space:nowrap;">Múltiplo</th>
+            ${co.years.map(y=>`<th style="text-align:center;padding:5px 5px;font-weight:600;color:var(--muted);border-bottom:2px solid var(--border);">${y}</th>`).join('')}
+            <th style="text-align:center;padding:5px 6px;font-weight:800;color:#1e3a5f;border-bottom:2px solid var(--border);background:#eff6ff;white-space:nowrap;">Med.<br>16–25</th>
+          </tr></thead>
+          <tbody>
+            ${[
               {label:'PER',      data:co.hPER,      med:co.medPER,      color:'#7c3aed', cur:+(price/co.eps[9]).toFixed(1)},
-              {label:'EV/FCF',   data:co.hEvF,      med:co.medEvFcf,    color:'#b45309', cur:+((price*co.shares+co.netDebt[9])/co.fcf[9]).toFixed(1)},
-              {label:'EV/EBITDA',data:co.hEvEbitda, med:co.medEvEbitda, color:'#2563eb', cur:+((price*co.shares+co.netDebt[9])/co.ebitda[9]).toFixed(1)},
-              {label:'EV/EBIT',  data:co.hEvEbit,   med:me,             color:'#16a34a', cur:+((price*co.shares+co.netDebt[9])/co.ebit[9]).toFixed(1)},
+              {label:'EV / FCF', data:co.hEvF,      med:co.medEvFcf,    color:'#b45309', cur:+((price*co.shares+co.netDebt[9])/co.fcf[9]).toFixed(1)},
+              {label:'EV / EBITDA',data:co.hEvEbitda,med:co.medEvEbitda,color:'#2563eb', cur:+((price*co.shares+co.netDebt[9])/co.ebitda[9]).toFixed(1)},
+              {label:'EV / EBIT', data:co.hEvEbit,  med:me,             color:'#16a34a', cur:+((price*co.shares+co.netDebt[9])/co.ebit[9]).toFixed(1)},
             ].map(row=>{
               const cells=row.data.map((v,i)=>{
                 const isCur=i===row.data.length-1;
                 const val=isCur?row.cur:(v??null);
                 const clr=val!=null?(val<=row.med?'#16a34a':'#dc2626'):'var(--muted)';
-                return`<td style="text-align:center;padding:3px;font-weight:${isCur?'800':'500'};color:${clr};background:${isCur?'#fffbeb':''};border-bottom:1px solid #f0ede8;">${val!=null?val+'x':'—'}</td>`;
+                return`<td style="text-align:center;padding:5px 4px;font-weight:${isCur?'800':'500'};color:${clr};background:${isCur?'#fffbeb05':''};border-bottom:1px solid #f0ede8;">${val!=null?val+'x':'—'}</td>`;
               }).join('');
-              return`<tr><td style="padding:4px 7px;font-weight:700;color:${row.color};white-space:nowrap;border-bottom:1px solid #f0ede8;border-left:3px solid ${row.color};">${row.label}</td>${cells}<td style="text-align:center;padding:3px 6px;font-weight:800;color:#1e3a5f;background:#eff6ff;border-bottom:1px solid #f0ede8;">${row.med}x</td></tr>`;
-            }).join('')}</tbody>
-          </table>
+              return`<tr>
+                <td style="padding:5px 8px;font-weight:700;color:${row.color};white-space:nowrap;border-bottom:1px solid #f0ede8;border-left:3px solid ${row.color};">${row.label}</td>
+                ${cells}
+                <td style="text-align:center;padding:5px 6px;font-weight:800;color:#1e3a5f;background:#eff6ff;border-bottom:1px solid #f0ede8;">${row.med}x</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Chart EV/FCF histórico -->
+      <div>
+        <div style="position:relative;height:130px;background:#fafaf9;border-radius:10px;padding:6px;">
+          <canvas id="c-mult-hist"></canvas>
         </div>
+        <div style="font-size:9px;color:var(--muted);text-align:center;margin-top:3px;">Verde &lt; mediana · Rojo &gt; mediana · Línea = med. histórica</div>
       </div>
     </div>
-
-    <!-- 2. PROYECCIONES IS -->
-    <div class="card" style="border-color:#d97706;background:#fffdf8;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
-        <span style="font-size:13px;font-weight:700;">🧮 2. Proyecciones IS / FCF</span>
-        <button onclick="resetIS();showTab('valoracion')" style="font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid var(--border);cursor:pointer;background:#f7f6f3;font-weight:600;">↺ Reset</button>
-      </div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:7px;"><span style="background:#fffbeb;padding:1px 5px;border-radius:3px;border:1px solid #fde68a;font-weight:600;">Amarillo</span> = editable</div>
-      <div style="overflow-x:auto;"><table class="is-tbl">
-        <thead><tr><th style="text-align:left;min-width:100px;">Métrica</th>${co.pY.map(y=>`<th style="text-align:right;color:#2563eb;">${y}E</th>`).join('')}</tr></thead>
-        <tbody>
-          <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">% Crec. Ventas</td>${isSG.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.5" onchange="isSG[${i}]=+this.value;showTab('valoracion')"/>%</td>`).join('')}</tr>
-          <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">Mg. EBIT %</td>${isEM.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isEM[${i}]=+this.value;showTab('valoracion')"/>%</td>`).join('')}</tr>
-          <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">Tax Rate %</td>${isTR.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.5" onchange="isTR[${i}]=+this.value;showTab('valoracion')"/>%</td>`).join('')}</tr>
-          <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">Dil. Acc. %</td>${isDI.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isDI[${i}]=+this.value;showTab('valoracion')"/>%</td>`).join('')}</tr>
-          <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">CapEx/Vtas %</td>${isCX.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isCX[${i}]=+this.value;showTab('valoracion')"/>%</td>`).join('')}</tr>
-          <tr style="background:#fffbeb;border-bottom:2px solid var(--border);"><td style="color:#d97706;font-weight:700;">WC/Vtas %</td>${isWC.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="1" onchange="isWC[${i}]=+this.value;showTab('valoracion')"/>%</td>`).join('')}</tr>
-          <tr><td colspan="6" style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;padding:6px 6px 2px;">→ Resultados</td></tr>
-          ${[{l:"Ventas",k:"s",c:"#2563eb",f:v=>"$"+N(Math.round(v))},{l:"EBIT",k:"ebit",c:"#b45309",f:v=>"$"+N(Math.round(v))},{l:"FCF",k:"fcf",c:"#16a34a",f:v=>"$"+N(Math.round(v))},{l:"EPS",k:"eps",c:"#d97706",f:v=>"$"+N(v,2)}].map(r=>`<tr style="background:#f9f8f6;"><td style="color:${r.c};font-weight:700;">${r.l}</td>${isM.map(m=>`<td class="isres" style="color:${r.c}">${r.f(m[r.k])}</td>`).join('')}</tr>`).join('')}
-        </tbody>
-      </table></div>
-    </div>
-
-    <!-- 3. DCF — COLLAPSED ACCORDION -->
-    <div class="card">
-      <div class="dcf-explain" style="margin-bottom:0;">
-        <div class="dcf-explain-hdr" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.dcf-explain-arrow').style.transform=this.nextElementSibling.classList.contains('open')?'rotate(180deg)':''" style="background:transparent;padding:4px 0;">
-          <span class="dcf-explain-title" style="font-size:11px;">📐 3. Parámetros DCF <span style="font-weight:400;color:var(--muted);font-size:10px;">(complementario — clic para expandir)</span></span>
-          <span class="dcf-explain-arrow">▾</span>
-        </div>
-        <div class="dcf-explain-body" style="padding:12px 0 0;">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:8px 12px;background:#fffbeb;border-radius:8px;border:1px solid #fde68a;">
-            💡 Usa la pestaña <strong>📐 DCF / Escenarios</strong> para las tablas de sensibilidad completas. Aquí ajusta los parámetros.
-          </div>
-          ${sld('gr','Crecimiento FCF (10 años)',gr,0,30,0.5,'%','#2563eb','CAGR histórico '+co.name+': ~'+((((Math.pow(Math.max(co.fcf[9],.01)/Math.max(co.fcf[0],.01),1/9))-1)*100).toFixed(0))+'%')}
-          ${sld('dr','Tasa de descuento',dr,6,20,0.5,'%','#1e3a5f','WACC ~10% · Con tipos altos: 11-12%')}
-          ${sld('tg','Crecimiento terminal',tg,0,5,0.5,'%','#7c3aed','PIB nominal ~4-5% · Conservador: 2-3%')}
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#eff6ff;border-radius:8px;margin-top:4px;">
-            <span style="font-size:11px;color:var(--muted);">Valor DCF calculado</span>
-            <span style="font-size:16px;font-weight:800;color:${cu(ud)};">$${N(dcf)} <span style="font-size:10px;">(${ud>=0?'+':''}${ud.toFixed(1)}%)</span></span>
-          </div>
-        </div>
-      </div>
-    </div>
-
   </div>
 
-  <!-- ══ RIGHT COLUMN: ANÁLISIS DE PRECIO ══ -->
-  <div>
+  <!-- ═══ ZONA 2: INPUTS + PRECIO OBJETIVO (dos columnas) ═══ -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
 
-    <!-- PANEL INTERACTIVO PRECIO — tipo Excel -->
-    <div class="card" style="border:1.5px solid ${vc}40;background:${vc}04;">
-      <!-- Header: precio + veredicto -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Precio de análisis</div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:13px;color:var(--muted);font-weight:700;">$</span>
-            <input id="val-price-inp" type="number" value="${N(price,2)}"
-              style="width:100px;font-size:24px;font-weight:800;color:${vc};border:none;border-bottom:2px solid ${vc};background:transparent;outline:none;text-align:center;"
-              oninput="price=+this.value||co.price;recalc();showTab('valoracion')"/>
+    <!-- COLUMNA IZQ: precio actual + múltiplos objetivo + IS -->
+    <div>
+      <!-- Precio por acción actual -->
+      <div class="card" style="padding:12px 14px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Precio por acción actual</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:13px;color:var(--muted);">$</span>
+              <input id="val-price-inp" type="number" value="${N(price,2)}"
+                style="width:90px;font-size:22px;font-weight:800;color:${vc};border:none;border-bottom:2.5px solid ${vc};background:transparent;outline:none;text-align:center;"
+                oninput="price=+this.value||co.price;recalc()"/>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span style="font-size:9px;color:var(--muted);">→</span>
+            <div id="val-verd-box" style="background:${vc}12;border:1.5px solid ${vc}40;border-radius:8px;padding:6px 12px;text-align:center;">
+              <div class="val-verd-txt" style="font-size:13px;font-weight:800;color:${vc};">${verd}</div>
+              <div class="val-verd-sub" style="font-size:10px;color:${vc};font-weight:600;">MdS ${ms>=0?'+':''}${ms.toFixed(1)}%</div>
+            </div>
           </div>
         </div>
-        <div style="text-align:right;padding:10px 14px;border-radius:10px;background:${vc}10;border:1.5px solid ${vc}30;">
-          <div style="font-size:16px;font-weight:800;color:${vc};">${verd}</div>
-          <div style="font-size:11px;color:${vc};margin-top:2px;">MdS ${ms>=0?'+':''}${ms.toFixed(1)}% · DCF $${N(dcf)}</div>
+      </div>
+
+      <!-- Múltiplos de valoración objetivo -->
+      <div class="card" style="padding:12px 14px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">Múltiplos de valoración</div>
+          <span style="font-size:9px;color:var(--muted);background:#fffbeb;padding:1px 7px;border-radius:10px;border:1px solid #fde68a;font-weight:600;">Objetivo</span>
         </div>
-      </div>
 
-      <!-- Current multiples at this price — 4 tiles -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;">
-        ${(()=>{
-          const me2=(co.medEvEbit||(Math.round(co.medEvEbitda*co.ebitdaM[9]/Math.max(co.ebitM[9],1))));
-          return[
-            {l:'EV/FCF',   v:+((price*co.shares+co.netDebt[9])/co.fcf[9]).toFixed(1),  m:co.medEvFcf,    c:'#b45309'},
-            {l:'PER',      v:+(price/co.eps[9]).toFixed(1),                             m:co.medPER,      c:'#7c3aed'},
-            {l:'EV/EBITDA',v:+((price*co.shares+co.netDebt[9])/co.ebitda[9]).toFixed(1),m:co.medEvEbitda,c:'#2563eb'},
-            {l:'EV/EBIT',  v:+((price*co.shares+co.netDebt[9])/co.ebit[9]).toFixed(1), m:me2,            c:'#16a34a'},
-          ].map(r=>{
-            const pct2=((r.v-r.m)/r.m*100);
-            const ok=pct2<=0;
-            return`<div style="background:${ok?'#f0fdf4':'#fef2f2'};border:1.5px solid ${ok?'#bbf7d0':'#fecaca'};border-radius:9px;padding:8px 6px;text-align:center;">
-              <div style="font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;">${r.l}</div>
-              <div style="font-size:17px;font-weight:800;color:${r.c};margin:2px 0;">${r.v}x</div>
-              <div style="font-size:9px;font-weight:700;color:${ok?'#16a34a':'#dc2626'};">${pct2>=0?'+':''}${pct2.toFixed(0)}%</div>
-              <div style="font-size:8px;color:var(--muted);">med.${r.m}x</div>
-            </div>`;
-          }).join('');
-        })()}
-      </div>
-
-      <!-- Price target table with this price as reference -->
-      <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">📋 Precios objetivo vs precio actual</div>
-      <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;">
-        <thead><tr style="background:#f7f6f3;">
-          <th style="text-align:left;padding:5px 7px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);">Modelo</th>
-          ${co.pY.map(y=>`<th style="text-align:center;padding:5px 4px;font-weight:600;color:#2563eb;border-bottom:2px solid var(--border);">${y}E</th>`).join('')}
-        </tr></thead>
-        <tbody>
-          ${[
-            {label:'PER',      data:rowPER,  c:'#7c3aed'},
-            {label:'EV/FCF',   data:rowEVF,  c:'#b45309'},
-            {label:'EV/EBITDA',data:rowEVEB, c:'#2563eb'},
-            {label:'EV/EBIT',  data:rowEVEI, c:'#16a34a'},
-            {label:'Promedio', data:rowAvg,  c:'#1e3a5f', bold:true},
-          ].map(row=>`<tr style="border-bottom:1px solid #f0ede8;${row.bold?'background:#eff6ff;':''}">
-            <td style="padding:4px 7px;font-weight:${row.bold?'800':'600'};color:${row.c};border-left:3px solid ${row.c};">${row.label}</td>
-            ${row.data.map(v=>{
-              const up=(v-price)/price*100;
-              const bg=up>20?'#f0fdf4':up>5?'':up>-10?'#fffbeb':'#fef2f2';
-              return`<td style="text-align:center;padding:4px 3px;background:${bg};">
-                <div style="font-size:12px;font-weight:${row.bold?'800':'700'};color:${up>15?'#16a34a':up>0?'#2563eb':up>-15?'#d97706':'#dc2626'};">$${N(v)}</div>
-                <div style="font-size:9px;font-weight:700;color:${up>=0?'#16a34a':'#dc2626'};">${up>=0?'+':''}${up.toFixed(0)}%</div>
-              </td>`;
-            }).join('')}
-          </tr>`).join('')}
-          <tr style="background:#f9f8f6;border-bottom:1px solid #f0ede8;">
-            <td style="padding:4px 7px;font-size:10px;font-weight:600;color:var(--muted);font-style:italic;">MdS (EV/FCF)</td>
-            ${rowEVF.map(v=>{const p=(v-price)/price*100;return`<td style="text-align:center;padding:4px 3px;font-size:10px;font-weight:700;color:${p>=0?'#16a34a':'#dc2626'};">${p>=0?'+':''}${p.toFixed(0)}%</td>`;}).join('')}
-          </tr>
-        </tbody>
-      </table></div>
-
-      <!-- CAGR compact row -->
-      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">
-        <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;">CAGR anualizado (Promedio)</div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;">
-          ${isM.map((m,i)=>{
-            const avg_=(m.eps*tPER+(m.fcf*tEVF-m.nd)/m.sh+(m.eb*tEVE-m.nd)/m.sh+(m.ebit*tEVEI-m.nd)/m.sh)/4;
-            const c_=(Math.pow(Math.max(avg_,1)/Math.max(price,1),1/(i+1))-1)*100;
-            return`<div style="background:${c_>=20?'#f0fdf4':c_>=10?'#fffbeb':'#fef2f2'};border-radius:8px;padding:7px 4px;text-align:center;border:1px solid ${c_>=20?'#bbf7d0':c_>=10?'#fde68a':'#fecaca'};">
-              <div style="font-size:9px;color:var(--muted);">${co.pY[i]}</div>
-              <div style="font-size:14px;font-weight:800;color:${c_>=20?'#16a34a':c_>=10?'#d97706':'#dc2626'};">${c_>=0?'+':''}${c_.toFixed(0)}%</div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>
-
-      <!-- Quick price comparison buttons -->
-      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">
-        <div style="font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Simular escenario →</div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+        <!-- Scenario selector — above the inputs -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px;">
           ${(()=>{
-            const zones_=[
-              {l:'Pesimista',mult:Math.round(co.medEvFcf*0.45),c:'#dc2626',bg:'#fef2f2'},
-              {l:'Base',     mult:Math.round(co.medEvFcf*0.82),c:'#2563eb',bg:'#eff6ff'},
-              {l:'Optimista',mult:co.medEvFcf,                 c:'#16a34a',bg:'#f0fdf4'},
-              {l:'Euforia',  mult:Math.round(co.medEvFcf*1.25),c:'#0d9488',bg:'#f0fdfa'},
+            const scenarios=[
+              {key:'opt',  l:'🐂 Optimista',  evf:co.medEvFcf,                   per:co.medPER,                   eve:co.medEvEbitda,                   evei:me,                   c:'#16a34a', bg:'#f0fdf4', bd:'#bbf7d0'},
+              {key:'base', l:'⚖️ Base',        evf:Math.round(co.medEvFcf*0.82),  per:Math.round(co.medPER*0.82),  eve:Math.round(co.medEvEbitda*0.82),  evei:Math.round(me*0.82),  c:'#2563eb', bg:'#eff6ff', bd:'#bfdbfe'},
+              {key:'cons', l:'🐻 Conservador', evf:Math.round(co.medEvFcf*0.65),  per:Math.round(co.medPER*0.65),  eve:Math.round(co.medEvEbitda*0.65),  evei:Math.round(me*0.65),  c:'#d97706', bg:'#fffbeb', bd:'#fde68a'},
+              {key:'pes',  l:'😱 Pesimista',   evf:Math.round(co.medEvFcf*0.45),  per:Math.round(co.medPER*0.45),  eve:Math.round(co.medEvEbitda*0.45),  evei:Math.round(me*0.45),  c:'#dc2626', bg:'#fef2f2', bd:'#fecaca'},
             ];
-            return zones_.map(z=>{
-              const p_=Math.round((co.fcf[9]*z.mult-co.netDebt[9])/co.shares);
-              const up_=((p_-price)/price*100);
-              const isActive=Math.abs(price-p_)<p_*0.03;
-              return`<button onclick="price=${p_};document.getElementById('val-price-inp').value=${p_};recalc();showTab('valoracion');"
-                style="flex:1;min-width:60px;padding:6px 4px;border-radius:8px;border:${isActive?'2px':'1px'} solid ${z.c}40;background:${z.bg};cursor:pointer;text-align:center;">
-                <div style="font-size:10px;font-weight:700;color:${z.c};">${z.l}</div>
-                <div style="font-size:11px;font-weight:800;color:#1e3a5f;">$${N(p_)}</div>
-                <div style="font-size:9px;color:${up_>=0?'#16a34a':'#dc2626'};font-weight:700;">${up_>=0?'+':''}${up_.toFixed(0)}%</div>
-              </button>`;
-            }).join('');
+            return scenarios.map(s=>`<button id="scen-btn-${s.key}"
+              onclick="applyScenario('${s.key}',${s.evf},${s.per},${s.eve},${s.evei})"
+              style="padding:7px 4px;border-radius:9px;border:2px solid ${s.bd};background:${s.bg};cursor:pointer;text-align:center;transition:all .15s;">
+              <div style="font-size:10px;font-weight:700;color:${s.c};">${s.l}</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:2px;">EV/FCF: ${s.evf}x</div>
+            </button>`).join('');
           })()}
         </div>
+
+        <!-- Inline editable multiples — orange cells like Excel -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px;">
+          ${[
+            {id:'tPER', label:'PER',        val:tPER,  med:co.medPER,       c:'#7c3aed'},
+            {id:'tEVF', label:'EV / FCF',   val:tEVF,  med:co.medEvFcf,     c:'#b45309'},
+            {id:'tEVE', label:'EV / EBITDA',val:tEVE,  med:co.medEvEbitda,  c:'#2563eb'},
+            {id:'tEVEI',label:'EV / EBIT',  val:tEVEI, med:me,              c:'#16a34a'},
+          ].map(m=>`<div style="text-align:center;">
+            <div style="font-size:8px;color:${m.c};font-weight:700;text-transform:uppercase;margin-bottom:3px;">${m.label}</div>
+            <input type="number" value="${m.val}" id="ni-${m.id}"
+              style="width:100%;font-size:20px;font-weight:800;color:#1e3a5f;background:#fff7e6;border:1.5px solid #f59e0b;border-radius:7px;text-align:center;outline:none;padding:5px 0;"
+              oninput="${m.id}=+this.value;document.getElementById('r${m.id}').value=+this.value;clearScenBtn();recalc()"/>
+            <div style="font-size:9px;color:var(--muted);margin-top:2px;">med: ${m.med}x</div>
+          </div>`).join('')}
+        </div>
+        <div style="font-size:9px;color:#b45309;font-weight:600;text-align:center;letter-spacing:.04em;opacity:.7;">▲ edita manualmente los valores naranjas</div>
+      </div>
+
+      <!-- IS Proyecciones (colapsable) -->
+      <div class="card" style="padding:12px 14px;">
+        <div class="dcf-explain-hdr" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.dcf-explain-arrow').style.transform=this.nextElementSibling.classList.contains('open')?'rotate(180deg)':''" style="background:transparent;padding:0;margin-bottom:0;">
+          <span style="font-size:11px;font-weight:700;color:var(--navy);">🧮 Proyecciones IS / FCF <span style="font-weight:400;font-size:10px;color:var(--muted);">(clic para simular escenarios)</span></span>
+          <span class="dcf-explain-arrow">▾</span>
+        </div>
+        <div class="dcf-explain-body" style="padding:10px 0 0;">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+            <button onclick="resetIS();showTab('valoracion')" style="font-size:10px;padding:2px 10px;border-radius:14px;border:1px solid var(--border);cursor:pointer;background:#f7f6f3;font-weight:600;">↺ Reset</button>
+          </div>
+          <div style="overflow-x:auto;"><table class="is-tbl" style="font-size:10px;">
+            <thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.pY.map(y=>`<th style="text-align:right;color:#2563eb;">${y}E</th>`).join('')}</tr></thead>
+            <tbody>
+              <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">% Crec. Ventas</td>${isSG.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.5" onchange="isSG[${i}]=+this.value;recalc()"/>%</td>`).join('')}</tr>
+              <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">Mg. EBIT %</td>${isEM.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isEM[${i}]=+this.value;recalc()"/>%</td>`).join('')}</tr>
+              <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">Tax Rate %</td>${isTR.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.5" onchange="isTR[${i}]=+this.value;recalc()"/>%</td>`).join('')}</tr>
+              <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">Dil. Acc. %</td>${isDI.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isDI[${i}]=+this.value;recalc()"/>%</td>`).join('')}</tr>
+              <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">CapEx/Vtas %</td>${isCX.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isCX[${i}]=+this.value;recalc()"/>%</td>`).join('')}</tr>
+              <tr style="background:#fffbeb;border-bottom:2px solid var(--border);"><td style="color:#d97706;font-weight:700;">WC/Vtas %</td>${isWC.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="1" onchange="isWC[${i}]=+this.value;recalc()"/>%</td>`).join('')}</tr>
+              <tr><td colspan="6" style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;padding:5px 4px 2px;">→ Resultados</td></tr>
+              ${[{l:"Ventas",k:"s",c:"#2563eb",f:v=>"$"+N(Math.round(v))},{l:"EBIT",k:"ebit",c:"#b45309",f:v=>"$"+N(Math.round(v))},{l:"FCF",k:"fcf",c:"#16a34a",f:v=>"$"+N(Math.round(v))},{l:"EPS",k:"eps",c:"#d97706",f:v=>"$"+N(v,2)}].map(r=>`<tr style="background:#f9f8f6;"><td style="color:${r.c};font-weight:700;">${r.l}</td>${isM.map(m=>`<td class="isres" style="color:${r.c}">${r.f(m[r.k])}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLUMNA DER: precio objetivo + retorno + retorno objetivo -->
+    <div>
+
+      <!-- Tabla precio objetivo -->
+      <div class="card" style="padding:12px 14px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">Precio objetivo</div>
+          <span style="font-size:9px;background:#b4530912;color:#b45309;border:1px solid #b4530930;padding:1px 7px;border-radius:10px;font-weight:700;">● EV/FCF destacado</span>
+        </div>
+        <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;">
+          <thead><tr style="background:#f7f6f3;">
+            <th style="text-align:left;padding:5px 8px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);">Modelo</th>
+            ${co.pY.map((y,i)=>`<th style="text-align:center;padding:5px 4px;font-weight:600;border-bottom:2px solid var(--border);${i===4?'color:#2563eb;background:#eff6ff;':'color:#2563eb;'}">${y}E${i===4?'<div style="font-size:8px;font-weight:700;color:#b45309;">▼ 2030</div>':''}</th>`).join('')}
+          </tr></thead>
+          <tbody>
+            ${[
+              {id:'ptr-per', label:'PER ex Cash', data:rowPER,  c:'#7c3aed', evfRow:false},
+              {id:'ptr-evf', label:'EV / FCF',    data:rowEVF,  c:'#b45309', evfRow:true},
+              {id:'ptr-eveb',label:'EV / EBITDA', data:rowEVEB, c:'#2563eb', evfRow:false},
+              {id:'ptr-evei',label:'EV / EBIT',   data:rowEVEI, c:'#16a34a', evfRow:false},
+              {id:'ptr-avg', label:'Promedio',     data:rowAvg,  c:'#1e3a5f', bold:true, evfRow:false},
+            ].map(row=>`<tr style="border-bottom:1px solid #f0ede8;${row.bold?'background:#eff6ff;':row.evfRow?'background:#fff8f0;':''}">
+              <td style="padding:5px 8px;font-weight:${row.bold?'800':row.evfRow?'800':'600'};color:${row.c};border-left:3px solid ${row.c};">${row.label}${row.evfRow?' ★':''}</td>
+              ${row.data.map((v,i)=>{
+                const up=(v-price)/price*100;
+                const isEVF=row.evfRow;
+                const isLast=i===row.data.length-1;
+                const cellBg=isEVF?'background:#fff3e0;border-left:2px solid #f59e0b20;':isLast?'background:#fffbeb;':'';
+                return`<td id="${row.id}-${i}" style="text-align:center;padding:5px 3px;${cellBg}border-right:1px solid #f0ede8;">
+                  <div class="ptv" style="font-size:${isEVF?'13':'12'}px;font-weight:${row.bold||isEVF?'800':'600'};color:${up>15?'#16a34a':up>0?'#2563eb':up>-15?'#d97706':'#dc2626'};">$${N(v)}</div>
+                  <div class="ptp" style="font-size:9px;color:${up>=0?'#16a34a':'#dc2626'};font-weight:700;">${up>=0?'+':''}${up.toFixed(0)}%</div>
+                </td>`;
+              }).join('')}
+            </tr>`).join('')}
+            <!-- MdS row -->
+            <tr style="border-bottom:1px solid #f0ede8;background:#f9f8f6;">
+              <td style="padding:5px 8px;font-style:italic;font-size:10px;color:var(--muted);">Marg. seg. (EV/FCF)</td>
+              ${rowEVF.map((v,i)=>{const p=(v-price)/price*100;return`<td style="text-align:center;padding:4px 3px;background:#fff3e008;"><span id="ptr-mds-${i}" style="font-weight:700;font-size:10px;color:${p>=0?'#16a34a':'#dc2626'};">${p>=0?'+':''}${p.toFixed(0)}%</span></td>`;}).join('')}
+            </tr>
+            <tr style="background:#f9f8f6;">
+              <td style="padding:5px 8px;font-style:italic;font-size:10px;color:var(--muted);">Potencial (EV/FCF)</td>
+              ${rowEVF.map((v,i)=>{const p=(v/price-1)*100;return`<td style="text-align:center;padding:4px 3px;background:#fff3e008;"><span id="ptr-pot-${i}" style="font-weight:700;font-size:10px;color:${p>=0?'#16a34a':'#dc2626'};">${p>=0?'+':''}${p.toFixed(0)}%</span></td>`;}).join('')}
+            </tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <!-- Retorno anualizado + CAGR -->
+      <div class="card" style="padding:12px 14px;margin-bottom:10px;">
+        <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;">
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Retorno Anualizado valorando por…</div>
+            <table style="width:100%;border-collapse:collapse;font-size:11px;">
+              ${[
+                {id:'cagr-per', l:'PER ex Cash', v:cagr5.per, c:'#7c3aed'},
+                {id:'cagr-evf', l:'EV / FCF',    v:cagr5.evf, c:'#b45309'},
+                {id:'cagr-eveb',l:'EV / EBITDA', v:cagr5.eveb,c:'#2563eb'},
+                {id:'cagr-evei',l:'EV / EBIT',   v:cagr5.evei,c:'#16a34a'},
+                {id:'cagr-avg', l:'Promedio',     v:cagr5.avg, c:'#1e3a5f', bold:true},
+              ].map(r=>`<tr style="border-bottom:1px solid #f0ede8;${r.bold?'background:#eff6ff;':''}">
+                <td style="padding:4px 8px;color:${r.c};font-weight:${r.bold?'800':'600'};border-left:3px solid ${r.c};">${r.l}</td>
+                <td style="padding:4px 8px;font-size:13px;font-weight:800;text-align:right;min-width:52px;"><span id="${r.id}-5y" style="color:${ccol(r.v)};">${r.v>=0?'+':''}${r.v.toFixed(0)}%</span></td>
+              </tr>`).join('')}
+            </table>
+          </div>
+          <div style="text-align:center;background:#f7f6f3;border-radius:9px;padding:10px 12px;min-width:72px;">
+            <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">CAGR<br>5 años</div>
+            <div id="cagr-big" style="font-size:28px;font-weight:800;color:${ccol(cagr5.avg)};line-height:1;">${cagr5.avg>=0?'+':''}${cagr5.avg.toFixed(0)}%</div>
+            <div style="font-size:9px;color:var(--muted);margin-top:3px;">Promedio</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Retorno anual objetivo -->
+      <div class="card" style="padding:12px 14px;">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Retorno anual objetivo</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <!-- Retorno % input -->
+          <div style="display:flex;align-items:center;gap:6px;background:#fff7e6;border:1.5px solid #f59e0b;border-radius:8px;padding:6px 12px;">
+            <input type="number" value="${ret}" id="ni-ret"
+              style="width:50px;font-size:18px;font-weight:800;color:#1e3a5f;border:none;background:transparent;outline:none;text-align:center;"
+              oninput="ret=+this.value;document.getElementById('rret').value=+this.value;recalc()"/>
+            <span style="font-size:14px;font-weight:700;color:#b45309;">%</span>
+          </div>
+          <!-- Horizon -->
+          <div style="display:flex;align-items:center;gap:5px;">
+            <span style="font-size:11px;color:var(--muted);">Horizonte:</span>
+            <select onchange="hor=+this.value;document.getElementById('rhor').value=+this.value;recalc();" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:11px;font-weight:600;background:#fff;">
+              ${[1,2,3,4,5].map(y=>`<option value="${y}" ${y===hor?'selected':''}>${y} año${y>1?'s':''}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <!-- Result row -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:9px 12px;background:#f7f6f3;border-radius:9px;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-size:9px;color:var(--muted);text-transform:uppercase;margin-bottom:2px;">Precio de compra para ${ret}% anual (EV/FCF, ${hor}a)</div>
+            <div id="ret-price" style="font-size:20px;font-weight:800;color:#1e3a5f;">$${N(priceForRet)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:9px;color:var(--muted);margin-bottom:2px;">Diferencia vs precio actual</div>
+            <div id="ret-diff" style="font-size:18px;font-weight:800;color:${cu(diffRet)};">${diffRet>=0?'+':''}${diffRet.toFixed(0)}%</div>
+          </div>
+        </div>
       </div>
 
     </div>
-
   </div>
+
+  <!-- ═══ ZONA 3: DCF colapsado ═══ -->
+  <div class="card" style="padding:10px 14px;">
+    <div class="dcf-explain-hdr" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.dcf-explain-arrow').style.transform=this.nextElementSibling.classList.contains('open')?'rotate(180deg)':''" style="background:transparent;padding:0;">
+      <span style="font-size:11px;font-weight:700;color:var(--navy);">📐 Parámetros DCF <span style="font-weight:400;color:var(--muted);font-size:10px;">(complementario — clic para expandir)</span></span>
+      <span style="display:flex;align-items:center;gap:10px;">
+        <span id="val-dcf-val" style="font-size:12px;font-weight:700;color:${cu(ud)};">DCF: $${N(dcf)} (${ud>=0?'+':''}${ud.toFixed(1)}%)</span>
+        <span class="dcf-explain-arrow">▾</span>
+      </span>
+    </div>
+    <div class="dcf-explain-body" style="padding:12px 0 0;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        <div>${sld('gr','Crecimiento FCF (10a)',gr,0,30,0.5,'%','#2563eb','CAGR hist: ~'+((((Math.pow(Math.max(co.fcf[9],.01)/Math.max(co.fcf[0],.01),1/9))-1)*100).toFixed(0))+'%')}</div>
+        <div>${sld('dr','Tasa descuento',dr,6,20,0.5,'%','#1e3a5f','WACC ~10%')}</div>
+        <div>${sld('tg','Crec. terminal',tg,0,5,0.5,'%','#7c3aed','PIB ~4-5%')}</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;padding:7px 10px;background:#eff6ff;border-radius:7px;">
+        💡 Tablas de sensibilidad completas en la pestaña <strong>📐 DCF / Escenarios</strong>
+      </div>
+    </div>
+  </div>
+
   </div>`;
 }
+
 
 // ═══════════════════════════════════════════════════════════════════
 // DCF / ESCENARIOS TAB
@@ -1935,7 +2118,49 @@ function rDCF(){
   </div>`;
 }
 
-function refreshDCFSim(){
+function applyScenario(key,evf,per,eve,evei){
+  tEVF=evf;tPER=per;tEVE=eve;tEVEI=evei;
+  // Update hidden sliders
+  ['tEVF','tPER','tEVE','tEVEI'].forEach(id=>{
+    const sl=document.getElementById('r'+id);
+    if(sl) sl.value=window[id];
+  });
+  // Update orange inputs
+  const map={tEVF:evf,tPER:per,tEVE:eve,tEVEI:evei};
+  Object.entries(map).forEach(([id,val])=>{
+    const inp=document.getElementById('ni-'+id);
+    if(inp) inp.value=val;
+  });
+  // Mark active scenario button
+  const colors={opt:'#16a34a',base:'#2563eb',cons:'#d97706',pes:'#dc2626'};
+  const bgs={opt:'#f0fdf4',base:'#eff6ff',cons:'#fffbeb',pes:'#fef2f2'};
+  ['opt','base','cons','pes'].forEach(k=>{
+    const btn=document.getElementById('scen-btn-'+k);
+    if(!btn) return;
+    if(k===key){
+      btn.style.borderWidth='2.5px';
+      btn.style.boxShadow='0 0 0 2px '+colors[k]+'40';
+      btn.style.transform='scale(1.03)';
+      btn.querySelector('div').style.fontWeight='800';
+    } else {
+      btn.style.borderWidth='2px';
+      btn.style.boxShadow='none';
+      btn.style.transform='scale(1)';
+      btn.querySelector('div').style.fontWeight='700';
+    }
+  });
+  recalc();
+}
+
+function clearScenBtn(){
+  // Deactivate all scenario buttons when user edits manually
+  ['opt','base','cons','pes'].forEach(k=>{
+    const btn=document.getElementById('scen-btn-'+k);
+    if(btn){btn.style.boxShadow='none';btn.style.transform='scale(1)';btn.style.borderWidth='2px';}
+  });
+}
+
+
   if(document.getElementById('sim-inp-dcf')!==null){
     showTab('dcf');
   }
