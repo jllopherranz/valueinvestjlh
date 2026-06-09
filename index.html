@@ -588,7 +588,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <div style="font-size:11px;color:var(--muted);">Empresas analizadas · Importa tu Excel para actualizar valores · Recalcula múltiplos en tiempo real</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button onclick="openImportModal('NUEVA')" style="padding:7px 16px;border-radius:10px;background:#16a34a;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">＋ Añadir empresa</button>
       <button onclick="openImportModal(null)" style="padding:7px 16px;border-radius:10px;background:#1e3a5f;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">📂 Importar Excel</button>
+      <button id="btn-restore-hidden" onclick="restoreHidden()" style="display:none;padding:7px 12px;border-radius:10px;background:#fffbeb;color:#92400e;border:1.5px solid #fde68a;cursor:pointer;font-size:12px;font-weight:700;">↺ Restaurar ocultas</button>
       <button onclick="renderCartera()" style="padding:7px 12px;border-radius:10px;background:#f0ede8;color:var(--sub);border:none;cursor:pointer;font-size:12px;font-weight:600;">↺ Actualizar</button>
     </div>
   </div>
@@ -679,10 +681,12 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <input type="text" id="import-nueva-color" class="import-inp" placeholder="#E50914" value="#1e3a5f"/>
     </div>
 
-    <label class="import-label">Link Google Drive (opcional)</label>
+    <label class="import-label">Enlace de Google Sheets (recomendado)</label>
     <input type="url" id="import-drive-url" class="import-inp" placeholder="https://docs.google.com/spreadsheets/d/…"/>
+    <button class="import-btn primary" onclick="importFromLink()" style="width:100%;margin:4px 0 2px;">🔗 Importar desde el enlace</button>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">La hoja debe estar compartida como «Cualquiera con el enlace». Si falla, descarga el .xlsx y súbelo abajo.</div>
 
-    <label class="import-label">Archivo Excel (.xlsx)</label>
+    <label class="import-label">…o archivo Excel (.xlsx)</label>
     <div class="import-drop" id="import-drop-zone" onclick="document.getElementById('import-file-input').click()">
       <input type="file" id="import-file-input" accept=".xlsx,.xls" onchange="handleImportFile(this.files[0])"/>
       <div style="font-size:24px;margin-bottom:6px;">📄</div>
@@ -1258,6 +1262,9 @@ function _logoInitials(co,el,wrap){
 // ── STATE ──
 let co=DB.MSFT,price=368,gr=12,dr=10,tg=3,tEVF=30,tPER=35,tEVE=22,tEVEI=25,ret=15,hor=5;
 let simPrice=null,simMode=false;
+let BUILTIN_KEYS=new Set(); // claves de empresas de fábrica; el resto son añadidas por el usuario
+let HIDDEN=new Set();       // empresas de fábrica ocultadas por el usuario (restaurables)
+let _BUILTIN_DB={};         // snapshot de las empresas de fábrica para poder restaurarlas
 let _livePrice=null; // always holds the last live-fetched price regardless of sim mode
 let isSG,isEM,isTR,isDI,isCX,isWC;
 let curTab='resumen';let charts={};
@@ -3787,15 +3794,15 @@ function updateDashCoRow(key,price,pct,change){
     {t:'alertas',l:'🚨 Alertas'},
   ];
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab" data-t="${t.t}" onclick="showTab('${t.t}')">${t.l}</button>`).join('');
-  const btns=document.getElementById('co-btns');
-  Object.keys(DB).forEach(k=>{
-    const b=document.createElement('button');
-    b.className='co-btn';b.dataset.k=k;b.textContent=k;
-    b.onclick=()=>switchCo(k);btns.appendChild(b);
-  });
-  Object.values(DB).forEach(computeMediansFor); // medianas reales desde la serie histórica (como la hoja)
+  BUILTIN_KEYS=new Set(Object.keys(DB));        // empresas de fábrica
+  _BUILTIN_DB={...DB};                            // snapshot para restaurar ocultas
+  hydrateImportedIntoDB();                        // recupera empresas añadidas por el usuario (localStorage) tras recargar
+  try{HIDDEN=new Set(JSON.parse(localStorage.getItem('vi_hidden')||'[]'));}catch(e){HIDDEN=new Set();}
+  HIDDEN.forEach(k=>{delete DB[k];});             // aplica las ocultadas por el usuario
+  Object.values(DB).forEach(computeMediansFor);   // medianas reales desde la serie histórica (como la hoja)
+  rebuildCoButtons();
   resetIS();
-  switchCo('MSFT');
+  switchCo(DB.MSFT?'MSFT':Object.keys(DB)[0]);
   startPriceRefresh();
   // Abrir siempre en dashboard como pantalla principal
   // ── API KEY FINNHUB — DEBE IR PRIMERO ──
@@ -3803,9 +3810,11 @@ function updateDashCoRow(key,price,pct,change){
   // Ocultar banner (key preconfigurada, no necesita input del usuario)
   const apiBanner=document.getElementById('finnhub-key-banner');
   if(apiBanner) apiBanner.style.display='none';
-  // Abrir en dashboard o última vista
+  // Abrir en dashboard o última vista. Diferido a la siguiente vuelta del event loop
+  // para que TODAS las variables de módulo (let _cartera*) estén ya inicializadas
+  // antes de que setView('cartera') llame a renderCartera (evita un TDZ al recargar).
   const lastView=localStorage.getItem('vi_view')||'dash';
-  setView(lastView);
+  setTimeout(()=>setView(lastView),0);
   // Cargar precios y noticias DESPUÉS de que setView haya terminado
   // y la key ya esté en localStorage
   if(lastView==='dash'){
@@ -3833,7 +3842,7 @@ function getImportedData(ticker){
 }
 
 function getAllPortfolioCompanies(){
-  const base=[...DASH_COMPANIES];
+  const base=DASH_COMPANIES.filter(c=>!HIDDEN.has(c.key)); // excluir empresas ocultadas
   const keys=new Set(base.map(c=>c.key));
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i);
@@ -3959,11 +3968,12 @@ function renderCartera(){
     <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
       <button class="cartera-action-btn" onclick="setView('analysis');setTimeout(()=>{if(DB['${co.key}'])switchCo('${co.key}');},100);">🔍</button>
       <button class="cartera-action-btn" onclick="openImportModal('${co.key}')">📂</button>
-      ${imp?`<button class="cartera-action-btn red" onclick="deleteImport('${co.key}')">🗑</button>`:''}
+      <button class="cartera-action-btn red" onclick="deleteCompanyFull('${co.key}')" title="${BUILTIN_KEYS.has(co.key)?'Ocultar empresa (restaurable)':'Eliminar empresa de la cartera'}">🗑</button>
     </div>
   </td>
 </tr>`;
   }).join('');
+  _refreshRestoreBtn();
 }
 
 // ── Multiple sliders ──
@@ -4149,6 +4159,16 @@ async function doImport(){
       if(result.medPER) d.medPER=result.medPER;
       if(result.medEvEbitda) d.medEvEbitda=result.medEvEbitda;
       if(result.medEvEbit) d.medEvEbit=result.medEvEbit;
+      if(result.hEvF?.some(v=>v!=null)) d.hEvF=result.hEvF;
+      if(result.hPER?.some(v=>v!=null)) d.hPER=result.hPER;
+      if(result.hEvEbitda?.some(v=>v!=null)) d.hEvEbitda=result.hEvEbitda;
+      if(result.hEvEbit?.some(v=>v!=null)) d.hEvEbit=result.hEvEbit;
+      computeMediansFor(d); // recalcular medianas como la hoja con los nuevos datos
+    } else {
+      // Empresa NUEVA: crear entrada DB completa, recalcular medianas y reconstruir botones
+      DB[ticker]=buildDbEntryFromImport(result);
+      computeMediansFor(DB[ticker]);
+      rebuildCoButtons();
     }
     showImportProgress('✅ '+name+' importado. Proyecciones '+result.pY.join(', ')+'.');
     setTimeout(()=>{closeImportModal();renderCartera();},1800);
@@ -4229,6 +4249,8 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   const medEvFcf=medFrom(hEvfRow);
   const medEvEbitda=medFrom(hEveRow);
   const medEvEbit=medFrom(hEveiRow);
+  // Series históricas de múltiplos (cols 1-10) → para gráficos y medianas reales (como la hoja)
+  const hPER=nums(hPerRow,1,10), hEvF=nums(hEvfRow,1,10), hEvEbitda=nums(hEveRow,1,10), hEvEbit=nums(hEveiRow,1,10);
 
   // Target multiples (section after "Objetivo" label)
   let tSecIdx=-1;
@@ -4279,6 +4301,7 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
     sales,ebitda,ebitdaM,ebit,ebitM,netIncome,eps,fcf,fcfM,fcfps,roic,netDebt,
     pY:[2026,2027,2028,2029,2030],pS,pEB,pF,pEPS,pND,
     medPER,medEvFcf,medEvEbitda,medEvEbit,
+    hPER,hEvF,hEvEbitda,hEvEbit,
     targetMultiples:{per:tPER,evf:tEVF,eveb:tEVEB,evei:tEVEI},
     targetPrices:{per:tPricesPER,evf:tPricesEVF,eveb:tPricesEVEB,evei:tPricesEVEI,avg:tPricesAvg},
     mos:moS,upside
@@ -4289,6 +4312,119 @@ function deleteImport(ticker){
   if(!confirm('¿Eliminar datos importados de '+ticker+'? Se usarán los datos de la DB.')){return;}
   localStorage.removeItem('vi_import_'+ticker);
   renderCartera();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AÑADIR / ELIMINAR EMPRESAS (persistente en el navegador)
+// ═══════════════════════════════════════════════════════════════════
+// Construye una entrada DB completa a partir del resultado de parseExcelData.
+function buildDbEntryFromImport(r){
+  const last=a=>{const v=(a||[]).filter(x=>x!=null);return v.length?v[v.length-1]:null;};
+  const pS=r.pS||[]; let prev=last(r.sales)||pS[0]||0;
+  const sg=[]; for(let i=0;i<5;i++){const s=pS[i];sg.push((prev&&s!=null)?+(((s/prev)-1)*100).toFixed(1):10);if(s!=null)prev=s;}
+  const ebitM9=last(r.ebitM)??20, ebitdaM9=last(r.ebitdaM)??(ebitM9*1.2);
+  const isD={sg,em:Array(5).fill(+(+ebitM9).toFixed(1)),tr:Array(5).fill(21),di:Array(5).fill(0),cx:Array(5).fill(3),wc:Array(5).fill(0)};
+  return {
+    name:r.name||r.ticker,ticker:r.ticker,finnhubTicker:r.ticker,sector:r.sector||'',
+    shares:r.shares||1,price:r.price||0,equity:0,color:r.color||'#1e3a5f',
+    wacc:10,sectorAvgEbitdaM:Math.round(ebitdaM9)||25,sectorAvgFcfM:Math.round(last(r.fcfM)||20),sectorAvgROIC:Math.round(last(r.roic)||15),
+    earningsDate:'',earningsLabel:'Resultados',driveUrl:r.driveUrl||'',
+    desc:r.desc||((r.name||r.ticker)+' — empresa importada desde tu Plantilla de Valoración.'),
+    years:r.years||[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
+    sales:r.sales||[],ebitda:r.ebitda||[],ebit:r.ebit||[],netIncome:r.netIncome||[],
+    fcf:r.fcf||[],eps:r.eps||[],fcfps:r.fcfps||[],roic:r.roic||[],
+    ebitdaM:r.ebitdaM||[],ebitM:r.ebitM||[],fcfM:r.fcfM||[],netDebt:r.netDebt||[],
+    pY:r.pY||[2026,2027,2028,2029,2030],pS:r.pS||[],pEB:r.pEB||[],pF:r.pF||[],pEPS:r.pEPS||[],pND:r.pND||[],
+    medEvFcf:r.medEvFcf||20,medPER:r.medPER||20,medEvEbitda:r.medEvEbitda||15,medEvEbit:r.medEvEbit||18,
+    hEvF:r.hEvF||[],hPER:r.hPER||[],hEvEbitda:r.hEvEbitda||[],hEvEbit:r.hEvEbit||[],
+    isD
+  };
+}
+
+// Recupera empresas añadidas por el usuario (guardadas en localStorage) y las mete en DB al cargar.
+function hydrateImportedIntoDB(){
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(!k||!k.startsWith('vi_import_')) continue;
+    const ticker=k.replace('vi_import_','');
+    if(DB[ticker]) continue; // de fábrica o ya presente
+    const data=getImportedData(ticker);
+    if(!data||!data.ticker) continue;
+    try{ DB[ticker]=buildDbEntryFromImport(data); }catch(e){ console.warn('No se pudo recuperar',ticker,e); }
+  }
+}
+
+// Reconstruye los botones de empresa de la vista de análisis.
+function rebuildCoButtons(){
+  const btns=document.getElementById('co-btns');
+  if(!btns) return;
+  btns.innerHTML='';
+  Object.keys(DB).forEach(k=>{
+    const b=document.createElement('button');
+    b.className='co-btn';b.dataset.k=k;b.textContent=k;
+    b.onclick=()=>switchCo(k);
+    if(co&&DB[k]===co){b.classList.add('active');b.style.background=co.color;b.style.borderColor=co.color;b.style.color='#fff';}
+    btns.appendChild(b);
+  });
+}
+
+function saveHidden(){try{localStorage.setItem('vi_hidden',JSON.stringify([...HIDDEN]));}catch(e){}}
+function _refreshRestoreBtn(){const b=document.getElementById('btn-restore-hidden');if(b)b.style.display=HIDDEN.size?'inline-block':'none';}
+
+// Elimina una empresa de la cartera. De fábrica → se oculta (restaurable). Añadida por el usuario → se borra.
+function deleteCompanyFull(key){
+  const nm=(DB[key]&&DB[key].name)||key;
+  const builtin=BUILTIN_KEYS.has(key);
+  const msg=builtin
+    ? '¿Ocultar "'+nm+'" de tu cartera?\n\nPodrás restaurarla con el botón «Restaurar ocultas».'
+    : '¿Eliminar "'+nm+'" de tu cartera?\n\nSe borrarán sus datos de este navegador (tu Google Sheet no se toca).';
+  if(!confirm(msg)) return;
+  const wasActive=co&&DB[key]===co;
+  localStorage.removeItem('vi_import_'+key);
+  localStorage.removeItem('vi_drive_'+key);
+  delete DB[key];
+  if(builtin){HIDDEN.add(key);saveHidden();}
+  rebuildCoButtons();renderCartera();_refreshRestoreBtn();
+  if(wasActive){const first=Object.keys(DB)[0];if(first)switchCo(first);}
+}
+
+// Restaura todas las empresas de fábrica ocultadas.
+function restoreHidden(){
+  if(!HIDDEN.size) return;
+  HIDDEN.forEach(k=>{ if(!DB[k]&&_BUILTIN_DB[k]) DB[k]=_BUILTIN_DB[k]; });
+  HIDDEN.clear();saveHidden();
+  Object.values(DB).forEach(computeMediansFor);
+  rebuildCoButtons();renderCartera();_refreshRestoreBtn();
+}
+
+// Importa una empresa directamente desde el enlace de Google Sheets (descarga el .xlsx y lo procesa).
+async function importFromLink(){
+  const url=(document.getElementById('import-drive-url').value||'').trim();
+  const m=url.match(/\/spreadsheets\/d\/([^/]+)/);
+  if(!m) return showImportError('Pega un enlace válido de Google Sheets (…/spreadsheets/d/ID/…).');
+  const exportUrl='https://docs.google.com/spreadsheets/d/'+m[1]+'/export?format=xlsx';
+  showImportProgress('Descargando la hoja desde Google Sheets…');
+  let buf=null;
+  try{
+    const r=await fetch(exportUrl,{signal:AbortSignal.timeout(15000)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    buf=await r.arrayBuffer();
+  }catch(e){
+    try{
+      showImportProgress('Reintentando vía proxy…');
+      const r2=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(exportUrl),{signal:AbortSignal.timeout(20000)});
+      if(!r2.ok) throw new Error('HTTP '+r2.status);
+      buf=await r2.arrayBuffer();
+    }catch(e2){
+      return showImportError('No se pudo descargar la hoja. Asegúrate de que está compartida como «Cualquiera con el enlace» o descarga el .xlsx y súbelo abajo.');
+    }
+  }
+  _importedFile=new Blob([buf]); // Blob soporta .arrayBuffer()
+  const btn=document.getElementById('import-do-btn');
+  if(btn){btn.disabled=false;btn.style.opacity='1';}
+  const n=document.getElementById('import-file-name');
+  if(n){n.textContent='🔗 Hoja descargada desde el enlace';n.style.display='block';}
+  showImportProgress('✅ Hoja descargada. Pulsa «Importar datos» para procesarla.');
 }
 </script>
 </body>
