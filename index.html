@@ -1398,6 +1398,31 @@ function updateEarningsBadge(){
   }else{badge.classList.remove('visible');}
 }
 
+// ── MEDIANAS DE MÚLTIPLOS — calculadas como la hoja de cálculo (MEDIANA) ──
+// La hoja calcula la mediana estadística de la serie histórica de cada múltiplo.
+// Recalculamos aquí desde hEvF/hPER/hEvEbitda/hEvEbit (ignorando años sin dato),
+// tanto la mediana de 5 años (últimos 5) como la de 10 años. Sustituye a los valores
+// hardcodeados que contenían errores (p.ej. NVDA EV/FCF 10Y 55x → 31x real).
+function medianaOf(a){
+  if(!Array.isArray(a)) return null;
+  const v=a.filter(x=>x!=null&&!isNaN(x)).map(Number).sort((x,y)=>x-y);
+  if(!v.length) return null;
+  const m=Math.floor(v.length/2);
+  const md=v.length%2?v[m]:(v[m-1]+v[m])/2;
+  return Math.round(md*10)/10; // 1 decimal, como mostraría la hoja
+}
+function computeMediansFor(c){
+  const set=(suf,arr)=>{
+    const v10=medianaOf(arr), v5=medianaOf(Array.isArray(arr)?arr.slice(5):null);
+    if(v10!=null) c['med'+suf]=v10;
+    if(v5!=null)  c['med5'+suf]=v5;
+  };
+  set('EvFcf',    c.hEvF);
+  set('PER',      c.hPER);
+  set('EvEbitda', c.hEvEbitda);
+  set('EvEbit',   c.hEvEbit);
+}
+
 // ── MÚLTIPLOS OBJETIVO POR EMPRESA ──
 // Escenario "Base" = mediana 5Y × 0,82, idéntico al que usa el resumen/veredicto.
 // Así, al abrir cualquier empresa, la valoración parte del MISMO escenario que el resumen
@@ -3768,6 +3793,7 @@ function updateDashCoRow(key,price,pct,change){
     b.className='co-btn';b.dataset.k=k;b.textContent=k;
     b.onclick=()=>switchCo(k);btns.appendChild(b);
   });
+  Object.values(DB).forEach(computeMediansFor); // medianas reales desde la serie histórica (como la hoja)
   resetIS();
   switchCo('MSFT');
   startPriceRefresh();
