@@ -557,21 +557,12 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       </tbody>
     </table>
   </div>
-  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:10px;color:var(--muted);">
-    <span>🟢 Importado desde Excel</span>
-    <span>🟡 Calculado desde datos DB</span>
-    <span style="margin-left:auto;">Valor intrínseco = Promedio (EV/FCF · PER · EV/EBITDA · EV/EBIT) para 2027e con múltiplos objetivo</span>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:10px;color:var(--muted);">
+    <span>🟢 Importado desde Excel (usa los múltiplos ajustados de tu hoja)</span>
+    <span>🟡 Datos DB (usa la mediana 5Y de su propio histórico)</span>
+    <span style="margin-left:auto;">Valor intrínseco = Promedio (EV/FCF · PER · EV/EBITDA · EV/EBIT) a 2027e, <strong>con los múltiplos propios de cada empresa</strong></span>
   </div>
-  <div class="mult-recalc-panel" style="margin-bottom:16px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <div>
-        <div style="font-size:12px;font-weight:700;color:#1a1814;">🎚️ Ajustar Múltiplos Objetivo (aplica a toda la cartera)</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Modifica los múltiplos y el valor intrínseco se recalcula al instante. Los valores importados desde Excel tienen sus propios múltiplos.</div>
-      </div>
-      <button onclick="resetCarteraMultiples()" style="padding:4px 12px;border-radius:8px;border:1px solid var(--border);background:#f0ede8;font-size:10px;font-weight:600;cursor:pointer;color:var(--sub);">Reset medianas</button>
-    </div>
-    <div class="mult-recalc-grid" id="cartera-mult-grid"><!-- JS --></div>
-  </div>
+  <div id="cartera-mult-grid" style="display:none;"></div>
 
   <!-- Layout principal -->
   <div style="display:grid;grid-template-columns:1fr 340px;gap:12px;align-items:start;">
@@ -3831,6 +3822,18 @@ function getAllPortfolioCompanies(){
 }
 
 // ── Intrinsic value calculation ──
+// Múltiplos POR EMPRESA: 1) los ajustados realistas de tu hoja (si la importaste),
+// 2) si no, el escenario base de su propio histórico (mediana 5Y × 0,82).
+function multiplesForCartera(key,imp){
+  const t=imp&&imp.targetMultiples;
+  if(t && t.evf>0 && t.per>0){
+    return {per:t.per, evf:t.evf, eveb:t.eveb||t.evf, evei:t.evei||t.evf, src:'hoja'};
+  }
+  const c=DB[key];
+  if(c){ const b=baseMultsFor(c); return {per:b.per, evf:b.evf, eveb:b.eve, evei:b.evei, src:'hist'}; }
+  return {..._carteraMultiples, src:'def'};
+}
+
 function calcPortfolioVI(key,imp,idx){
   const i=idx??1; // default 2027 = index 1
   const d=DB[key];
@@ -3841,7 +3844,7 @@ function calcPortfolioVI(key,imp,idx){
   const sh=(imp&&imp.shares)||d?.shares;
   if(!pF||!pEPS||!pEB||pF.length<=i||!sh) return null;
   const nd=pND?.[i]??0;
-  const m=_carteraMultiples;
+  const m=multiplesForCartera(key,imp); // múltiplos propios de cada empresa
   const evf=(pF[i]*m.evf-nd)/sh;
   const per=pEPS[i]*m.per;
   const eveb=(pEB[i]*m.eveb-nd)/sh;
