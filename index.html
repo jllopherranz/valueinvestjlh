@@ -430,7 +430,6 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <div class="brand">📊 Value<span style="color:var(--blue);">Invest</span> JLH</div>
       <div style="display:flex;gap:4px;margin-left:8px;">
         <button id="nav-dash" onclick="setView('dash')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--navy);background:var(--navy);cursor:pointer;font-size:11px;font-weight:700;color:#fff;">🏠 Dashboard</button>
-        <button id="nav-cartera" onclick="setView('cartera')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);">🗂 Cartera</button>
         <button id="nav-analysis" onclick="setView('analysis')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);">📈 Análisis</button>
       </div>
       <div class="co-btns" id="co-btns"></div>
@@ -521,37 +520,64 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <div class="mkt-item"><div class="mkt-name">Tipos Fed</div><div class="mkt-val" style="font-size:13px;">4.25–4.50%</div><div class="mkt-chg" style="color:rgba(255,255,255,.5);font-size:9px;">Sin cambios</div></div>
   </div>
 
+  <!-- ═══ CARTERA (tabla rica unificada en el Dashboard) ═══ -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div style="font-size:16px;font-weight:800;color:#1a1814;">📋 Mi cartera</div>
+      <div style="font-size:10px;color:var(--muted);">Precios en vivo · valor intrínseco y MdS recalculados al instante · importa o añade empresas</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button onclick="openImportModal('NUEVA')" style="padding:7px 16px;border-radius:10px;background:#16a34a;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">＋ Añadir empresa</button>
+      <button onclick="openImportModal(null)" style="padding:7px 16px;border-radius:10px;background:#1e3a5f;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">📂 Importar Excel</button>
+      <button id="btn-restore-hidden" onclick="restoreHidden()" style="display:none;padding:7px 12px;border-radius:10px;background:#fffbeb;color:#92400e;border:1.5px solid #fde68a;cursor:pointer;font-size:12px;font-weight:700;">↺ Restaurar ocultas</button>
+      <span id="dash-prices-ts" style="font-size:9px;color:var(--muted);">—</span>
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.03);overflow-x:auto;margin-bottom:12px;">
+    <table class="cartera-tbl" id="cartera-table">
+      <thead>
+        <tr>
+          <th style="width:32px;"></th>
+          <th>Empresa</th>
+          <th>Sector</th>
+          <th style="text-align:right;">Precio</th>
+          <th style="text-align:right;">Valor Intrínseco<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">avg 4 métodos · 2027e</span></th>
+          <th style="text-align:right;">Potencial</th>
+          <th style="text-align:right;">MoS %</th>
+          <th style="text-align:right;">CAGR 5Y</th>
+          <th style="text-align:center;">Veredicto</th>
+          <th style="text-align:center;">Drive</th>
+          <th style="text-align:center;">Datos</th>
+          <th style="text-align:center;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="cartera-tbody">
+        <tr><td colspan="12" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Cargando cartera…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:10px;color:var(--muted);">
+    <span>🟢 Importado desde Excel</span>
+    <span>🟡 Calculado desde datos DB</span>
+    <span style="margin-left:auto;">Valor intrínseco = Promedio (EV/FCF · PER · EV/EBITDA · EV/EBIT) para 2027e con múltiplos objetivo</span>
+  </div>
+  <div class="mult-recalc-panel" style="margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#1a1814;">🎚️ Ajustar Múltiplos Objetivo (aplica a toda la cartera)</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Modifica los múltiplos y el valor intrínseco se recalcula al instante. Los valores importados desde Excel tienen sus propios múltiplos.</div>
+      </div>
+      <button onclick="resetCarteraMultiples()" style="padding:4px 12px;border-radius:8px;border:1px solid var(--border);background:#f0ede8;font-size:10px;font-weight:600;cursor:pointer;color:var(--sub);">Reset medianas</button>
+    </div>
+    <div class="mult-recalc-grid" id="cartera-mult-grid"><!-- JS --></div>
+  </div>
+
   <!-- Layout principal -->
   <div style="display:grid;grid-template-columns:1fr 340px;gap:12px;align-items:start;">
 
-    <!-- Columna izq: tabla empresas + noticias -->
+    <!-- Columna izq: noticias -->
     <div style="display:flex;flex-direction:column;gap:12px;">
-
-      <!-- Tabla empresas -->
-      <div class="card" style="padding:0;overflow:hidden;">
-        <div style="padding:10px 14px;background:#f9f8f6;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Mis empresas — precios en vivo</span>
-          <span id="dash-prices-ts" style="font-size:9px;color:var(--muted);">—</span>
-        </div>
-        <table class="dash-co-tbl">
-          <thead><tr>
-            <th>Empresa</th>
-            <th style="text-align:right;">Precio live</th>
-            <th style="text-align:right;">Hoy</th>
-            <th style="text-align:right;">Semana</th>
-            <th style="text-align:right;">Obj. actual<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">FCF × med5Y</span></th>
-            <th style="text-align:right;">MdS %</th>
-            <th style="text-align:center;">Veredicto</th>
-            <th style="text-align:center;">Links</th>
-          </tr></thead>
-          <tbody id="dash-co-tbody">
-            <!-- generado por JS -->
-          </tbody>
-        </table>
-        <div style="padding:6px 14px;font-size:9px;color:var(--muted);background:#f9f8f6;border-top:1px solid var(--border);">
-          Precios vía Finnhub · Actualización automática cada 90s · Score basado en el modelo de análisis propio
-        </div>
-      </div>
 
       <!-- Noticias / Yahoo Finance links -->
       <div class="card">
@@ -581,67 +607,8 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   </div><!-- /grid -->
 </div><!-- /view-dash -->
 
-<!-- ═══ VISTA CARTERA ═══ -->
-<div id="view-cartera">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-    <div>
-      <div style="font-size:18px;font-weight:800;color:#1a1814;margin-bottom:2px;">📋 Cartera de Seguimiento</div>
-      <div style="font-size:11px;color:var(--muted);">Empresas analizadas · Importa tu Excel para actualizar valores · Recalcula múltiplos en tiempo real</div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <button onclick="openImportModal('NUEVA')" style="padding:7px 16px;border-radius:10px;background:#16a34a;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">＋ Añadir empresa</button>
-      <button onclick="openImportModal(null)" style="padding:7px 16px;border-radius:10px;background:#1e3a5f;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">📂 Importar Excel</button>
-      <button id="btn-restore-hidden" onclick="restoreHidden()" style="display:none;padding:7px 12px;border-radius:10px;background:#fffbeb;color:#92400e;border:1.5px solid #fde68a;cursor:pointer;font-size:12px;font-weight:700;">↺ Restaurar ocultas</button>
-      <button onclick="renderCartera()" style="padding:7px 12px;border-radius:10px;background:#f0ede8;color:var(--sub);border:none;cursor:pointer;font-size:12px;font-weight:600;">↺ Actualizar</button>
-    </div>
-  </div>
-
-  <!-- Tabla cartera -->
-  <div style="background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.03);overflow-x:auto;">
-    <table class="cartera-tbl" id="cartera-table">
-      <thead>
-        <tr>
-          <th style="width:32px;"></th>
-          <th>Empresa</th>
-          <th>Sector</th>
-          <th style="text-align:right;">Precio</th>
-          <th style="text-align:right;">Valor Intrínseco<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">avg 4 métodos · 2027e</span></th>
-          <th style="text-align:right;">Potencial</th>
-          <th style="text-align:right;">MoS %</th>
-          <th style="text-align:right;">CAGR 5Y</th>
-          <th style="text-align:center;">Veredicto</th>
-          <th style="text-align:center;">Drive</th>
-          <th style="text-align:center;">Datos</th>
-          <th style="text-align:center;">Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="cartera-tbody">
-        <tr><td colspan="12" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Cargando cartera…</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Leyenda -->
-  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:10px;color:var(--muted);">
-    <span>🟢 Importado desde Excel</span>
-    <span>🟡 Calculado desde datos DB</span>
-    <span style="margin-left:auto;">Valor intrínseco = Promedio (EV/FCF · PER · EV/EBITDA · EV/EBIT) para año 2027e con múltiplos objetivo</span>
-  </div>
-
-  <!-- Panel recalculador de múltiplos -->
-  <div class="mult-recalc-panel" style="margin-top:16px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <div>
-        <div style="font-size:12px;font-weight:700;color:#1a1814;">🎚️ Ajustar Múltiplos Objetivo (aplica a toda la cartera)</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Modifica los múltiplos y el valor intrínseco se recalcula al instante. Los valores importados desde Excel tienen sus propios múltiplos.</div>
-      </div>
-      <button onclick="resetCarteraMultiples()" style="padding:4px 12px;border-radius:8px;border:1px solid var(--border);background:#f0ede8;font-size:10px;font-weight:600;cursor:pointer;color:var(--sub);">Reset medianas</button>
-    </div>
-    <div class="mult-recalc-grid" id="cartera-mult-grid">
-      <!-- Filled by JS -->
-    </div>
-  </div>
-</div><!-- /view-cartera -->
+<!-- Vista Cartera fusionada en el Dashboard (contenedor vacío para compatibilidad) -->
+<div id="view-cartera" style="display:none;"></div>
 
 <!-- ═══ MODAL IMPORTAR EXCEL ═══ -->
 <div id="import-modal">
@@ -3228,6 +3195,7 @@ function toggleAcCard(card){const exp=card.querySelector('.ac-expand');const ope
 
 // ── Navegación entre vistas ──
 function setView(v){
+  if(v==='cartera') v='dash'; // Cartera fusionada en el Dashboard
   const dash=document.getElementById('view-dash');
   const cartera=document.getElementById('view-cartera');
   const cnt=document.getElementById('cnt');
@@ -3265,8 +3233,10 @@ function setView(v){
     btnD.style.cssText=STYLE_ACTIVE;
     localStorage.setItem('vi_view','dash');
     renderDashboard();
+    renderCartera();                              // tabla rica de la cartera (fusionada)
+    setTimeout(()=>fetchCarteraPrices(),250);     // precios en vivo de la tabla rica
     if(getFinnhubKey()){
-      setTimeout(()=>fetchDashPrices(),200);
+      setTimeout(()=>fetchDashPrices(),200);       // barra de mercado (índices, oro, etc.)
       if(_dashAllNews.length===0) setTimeout(()=>fetchDashNews(),1000);
     }
   } else {
