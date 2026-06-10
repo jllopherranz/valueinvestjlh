@@ -1400,6 +1400,25 @@ function baseMultsFor(c){
 }
 function applyBaseMults(c){const b=baseMultsFor(c||co);tEVF=b.evf;tPER=b.per;tEVE=b.eve;tEVEI=b.evei;}
 
+// ── MÚLTIPLOS EFECTIVOS POR EMPRESA (fuente única de verdad para TODA la valoración) ──
+// Prioridad: 1) lo último que YO he modificado en la app  →  2) los múltiplos ajustados
+// de mi hoja importada  →  3) (solo si no hay nada) la mediana 5Y×0,82 de su histórico.
+function coKeyOf(c){return Object.keys(DB).find(k=>DB[k]===(c||co))||'';}
+function getCompanyMults(key){
+  try{const u=JSON.parse(localStorage.getItem('vi_mults_'+key)||'null');
+    if(u&&u.evf>0&&u.per>0) return {per:u.per,evf:u.evf,eveb:u.eveb||u.evf,evei:u.evei||u.evf};}catch(e){}
+  const imp=getImportedData(key), t=imp&&imp.targetMultiples;
+  if(t&&t.evf>0&&t.per>0) return {per:t.per,evf:t.evf,eveb:t.eveb||t.evf,evei:t.evei||t.evf};
+  const c=DB[key];
+  if(c){const b=baseMultsFor(c);return {per:b.per,evf:b.evf,eveb:b.eve,evei:b.evei};}
+  return {per:30,evf:28,eveb:22,evei:26};
+}
+function saveCompanyMults(key,m){try{localStorage.setItem('vi_mults_'+key,JSON.stringify(m));}catch(e){}}
+// Guarda los múltiplos que el usuario tiene puestos ahora (en la vista Análisis) para esta empresa
+function _persistMults(){const k=coKeyOf(co);if(k)saveCompanyMults(k,{per:tPER,evf:tEVF,eveb:tEVE,evei:tEVEI});}
+// Carga en tEVF/tPER/… los múltiplos efectivos de la empresa (hoja o últimos editados)
+function applyCompanyMults(c){const k=coKeyOf(c||co);const m=getCompanyMults(k);tEVF=m.evf;tPER=m.per;tEVE=m.eveb;tEVEI=m.evei;}
+
 // ── COMPANY SWITCH ──
 function switchCo(k){
   co=DB[k];price=co.price;simPrice=null;simMode=false;_livePrice=null;
@@ -1416,7 +1435,7 @@ function switchCo(k){
     btn.style.borderColor=act?co.color:'';
     btn.style.color=act?'#fff':'';
   });
-  resetIS();applyBaseMults(co);updateEarningsBadge();fetchLivePrice();showTab(curTab);recalc();
+  resetIS();applyCompanyMults(co);updateEarningsBadge();fetchLivePrice();showTab(curTab);recalc();
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1572,11 +1591,12 @@ function calcVerdict(){
   const ud=(dcf-price)/price*100,um=(mult.avg-price)/price*100;
   const ms=Math.min(ud,um);
 
-  // Calcular MdS sobre escenario BASE estable (mediana 5Y × 0.82) para no depender de los tEVF/tPER configurables
+  // MdS con los múltiplos EFECTIVOS de la empresa (tu hoja / tus últimos editados) — coherente con resumen/valoración/cartera
   const med5_evf=co.med5EvFcf||co.medEvFcf;
   const med5_per=co.med5PER||co.medPER;
-  const baseEVF=Math.round(med5_evf*0.82);
-  const basePER=Math.round(med5_per*0.82);
+  const _gm=getCompanyMults(coKeyOf(co));
+  const baseEVF=_gm.evf;
+  const basePER=_gm.per;
   const fairFromEVF=(co.fcf[9]*baseEVF-co.netDebt[9])/co.shares;
   const fairFromPER=co.eps[9]*basePER;
   const fairBase=(fairFromEVF+fairFromPER)/2;
@@ -2197,11 +2217,12 @@ function rResumen(){
   const medEvFcf10=co.medEvFcf;
   const me_res=co.medEvEbit||Math.round(co.medEvEbitda*co.ebitdaM[9]/Math.max(co.ebitM[9],1));
 
-  // Price targets by model (base scenario = med5Y × 0.82) — MISMA base que la pestaña Valoración (baseMultsFor)
-  const rowPER=isM.map(m=>Math.round(m.eps*Math.round((co.med5PER||co.medPER)*_b)));
-  const rowEVF=isM.map(m=>Math.round((m.fcf*Math.round(medEvFcf*_b)-m.nd)/m.sh));
-  const rowEVEB=isM.map(m=>Math.round((m.eb*Math.round((co.med5EvEbitda||co.medEvEbitda)*_b)-m.nd)/m.sh));
-  const rowEVEI=isM.map(m=>Math.round((m.ebit*Math.round((co.med5EvEbit||me_res)*_b)-m.nd)/m.sh));
+  // Precios objetivo con los múltiplos EFECTIVOS de la empresa (tu hoja / tus últimos editados) — misma fuente que Valoración y Cartera
+  const _gm=getCompanyMults(coKeyOf(co));
+  const rowPER=isM.map(m=>Math.round(m.eps*_gm.per));
+  const rowEVF=isM.map(m=>Math.round((m.fcf*_gm.evf-m.nd)/m.sh));
+  const rowEVEB=isM.map(m=>Math.round((m.eb*_gm.eveb-m.nd)/m.sh));
+  const rowEVEI=isM.map(m=>Math.round((m.ebit*_gm.evei-m.nd)/m.sh));
   const rowAvg=rowEVF.map((_,i)=>Math.round((rowEVF[i]+rowPER[i]+rowEVEB[i]+rowEVEI[i])/4));
   const fv5=rowAvg[4];
   const cagr5=((Math.pow(Math.max(fv5,1)/Math.max(price,1),0.2)-1)*100);
@@ -2636,6 +2657,7 @@ let _multChartInst=null;
 
 function applyScenario(key,evf,per,eve,evei){
   tEVF=evf;tPER=per;tEVE=eve;tEVEI=evei;
+  _persistMults(); // guarda como mis últimos múltiplos para esta empresa
   const map={tEVF:evf,tPER:per,tEVE:eve,tEVEI:evei};
   Object.entries(map).forEach(([id,val])=>{
     const inp=document.getElementById('ni-'+id);
@@ -2753,7 +2775,7 @@ function rValoracion(){
       ${(()=>{const scenarios=[{key:'opt',l:'🐂 Optimista',evf:(co.med5EvFcf||co.medEvFcf),per:(co.med5PER||co.medPER),eve:(co.med5EvEbitda||co.medEvEbitda),evei:(co.med5EvEbit||me),c:'#16a34a',bg:'#f0fdf4',bda:'#16a34a',txt:'Mediana 5Y'},{key:'base',l:'⚖️ Base',evf:Math.round((co.med5EvFcf||co.medEvFcf)*0.82),per:Math.round((co.med5PER||co.medPER)*0.82),eve:Math.round((co.med5EvEbitda||co.medEvEbitda)*0.82),evei:Math.round((co.med5EvEbit||me)*0.82),c:'#2563eb',bg:'#eff6ff',bda:'#2563eb',txt:'−18% med 5Y'},{key:'cons',l:'🐻 Conserv.',evf:Math.round((co.med5EvFcf||co.medEvFcf)*0.65),per:Math.round((co.med5PER||co.medPER)*0.65),eve:Math.round((co.med5EvEbitda||co.medEvEbitda)*0.65),evei:Math.round((co.med5EvEbit||me)*0.65),c:'#d97706',bg:'#fffbeb',bda:'#d97706',txt:'−35% med 5Y'},{key:'pes',l:'😱 Pesimista',evf:Math.round((co.med5EvFcf||co.medEvFcf)*0.45),per:Math.round((co.med5PER||co.medPER)*0.45),eve:Math.round((co.med5EvEbitda||co.medEvEbitda)*0.45),evei:Math.round((co.med5EvEbit||me)*0.45),c:'#dc2626',bg:'#fef2f2',bda:'#dc2626',txt:'−55% med 5Y'}];return scenarios.map(s=>{const isActive=(s.evf===tEVF&&s.per===tPER&&s.eve===tEVE&&s.evei===tEVEI);return`<button id="scen-btn-${s.key}" onclick="applyScenario('${s.key}',${s.evf},${s.per},${s.eve},${s.evei})" style="padding:8px 4px;border-radius:10px;border:${isActive?'2.5px':'2px'} solid ${s.bda}${isActive?'':'35'};background:${s.bg};cursor:pointer;text-align:center;${isActive?'box-shadow:0 2px 8px '+s.bda+'35;transform:scale(1.04);':''}"><div style="font-size:10px;font-weight:700;color:${s.c};">${s.l}</div><div style="font-size:11px;font-weight:800;color:#1e3a5f;margin:4px 0 1px;">${s.evf}x</div><div style="font-size:8px;color:var(--muted);">${s.txt}</div></button>`;}).join('');})()}
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
-      ${[{id:'tPER',label:'PER',val:tPER,med:co.medPER,c:'#7c3aed'},{id:'tEVF',label:'EV/FCF',val:tEVF,med:co.medEvFcf,c:'#b45309'},{id:'tEVE',label:'EV/EBITDA',val:tEVE,med:co.medEvEbitda,c:'#2563eb'},{id:'tEVEI',label:'EV/EBIT',val:tEVEI,med:me,c:'#16a34a'}].map(m=>`<div style="text-align:center;"><div style="font-size:8px;color:${m.c};font-weight:700;text-transform:uppercase;margin-bottom:3px;">${m.label}</div><input type="number" value="${m.val}" id="ni-${m.id}" style="width:100%;font-size:20px;font-weight:800;color:#1e3a5f;background:#fff7e6;border:1.5px solid #f59e0b;border-radius:7px;text-align:center;outline:none;padding:5px 0;" oninput="${m.id}=+this.value;clearScenBtn();recalc()"/><div style="font-size:9px;color:var(--muted);margin-top:2px;">med: ${m.med}x</div></div>`).join('')}
+      ${[{id:'tPER',label:'PER',val:tPER,med:co.medPER,c:'#7c3aed'},{id:'tEVF',label:'EV/FCF',val:tEVF,med:co.medEvFcf,c:'#b45309'},{id:'tEVE',label:'EV/EBITDA',val:tEVE,med:co.medEvEbitda,c:'#2563eb'},{id:'tEVEI',label:'EV/EBIT',val:tEVEI,med:me,c:'#16a34a'}].map(m=>`<div style="text-align:center;"><div style="font-size:8px;color:${m.c};font-weight:700;text-transform:uppercase;margin-bottom:3px;">${m.label}</div><input type="number" value="${m.val}" id="ni-${m.id}" style="width:100%;font-size:20px;font-weight:800;color:#1e3a5f;background:#fff7e6;border:1.5px solid #f59e0b;border-radius:7px;text-align:center;outline:none;padding:5px 0;" oninput="${m.id}=+this.value;clearScenBtn();_persistMults();recalc()"/><div style="font-size:9px;color:var(--muted);margin-top:2px;">med: ${m.med}x</div></div>`).join('')}
     </div>
   </div>
 
@@ -3818,18 +3840,6 @@ function getAllPortfolioCompanies(){
 }
 
 // ── Intrinsic value calculation ──
-// Múltiplos POR EMPRESA: 1) los ajustados realistas de tu hoja (si la importaste),
-// 2) si no, el escenario base de su propio histórico (mediana 5Y × 0,82).
-function multiplesForCartera(key,imp){
-  const t=imp&&imp.targetMultiples;
-  if(t && t.evf>0 && t.per>0){
-    return {per:t.per, evf:t.evf, eveb:t.eveb||t.evf, evei:t.evei||t.evf, src:'hoja'};
-  }
-  const c=DB[key];
-  if(c){ const b=baseMultsFor(c); return {per:b.per, evf:b.evf, eveb:b.eve, evei:b.evei, src:'hist'}; }
-  return {..._carteraMultiples, src:'def'};
-}
-
 function calcPortfolioVI(key,imp,idx){
   const i=idx??1; // default 2027 = index 1
   const d=DB[key];
@@ -3840,7 +3850,7 @@ function calcPortfolioVI(key,imp,idx){
   const sh=(imp&&imp.shares)||d?.shares;
   if(!pF||!pEPS||!pEB||pF.length<=i||!sh) return null;
   const nd=pND?.[i]??0;
-  const m=multiplesForCartera(key,imp); // múltiplos propios de cada empresa
+  const m=getCompanyMults(key); // múltiplos efectivos de la empresa (hoja / últimos editados / histórico)
   const evf=(pF[i]*m.evf-nd)/sh;
   const per=pEPS[i]*m.per;
   const eveb=(pEB[i]*m.eveb-nd)/sh;
@@ -3906,7 +3916,6 @@ function renderCartera(){
     const dCol=m.dailyPct==null?'#9a958e':m.dailyPct>=0?'#16a34a':'#dc2626';
     const wCol=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';
     const driveUrl=m.imp?.driveUrl||co.drive||localStorage.getItem('vi_drive_'+k)||null;
-    const srcTag=m.imp?'Múltiplos de tu hoja':'Múltiplos: mediana 5Y de su histórico';
     return`<tr id="crow-${k}" style="cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);">
   <td style="padding:8px 10px;">
     <div style="display:flex;align-items:center;gap:9px;">
@@ -3914,7 +3923,7 @@ function renderCartera(){
       <div class="cartera-logo-fallback" style="background:${co.color};${logoUrl?'display:none;':''}">${k.substring(0,2)}</div>
       <div>
         <div class="cartera-co-name">${co.name}</div>
-        <div class="cartera-ticker" title="${srcTag}">${co.ticker} · ${m.imp?'🟢 hoja':'🟡 histórico'}</div>
+        <div class="cartera-ticker">${co.ticker}</div>
       </div>
     </div>
   </td>
@@ -4134,6 +4143,7 @@ async function doImport(){
     const result=parseExcelData(buf,ticker,name,sector,color,driveUrl);
     if(!result) return showImportError('No se pudo leer la plantilla. Verifica que es la Plantilla Valoración IDC.');
     localStorage.setItem('vi_import_'+ticker,JSON.stringify(result));
+    localStorage.removeItem('vi_mults_'+ticker); // una importación nueva manda sobre ediciones previas
     if(DB[ticker]){
       const d=DB[ticker];
       if(result.pY) d.pY=result.pY;
@@ -4381,6 +4391,7 @@ function deleteCompanyFull(key){
   const wasActive=co&&DB[key]===co;
   localStorage.removeItem('vi_import_'+key);
   localStorage.removeItem('vi_drive_'+key);
+  localStorage.removeItem('vi_mults_'+key);
   delete DB[key];
   if(builtin){HIDDEN.add(key);saveHidden();}
   rebuildCoButtons();renderCartera();_refreshRestoreBtn();
