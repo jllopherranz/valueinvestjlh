@@ -3905,6 +3905,8 @@ function renderCartera(){
     const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);
     const dCol=m.dailyPct==null?'#9a958e':m.dailyPct>=0?'#16a34a':'#dc2626';
     const wCol=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';
+    const driveUrl=m.imp?.driveUrl||co.drive||localStorage.getItem('vi_drive_'+k)||null;
+    const srcTag=m.imp?'Múltiplos de tu hoja':'Múltiplos: mediana 5Y de su histórico';
     return`<tr id="crow-${k}" style="cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);">
   <td style="padding:8px 10px;">
     <div style="display:flex;align-items:center;gap:9px;">
@@ -3912,7 +3914,7 @@ function renderCartera(){
       <div class="cartera-logo-fallback" style="background:${co.color};${logoUrl?'display:none;':''}">${k.substring(0,2)}</div>
       <div>
         <div class="cartera-co-name">${co.name}</div>
-        <div class="cartera-ticker">${co.ticker}${m.imp?' · ✅':''}</div>
+        <div class="cartera-ticker" title="${srcTag}">${co.ticker} · ${m.imp?'🟢 hoja':'🟡 histórico'}</div>
       </div>
     </div>
   </td>
@@ -3930,7 +3932,10 @@ function renderCartera(){
   <td style="text-align:right;"><div id="cret-${k}" style="font-size:14px;font-weight:800;color:${retCol(m.cagr5)};">${sp(m.cagr5,1)}</div></td>
   <td style="text-align:center;" id="cpeg-${k}">${pegBar(m.peg)}</td>
   <td style="text-align:center;" onclick="event.stopPropagation();">
-    <div style="display:flex;gap:3px;justify-content:center;">
+    <div style="display:flex;gap:3px;justify-content:center;align-items:center;">
+      ${driveUrl
+        ? `<a href="${driveUrl}" target="_blank" rel="noopener" class="cartera-action-btn" title="Abrir hoja de cálculo en Drive para comparar" style="text-decoration:none;">📊</a>`
+        : `<button class="cartera-action-btn" title="Añadir enlace de Google Sheets" onclick="promptDriveUrl('${k}')">＋📊</button>`}
       <button class="cartera-action-btn" title="Importar / editar datos" onclick="openImportModal('${k}')">📂</button>
       <button class="cartera-action-btn red" title="${BUILTIN_KEYS.has(k)?'Ocultar empresa (restaurable)':'Eliminar empresa'}" onclick="deleteCompanyFull('${k}')">🗑</button>
     </div>
