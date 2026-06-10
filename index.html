@@ -538,22 +538,18 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <table class="cartera-tbl" id="cartera-table">
       <thead>
         <tr>
-          <th style="width:32px;"></th>
-          <th>Empresa</th>
-          <th>Sector</th>
-          <th style="text-align:right;">Precio</th>
-          <th style="text-align:right;">Valor Intrínseco<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">avg 4 métodos · 2027e</span></th>
-          <th style="text-align:right;">Potencial</th>
-          <th style="text-align:right;">MoS %</th>
-          <th style="text-align:right;">CAGR 5Y</th>
-          <th style="text-align:center;">Veredicto</th>
-          <th style="text-align:center;">Drive</th>
-          <th style="text-align:center;">Datos</th>
-          <th style="text-align:center;">Acciones</th>
+          <th style="text-align:left;">Empresa</th>
+          <th style="text-align:right;">Precio<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
+          <th style="text-align:right;">Semana</th>
+          <th style="text-align:right;">Entrada 15%<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">precio máx.</span></th>
+          <th style="text-align:right;">Obj. 5Y<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">2030e</span></th>
+          <th style="text-align:right;">Retorno<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">anual 5Y</span></th>
+          <th style="text-align:center;">PEG</th>
+          <th style="text-align:center;"></th>
         </tr>
       </thead>
       <tbody id="cartera-tbody">
-        <tr><td colspan="12" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Cargando cartera…</td></tr>
+        <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Cargando cartera…</td></tr>
       </tbody>
     </table>
   </div>
@@ -3853,96 +3849,90 @@ function calcPortfolioVI(key,imp,idx){
   return{avg,evf,per,eveb,evei};
 }
 
-// ── Render portfolio table ──
+// ── Métricas por empresa (precio live, semanal, entrada 15%, obj 5Y, retorno, PEG) ──
+function carteraMetrics(co){
+  const key=co.key, imp=getImportedData(key), d=DB[key];
+  const pe=_carteraPrices[key];
+  const price=(pe&&typeof pe==='object'?pe.c:pe)||imp?.price||d?.price||null;
+  const dailyPct=(pe&&typeof pe==='object')?(pe.dp??null):null;
+  const weeklyPct=(pe&&typeof pe==='object')?(pe.wp??null):null;
+  const vi5=calcPortfolioVI(key,imp,4);                 // valor objetivo a 2030e (múltiplos propios)
+  const obj5=vi5?vi5.avg:null;
+  const cagr5=(obj5&&price)?(Math.pow(Math.max(obj5,.01)/Math.max(price,.01),0.2)-1)*100:null;
+  const price15=obj5!=null?obj5/Math.pow(1.15,5):null;   // precio máx. hoy para +15% anual a 5 años
+  // PEG = PER actual / crecimiento esperado (%)
+  const eps9=(imp?.eps&&imp.eps.filter(x=>x!=null).slice(-1)[0])||d?.eps?.[9]||null;
+  const pEPS=(imp?.pEPS)||d?.pEPS;
+  const fcf9=(imp?.fcf&&imp.fcf.filter(x=>x!=null).slice(-1)[0])||d?.fcf?.[9]||null;
+  const pF=(imp?.pF)||d?.pF;
+  let per=null,g=null;
+  if(price&&eps9>0) per=price/eps9;
+  if(pEPS&&pEPS[4]>0&&eps9>0) g=(Math.pow(pEPS[4]/eps9,0.2)-1)*100;          // EPS fwd 5Y
+  else if(pF&&pF[4]>0&&fcf9>0) g=(Math.pow(pF[4]/fcf9,0.2)-1)*100;            // FCF fwd 5Y
+  else if(d?.eps&&d.eps[0]>0&&d.eps[9]>0) g=(Math.pow(d.eps[9]/d.eps[0],1/9)-1)*100; // EPS hist
+  const peg=(per!=null&&g&&g>0)?per/g:null;
+  return {key,imp,d,price,dailyPct,weeklyPct,obj5,cagr5,price15,per,g,peg};
+}
+function pegColor(peg){return peg==null?'#9a958e':peg<1?'#16a34a':peg<=2?'#eab308':'#dc2626';}
+function pegBar(peg){
+  if(peg==null) return '<span style="color:#9a958e;font-size:11px;">—</span>';
+  const col=pegColor(peg), pos=Math.min(100,Math.max(2,peg/2*100)); // PEG 1→50%, 2→100%
+  return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+    <span style="font-size:12px;font-weight:800;color:${col};">${peg.toFixed(2)}</span>
+    <div style="width:56px;height:6px;border-radius:3px;background:linear-gradient(90deg,#16a34a,#eab308 50%,#dc2626);position:relative;">
+      <div style="position:absolute;top:-2px;left:calc(${pos}% - 1.5px);width:3px;height:10px;background:#1a1814;border-radius:1px;box-shadow:0 0 0 1px #fff;"></div>
+    </div></div>`;
+}
+
+// ── Render portfolio table (compacta y visual) ──
 function renderCartera(){
   if(!_carteraMultiplesReady){
     const s=DB.MSFT||DB[Object.keys(DB)[0]];
     if(s) _carteraMultiples={per:s.medPER||30,evf:s.medEvFcf||28,eveb:s.medEvEbitda||22,evei:s.medEvEbit||26};
     _carteraMultiplesReady=true;
   }
-  renderCarteraMultGrid();
   const tbody=document.getElementById('cartera-tbody');
   if(!tbody) return;
-
   const companies=getAllPortfolioCompanies();
   const cur=k=>(k==='ASML'||k==='CSU')?'€':'$';
   const fmt=(v,k)=>v!=null?(cur(k)+(Math.abs(v)>=1000?new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(Math.round(v)):v.toFixed(2))):'—';
-  const fmtPct=v=>v!=null?((v>=0?'+':'')+v.toFixed(1)+'%'):'—';
-  const upCol=u=>u==null?'#9a958e':u>30?'#16a34a':u>10?'#d97706':'#dc2626';
-  const mosStyle=(m)=>{
-    const bg=m==null?'#f0ede8':m>20?'#f0fdf4':m>0?'#fefce8':'#fef2f2';
-    const c=m==null?'#9a958e':m>20?'#16a34a':m>0?'#d97706':'#dc2626';
-    return{bg,c};
-  };
+  const sp=(v,dec=1)=>v!=null?((v>=0?'+':'')+v.toFixed(dec)+'%'):'—';
+  const retCol=v=>v==null?'#9a958e':v>=15?'#16a34a':v>=8?'#d97706':'#dc2626';
 
   tbody.innerHTML=companies.map(co=>{
-    const imp=getImportedData(co.key);
-    const d=DB[co.key];
-    const price=_carteraPrices[co.key]||(imp?.price)||(d?.price)||null;
-    const vi=calcPortfolioVI(co.key,imp);
-    const viAvg=vi?.avg??null;
-    const uPct=viAvg&&price?(viAvg-price)/price*100:null;
-    const mosPct=viAvg&&price?(viAvg-price)/viAvg*100:null;
-
-    // CAGR 5Y to 2030 (index 4)
-    let cagr5=null;
-    const vi30=calcPortfolioVI(co.key,imp,4);
-    if(vi30&&price) cagr5=(Math.pow(Math.max(vi30.avg,0.01)/Math.max(price,0.01),0.2)-1)*100;
-
-    const uc=upCol(uPct);
-    const ms=mosStyle(mosPct);
-    const driveUrl=imp?.driveUrl||co.drive||(localStorage.getItem('vi_drive_'+co.key)||null);
-
-    let verdict='—',vc='#9a958e';
-    if(uPct!=null){
-      if(uPct>30){verdict='COMPRAR';vc='#16a34a';}
-      else if(uPct>10){verdict='MANTENER';vc='#d97706';}
-      else{verdict='EVITAR';vc='#dc2626';}
-    }
-
-    const logoUrl=LOGOS_DASH?.[co.key]||null;
-    const importDate=imp?new Date(imp.importDate).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'}):null;
-
-    return`<tr id="crow-${co.key}">
+    const m=carteraMetrics(co), k=co.key;
+    const logoUrl=LOGOS_DASH?.[k]||null;
+    const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);
+    const dCol=m.dailyPct==null?'#9a958e':m.dailyPct>=0?'#16a34a':'#dc2626';
+    const wCol=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';
+    return`<tr id="crow-${k}" style="cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);">
   <td style="padding:8px 10px;">
-    ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" onerror="this.style.display='none';this.nextSibling&&(this.nextSibling.style.display='flex')"/>`:''}
-    <div class="cartera-logo-fallback" style="background:${co.color};${logoUrl?'display:none;':''}">${co.key.substring(0,2)}</div>
-  </td>
-  <td>
-    <div class="cartera-co-name">${co.name}</div>
-    <div class="cartera-ticker">${co.ticker}</div>
-  </td>
-  <td><div class="cartera-sector" style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d?.sector||imp?.sector||'—'}</div></td>
-  <td style="text-align:right;"><div class="cartera-price" id="cprice-${co.key}">${fmt(price,co.key)}</div></td>
-  <td style="text-align:right;">
-    <div class="cartera-vi" style="color:${uc};" id="cvi-${co.key}">${fmt(viAvg,co.key)}</div>
-    <div style="font-size:9px;color:var(--muted);margin-top:1px;">PER:${vi?fmt(vi.per,co.key):'—'} · EV/FCF:${vi?fmt(vi.evf,co.key):'—'}</div>
+    <div style="display:flex;align-items:center;gap:9px;">
+      ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>`:''}
+      <div class="cartera-logo-fallback" style="background:${co.color};${logoUrl?'display:none;':''}">${k.substring(0,2)}</div>
+      <div>
+        <div class="cartera-co-name">${co.name}</div>
+        <div class="cartera-ticker">${co.ticker}${m.imp?' · ✅':''}</div>
+      </div>
+    </div>
   </td>
   <td style="text-align:right;">
-    <div class="cartera-pot" style="background:${uc}20;color:${uc};" id="cpot-${co.key}">${fmtPct(uPct)}</div>
+    <div class="cartera-price" id="cprice-${k}">${fmt(m.price,k)}</div>
+    <div id="cday-${k}" style="font-size:9px;font-weight:700;color:${dCol};">${m.dailyPct!=null?sp(m.dailyPct,2):''}</div>
   </td>
   <td style="text-align:right;">
-    <div style="font-size:12px;font-weight:700;padding:3px 8px;border-radius:8px;display:inline-block;background:${ms.bg};color:${ms.c};" id="cmos-${co.key}">${fmtPct(mosPct)}</div>
+    <div id="cweek-${k}" style="font-size:13px;font-weight:800;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲ ':'▼ ')+sp(m.weeklyPct,1):'—'}</div>
   </td>
   <td style="text-align:right;">
-    <div style="font-size:12px;font-weight:700;color:${cagr5==null?'#9a958e':cagr5>15?'#16a34a':cagr5>8?'#d97706':'#dc2626'};" id="ccagr-${co.key}">${cagr5!=null?fmtPct(cagr5):'—'}</div>
+    <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'#1a1814'};">${fmt(m.price15,k)}${inZone?' ✓':''}</div>
   </td>
-  <td style="text-align:center;">
-    <span class="cartera-pill" style="background:${vc}20;color:${vc};">${verdict}</span>
-  </td>
-  <td style="text-align:center;">
-    ${driveUrl?`<a href="${driveUrl}" target="_blank" class="cartera-drive-btn">📊 Drive</a>`
-      :`<button class="cartera-action-btn" onclick="promptDriveUrl('${co.key}')">+ Drive</button>`}
-  </td>
-  <td style="text-align:center;">
-    ${imp?`<span class="cartera-import-badge" title="Importado el ${new Date(imp.importDate).toLocaleDateString('es-ES')}">✅ ${importDate}</span>`
-         :`<span class="cartera-import-badge no-import">🟡 DB</span>`}
-  </td>
-  <td style="text-align:center;">
-    <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
-      <button class="cartera-action-btn" onclick="setView('analysis');setTimeout(()=>{if(DB['${co.key}'])switchCo('${co.key}');},100);">🔍</button>
-      <button class="cartera-action-btn" onclick="openImportModal('${co.key}')">📂</button>
-      <button class="cartera-action-btn red" onclick="deleteCompanyFull('${co.key}')" title="${BUILTIN_KEYS.has(co.key)?'Ocultar empresa (restaurable)':'Eliminar empresa de la cartera'}">🗑</button>
+  <td style="text-align:right;"><div class="cartera-vi" id="cobj5-${k}" style="color:#1e3a5f;">${fmt(m.obj5,k)}</div></td>
+  <td style="text-align:right;"><div id="cret-${k}" style="font-size:14px;font-weight:800;color:${retCol(m.cagr5)};">${sp(m.cagr5,1)}</div></td>
+  <td style="text-align:center;" id="cpeg-${k}">${pegBar(m.peg)}</td>
+  <td style="text-align:center;" onclick="event.stopPropagation();">
+    <div style="display:flex;gap:3px;justify-content:center;">
+      <button class="cartera-action-btn" title="Importar / editar datos" onclick="openImportModal('${k}')">📂</button>
+      <button class="cartera-action-btn red" title="${BUILTIN_KEYS.has(k)?'Ocultar empresa (restaurable)':'Eliminar empresa'}" onclick="deleteCompanyFull('${k}')">🗑</button>
     </div>
   </td>
 </tr>`;
@@ -3980,39 +3970,69 @@ function resetCarteraMultiples(){
 }
 
 // ── Live prices for cartera ──
+// Cotización vía Yahoo (precio + % diario + % semanal). Prueba varios proxies CORS.
+function _parseYF(data){
+  const q=data?.chart?.result?.[0]; if(!q) return null;
+  const meta=q.meta;
+  const c=meta.regularMarketPrice||meta.previousClose;
+  const pc=meta.previousClose||meta.chartPreviousClose;
+  const dp=pc?(c-pc)/pc*100:0;
+  const closes=q.indicators?.quote?.[0]?.close||[];
+  const oldest=closes.find(v=>v!=null);
+  const wp=oldest?(c-oldest)/oldest*100:null;
+  return (c>0)?{c,dp,wp}:null;
+}
+async function fetchQuoteYF(ticker){
+  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
+  // 1) corsproxy.io (JSON directo)
+  try{
+    const r=await fetch('https://corsproxy.io/?url='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});
+    if(r.ok){const d=await r.json();const p=_parseYF(d);if(p)return p;}
+  }catch(e){}
+  // 2) allorigins (envuelve en .contents)
+  try{
+    const r=await fetch('https://api.allorigins.win/get?url='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});
+    if(r.ok){const w=await r.json();const p=_parseYF(JSON.parse(w.contents||'{}'));if(p)return p;}
+  }catch(e){}
+  return null;
+}
+
 async function fetchCarteraPrices(){
-  const fhKey=getFinnhubKey();
-  if(!fhKey) return;
   for(const co of getAllPortfolioCompanies()){
-    const fhT=YF_TICKER_FH[co.key]||co.fhTicker||co.key;
-    try{
-      const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${fhT}&token=${fhKey}`);
-      const j=await r.json();
-      if(j&&j.c>0){_carteraPrices[co.key]=j.c;updateCarteraRow(co.key);}
-    }catch(e){}
-    await new Promise(r=>setTimeout(r,230));
+    const yfT=YF_TICKER[co.key]||co.fhTicker||co.ticker||co.key;
+    let q=null;
+    try{ q=await fetchQuoteYF(yfT); }catch(e){}
+    if(!q){ // fallback Finnhub (precio + % diario, sin semanal)
+      const fhKey=getFinnhubKey();
+      if(fhKey){
+        try{
+          const fhT=YF_TICKER_FH[co.key]||co.fhTicker||co.key;
+          const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${fhT}&token=${fhKey}`,{signal:AbortSignal.timeout(7000)});
+          const j=await r.json();
+          if(j&&j.c>0) q={c:j.c,dp:(j.dp??null),wp:null};
+        }catch(e){}
+      }
+    }
+    if(q&&q.c>0){ _carteraPrices[co.key]={c:q.c,dp:q.dp,wp:q.wp}; updateCarteraRow(co.key); }
+    await new Promise(r=>setTimeout(r,260));
   }
 }
 
 function updateCarteraRow(key){
-  const imp=getImportedData(key);
-  const d=DB[key];
-  const price=_carteraPrices[key]||(imp?.price)||(d?.price)||null;
-  const vi=calcPortfolioVI(key,imp);
-  const viAvg=vi?.avg??null;
-  const uPct=viAvg&&price?(viAvg-price)/price*100:null;
-  const mosPct=viAvg&&price?(viAvg-price)/viAvg*100:null;
-  const uc=uPct==null?'#9a958e':uPct>30?'#16a34a':uPct>10?'#d97706':'#dc2626';
-  const msBg=mosPct==null?'#f0ede8':mosPct>20?'#f0fdf4':mosPct>0?'#fefce8':'#fef2f2';
-  const msC=mosPct==null?'#9a958e':mosPct>20?'#16a34a':mosPct>0?'#d97706':'#dc2626';
+  const co=getAllPortfolioCompanies().find(c=>c.key===key)||{key,ticker:key};
+  const m=carteraMetrics(co);
   const cur=(key==='ASML'||key==='CSU')?'€':'$';
   const fmt=v=>v!=null?(cur+(Math.abs(v)>=1000?new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(Math.round(v)):v.toFixed(2))):'—';
-  const fmtPct=v=>v!=null?((v>=0?'+':'')+v.toFixed(1)+'%'):'—';
+  const sp=(v,dec=1)=>v!=null?((v>=0?'+':'')+v.toFixed(dec)+'%'):'—';
+  const retCol=v=>v==null?'#9a958e':v>=15?'#16a34a':v>=8?'#d97706':'#dc2626';
   const p=id=>document.getElementById(id);
-  if(p('cprice-'+key)) p('cprice-'+key).textContent=fmt(price);
-  if(p('cvi-'+key)){p('cvi-'+key).textContent=fmt(viAvg);p('cvi-'+key).style.color=uc;}
-  if(p('cpot-'+key)){p('cpot-'+key).textContent=fmtPct(uPct);p('cpot-'+key).style.background=uc+'20';p('cpot-'+key).style.color=uc;}
-  if(p('cmos-'+key)){p('cmos-'+key).textContent=fmtPct(mosPct);p('cmos-'+key).style.background=msBg;p('cmos-'+key).style.color=msC;}
+  if(p('cprice-'+key)) p('cprice-'+key).textContent=fmt(m.price);
+  if(p('cday-'+key)){const c=m.dailyPct==null?'#9a958e':m.dailyPct>=0?'#16a34a':'#dc2626';p('cday-'+key).textContent=m.dailyPct!=null?sp(m.dailyPct,2):'';p('cday-'+key).style.color=c;}
+  if(p('cweek-'+key)){const c=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';p('cweek-'+key).innerHTML=m.weeklyPct!=null?(m.weeklyPct>=0?'▲ ':'▼ ')+sp(m.weeklyPct,1):'—';p('cweek-'+key).style.color=c;}
+  if(p('c15-'+key)){const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);p('c15-'+key).textContent=fmt(m.price15)+(inZone?' ✓':'');p('c15-'+key).style.color=inZone?'#16a34a':'#1a1814';}
+  if(p('cobj5-'+key)) p('cobj5-'+key).textContent=fmt(m.obj5);
+  if(p('cret-'+key)){p('cret-'+key).textContent=sp(m.cagr5,1);p('cret-'+key).style.color=retCol(m.cagr5);}
+  if(p('cpeg-'+key)) p('cpeg-'+key).innerHTML=pegBar(m.peg);
 }
 
 // ── Drive URL ──
