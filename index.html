@@ -3924,7 +3924,7 @@ function renderCartera(){
     <div id="cweek-${k}" style="font-size:13px;font-weight:800;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲ ':'▼ ')+sp(m.weeklyPct,1):'—'}</div>
   </td>
   <td style="text-align:right;">
-    <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'#1a1814'};">${fmt(m.price15,k)}${inZone?' ✓':''}</div>
+    <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'#1a1814'};">${fmt(m.price15,k)}</div>
   </td>
   <td style="text-align:right;"><div class="cartera-vi" id="cobj5-${k}" style="color:#1e3a5f;">${fmt(m.obj5,k)}</div></td>
   <td style="text-align:right;"><div id="cret-${k}" style="font-size:14px;font-weight:800;color:${retCol(m.cagr5)};">${sp(m.cagr5,1)}</div></td>
@@ -4029,7 +4029,7 @@ function updateCarteraRow(key){
   if(p('cprice-'+key)) p('cprice-'+key).textContent=fmt(m.price);
   if(p('cday-'+key)){const c=m.dailyPct==null?'#9a958e':m.dailyPct>=0?'#16a34a':'#dc2626';p('cday-'+key).textContent=m.dailyPct!=null?sp(m.dailyPct,2):'';p('cday-'+key).style.color=c;}
   if(p('cweek-'+key)){const c=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';p('cweek-'+key).innerHTML=m.weeklyPct!=null?(m.weeklyPct>=0?'▲ ':'▼ ')+sp(m.weeklyPct,1):'—';p('cweek-'+key).style.color=c;}
-  if(p('c15-'+key)){const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);p('c15-'+key).textContent=fmt(m.price15)+(inZone?' ✓':'');p('c15-'+key).style.color=inZone?'#16a34a':'#1a1814';}
+  if(p('c15-'+key)){const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);p('c15-'+key).textContent=fmt(m.price15);p('c15-'+key).style.color=inZone?'#16a34a':'#1a1814';}
   if(p('cobj5-'+key)) p('cobj5-'+key).textContent=fmt(m.obj5);
   if(p('cret-'+key)){p('cret-'+key).textContent=sp(m.cagr5,1);p('cret-'+key).style.color=retCol(m.cagr5);}
   if(p('cpeg-'+key)) p('cpeg-'+key).innerHTML=pegBar(m.peg);
