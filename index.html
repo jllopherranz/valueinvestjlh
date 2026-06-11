@@ -3281,7 +3281,7 @@ const DASH_COMPANIES=[
    drive:'https://docs.google.com/spreadsheets/d/1lgpQ7WpOg6ZF4MdqFpLQPVtdGQVg6al9bIlYmQ1NJ8U/edit?usp=drive_web'},
   {key:'ASML',name:'ASML Holding N.V.',     ticker:'ASML',fhTicker:'ASML',   color:'#0066cc',score:28,verdict:'EVITAR', vc:'#dc2626',
    earnings:'2026-07-16',elbl:'Q2 2026',
-   drive:'https://docs.google.com/spreadsheets/d/1HitKQkGLmmaalHbDLg5e1F-IYb57co4o/edit?usp=drive_web&ouid=108702865563280575992&rtpof=true'},
+   drive:'https://docs.google.com/spreadsheets/d/1TGqeRkGGvfgJeVQ4AOj9ZANQHVfT_Hx9gRbsLed5mfk/edit?usp=drive_web&ouid=108702865563280575992'},
   {key:'AMZN',name:'Amazon.com Inc.',        ticker:'AMZN',fhTicker:'AMZN',   color:'#e47911',score:54,verdict:'MANTENER',vc:'#d97706',
    earnings:'2026-08-01',elbl:'Q2 2026',
    drive:'https://docs.google.com/spreadsheets/d/1facSdU7BR6Q-WTd6149zFEyrQ8h_Ym16uAiV_3r9gmk/edit?usp=drive_web'},
@@ -3780,7 +3780,8 @@ function updateDashCoRow(key,price,pct,change){
   hydrateImportedIntoDB();                        // recupera empresas añadidas por el usuario (localStorage) tras recargar
   try{HIDDEN=new Set(JSON.parse(localStorage.getItem('vi_hidden')||'[]'));}catch(e){HIDDEN=new Set();}
   HIDDEN.forEach(k=>{delete DB[k];});             // aplica las ocultadas por el usuario
-  Object.values(DB).forEach(computeMediansFor);   // medianas reales desde la serie histórica (como la hoja)
+  // Recalcula medianas SOLO para empresas NO importadas; las importadas conservan las de tu hoja (col Q)
+  Object.keys(DB).forEach(k=>{ if(!getImportedData(k)) computeMediansFor(DB[k]); });
   rebuildCoButtons();
   resetIS();
   switchCo(DB.MSFT?'MSFT':Object.keys(DB)[0]);
@@ -4197,11 +4198,10 @@ async function doImport(){
       if(result.hPER?.some(v=>v!=null)) d.hPER=result.hPER;
       if(result.hEvEbitda?.some(v=>v!=null)) d.hEvEbitda=result.hEvEbitda;
       if(result.hEvEbit?.some(v=>v!=null)) d.hEvEbit=result.hEvEbit;
-      computeMediansFor(d); // recalcular medianas como la hoja con los nuevos datos
+      // NO recalculamos: usamos las medianas de TU hoja (columna Q) leídas por parseExcelData
     } else {
-      // Empresa NUEVA: crear entrada DB completa, recalcular medianas y reconstruir botones
+      // Empresa NUEVA: crear entrada DB completa con las medianas de tu hoja
       DB[ticker]=buildDbEntryFromImport(result);
-      computeMediansFor(DB[ticker]);
       rebuildCoButtons();
     }
     showImportProgress('✅ '+name+' importado. Proyecciones '+result.pY.join(', ')+'.');
@@ -4279,10 +4279,13 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
 
   // Median multiples (col index 16 = column Q)
   const medFrom=(row,col=16)=>typeof row?.[col]==='number'?+row[col].toFixed(2):null;
+  // OJO: "EV / EBITDA" CONTIENE "EV / EBIT" → findRow normal confunde EV/EBIT con EV/EBITDA.
+  // Buscador específico de EV/EBIT (contiene ebit pero NO ebitda).
+  const findEvEbit=(data,from=0)=>{ if(!data) return null; for(let i=from;i<data.length;i++){ const c=data[i]?.[0]; if(c){const t=String(c).toLowerCase(); if(t.includes('ebit')&&!t.includes('ebitda')&&t.includes('ev')) return data[i];}} return null; };
   const hPerRow=findRow(valS,'PER');
   const hEvfRow=findRow(valS,'EV / FCF');
   const hEveRow=findRow(valS,'EV / EBITDA');
-  const hEveiRow=findRow(valS,'EV / EBIT');
+  const hEveiRow=findEvEbit(valS);
   const medPER=medFrom(hPerRow);
   const medEvFcf=medFrom(hEvfRow);
   const medEvEbitda=medFrom(hEveRow);
@@ -4301,7 +4304,7 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
     const r1=findRow(valS,'PER',tSecIdx+1);
     const r2=findRow(valS,'EV / FCF',tSecIdx+1);
     const r3=findRow(valS,'EV / EBITDA',tSecIdx+1);
-    const r4=findRow(valS,'EV / EBIT',tSecIdx+1);
+    const r4=findEvEbit(valS,tSecIdx+1);
     tPER=typeof r1?.[1]==='number'?r1[1]:null;
     tEVF=typeof r2?.[1]==='number'?r2[1]:null;
     tEVEB=typeof r3?.[1]==='number'?r3[1]:null;
@@ -4318,7 +4321,7 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
     const rPER=findRow(valS,'PER ex Cash',pSecIdx);
     const rEVF=findRow(valS,'EV / FCF ',pSecIdx)||findRow(valS,'EV / FCF',pSecIdx+2);
     const rEVEB=findRow(valS,'EV / EBITDA',pSecIdx+1);
-    const rEVEI=findRow(valS,'EV / EBIT',pSecIdx+1);
+    const rEVEI=findEvEbit(valS,pSecIdx+1);
     const rAvg=findRow(valS,'Promedio',pSecIdx);
     const rMoS=findRow(valS,'Margen de seguridad');
     const rUp=findRow(valS,'Potencial de revalorización');
