@@ -3837,7 +3837,7 @@ function getAllPortfolioCompanies(){
       score:null,verdict:null,vc:null,earnings:null,elbl:null,drive:d.driveUrl||null,isNew:true});
     keys.add(ticker);
   }
-  return base;
+  return base.sort((a,b)=>(a.name||a.key).localeCompare(b.name||b.key,'es')); // orden alfabético
 }
 
 // ── Intrinsic value calculation ──
@@ -3848,8 +3848,10 @@ function calcPortfolioVI(key,imp,idx){
   const pEPS=(imp&&imp.pEPS)||d?.pEPS;
   const pEB=(imp&&imp.pEB)||d?.pEB;
   const pND=(imp&&imp.pND)||d?.pND;
-  const sh=(imp&&imp.shares)||d?.shares;
-  if(!pF||!pEPS||!pEB||pF.length<=i||!sh) return null;
+  const shBase=(imp&&imp.shares)||d?.shares;
+  if(!pF||!pEPS||!pEB||pF.length<=i||!shBase) return null;
+  const pSh=(imp&&imp.pShares)||d?.pShares;       // acciones proyectadas (como la hoja)
+  const sh=(pSh&&pSh[i]>0)?pSh[i]:shBase;
   const nd=pND?.[i]??0;
   const m=getCompanyMults(key); // múltiplos efectivos de la empresa (hoja / últimos editados / histórico)
   const evf=(pF[i]*m.evf-nd)/sh;
@@ -3867,10 +3869,19 @@ function carteraMetrics(co){
   const price=(pe&&typeof pe==='object'?pe.c:pe)||imp?.price||d?.price||null;
   const dailyPct=(pe&&typeof pe==='object')?(pe.dp??null):null;
   const weeklyPct=(pe&&typeof pe==='object')?(pe.wp??null):null;
-  const vi5=calcPortfolioVI(key,imp,4);                 // valor objetivo a 2030e (múltiplos propios)
-  const obj5=vi5?vi5.avg:null;
+  // Precio objetivo a 2030e por EV/FCF (método de referencia, igual que tu hoja).
+  // Si la empresa está importada y NO has tocado los múltiplos a mano, usamos el precio
+  // YA calculado en tu hoja (targetPrices) → coincide exactamente (acciones proyectadas, etc.).
+  const edited=(()=>{try{return !!localStorage.getItem('vi_mults_'+key);}catch(e){return false;}})();
+  let obj5=null;
+  if(imp && imp.targetPrices && imp.targetPrices.evf && imp.targetPrices.evf[4]!=null && !edited){
+    obj5=imp.targetPrices.evf[4];
+  } else {
+    const vi5=calcPortfolioVI(key,imp,4);
+    obj5=vi5?vi5.evf:null;
+  }
   const cagr5=(obj5&&price)?(Math.pow(Math.max(obj5,.01)/Math.max(price,.01),0.2)-1)*100:null;
-  const price15=obj5!=null?obj5/Math.pow(1.15,5):null;   // precio máx. hoy para +15% anual a 5 años
+  const price15=obj5!=null?obj5/Math.pow(1.15,5):null;   // precio máx. hoy para +15% anual a 5 años (EV/FCF)
   // PEG = PER actual / crecimiento esperado (%)
   const eps9=(imp?.eps&&imp.eps.filter(x=>x!=null).slice(-1)[0])||d?.eps?.[9]||null;
   const pEPS=(imp?.pEPS)||d?.pEPS;
@@ -4245,6 +4256,7 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   const eps=nums(epsRow,1,10), pEPS=nums(epsRow,11,5);
   const sharesArr=nums(sharesRow,1,10);
   const shares=sharesArr.filter(v=>v!=null).pop()||null;
+  const pShares=nums(sharesRow,11,5); // acciones diluidas proyectadas (2026e-2030e), como en la hoja
 
   // 2.FCF
   const fcfRow=findRow(fcfS,'Free Cash Flow');
@@ -4325,7 +4337,7 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
     price,shares,
     years:[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
     sales,ebitda,ebitdaM,ebit,ebitM,netIncome,eps,fcf,fcfM,fcfps,roic,netDebt,
-    pY:[2026,2027,2028,2029,2030],pS,pEB,pF,pEPS,pND,
+    pY:[2026,2027,2028,2029,2030],pS,pEB,pF,pEPS,pND,pShares,
     medPER,medEvFcf,medEvEbitda,medEvEbit,
     hPER,hEvF,hEvEbitda,hEvEbit,
     targetMultiples:{per:tPER,evf:tEVF,eveb:tEVEB,evei:tEVEI},
