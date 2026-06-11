@@ -3898,10 +3898,11 @@ function carteraMetrics(co){
   return {key,imp,d,price,dailyPct,weeklyPct,obj5,cagr5,price15,per,g,peg};
 }
 function pegColor(peg){return peg==null?'#9a958e':peg<1?'#16a34a':peg<=2?'#eab308':'#dc2626';}
-function pegBar(peg){
-  if(peg==null) return '<span style="color:#9a958e;font-size:11px;">—</span>';
+function pegBar(peg,per,g){
+  if(peg==null) return '<span style="color:#9a958e;font-size:11px;" title="Sin BPA o crecimiento ≤ 0">—</span>';
   const col=pegColor(peg), pos=Math.min(100,Math.max(2,peg/2*100)); // PEG 1→50%, 2→100%
-  return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+  const tip=(per!=null&&g!=null)?`PEG = PER ${per.toFixed(1)} ÷ crec. BPA 5Y ${g.toFixed(1)}% = ${peg.toFixed(2)}  ·  <1 barato · 1-2 razonable · >2 caro`:`PEG ${peg.toFixed(2)}`;
+  return `<div title="${tip}" style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:help;">
     <span style="font-size:12px;font-weight:800;color:${col};">${peg.toFixed(2)}</span>
     <div style="width:56px;height:6px;border-radius:3px;background:linear-gradient(90deg,#16a34a,#eab308 50%,#dc2626);position:relative;">
       <div style="position:absolute;top:-2px;left:calc(${pos}% - 1.5px);width:3px;height:10px;background:#1a1814;border-radius:1px;box-shadow:0 0 0 1px #fff;"></div>
@@ -3953,7 +3954,7 @@ function renderCartera(){
   </td>
   <td style="text-align:right;"><div class="cartera-vi" id="cobj5-${k}" style="color:#1e3a5f;">${fmt(m.obj5,k)}</div></td>
   <td style="text-align:right;"><div id="cret-${k}" style="font-size:14px;font-weight:800;color:${retCol(m.cagr5)};">${sp(m.cagr5,1)}</div></td>
-  <td style="text-align:center;" id="cpeg-${k}">${pegBar(m.peg)}</td>
+  <td style="text-align:center;" id="cpeg-${k}">${pegBar(m.peg,m.per,m.g)}</td>
   <td style="text-align:center;" onclick="event.stopPropagation();">
     <div style="display:flex;gap:3px;justify-content:center;align-items:center;">
       ${driveUrl
@@ -4073,7 +4074,7 @@ function updateCarteraRow(key){
   if(p('c15-'+key)){const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);p('c15-'+key).textContent=fmt(m.price15);p('c15-'+key).style.color=inZone?'#16a34a':'#1a1814';}
   if(p('cobj5-'+key)) p('cobj5-'+key).textContent=fmt(m.obj5);
   if(p('cret-'+key)){p('cret-'+key).textContent=sp(m.cagr5,1);p('cret-'+key).style.color=retCol(m.cagr5);}
-  if(p('cpeg-'+key)) p('cpeg-'+key).innerHTML=pegBar(m.peg);
+  if(p('cpeg-'+key)) p('cpeg-'+key).innerHTML=pegBar(m.peg,m.per,m.g);
 }
 
 // ── Drive URL ──
