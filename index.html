@@ -4230,7 +4230,10 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   if(!ebitRow) ebitRow=findRow(is,'EBIT ');
   const ebitMRow=findRow(is,'EBIT margin');
   const niRow=findRow(is,'Net Income');
-  const epsRow=findRow(is,'EPS');
+  // OJO: la cabecera "(millones, excepto EPS)" también contiene "EPS"; buscamos la fila que EMPIEZA por EPS
+  let epsRow=null;
+  for(let i=0;i<is.length;i++){const c=is[i]?.[0];if(c&&/^EPS\b/i.test(String(c).trim())){epsRow=is[i];break;}}
+  if(!epsRow) epsRow=findRow(is,'EPS',2);
   const sharesRow=findRow(is,'Fully diluted shares');
 
   const sales=nums(salesRow,1,10), pS=nums(salesRow,11,5);
