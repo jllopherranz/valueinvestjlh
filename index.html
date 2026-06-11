@@ -525,6 +525,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <div>
       <div style="font-size:16px;font-weight:800;color:#1a1814;">📋 Mi cartera</div>
       <div style="font-size:10px;color:var(--muted);">Precios en vivo · valor intrínseco y MdS recalculados al instante · importa o añade empresas</div>
+      <div id="cartera-import-status" style="font-size:10px;margin-top:4px;"></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <button onclick="openImportModal('NUEVA')" style="padding:7px 16px;border-radius:10px;background:#16a34a;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">＋ Añadir empresa</button>
@@ -3945,13 +3946,26 @@ function renderCartera(){
       ${driveUrl
         ? `<a href="${driveUrl}" target="_blank" rel="noopener" class="cartera-action-btn" title="Abrir hoja de cálculo en Drive para comparar" style="text-decoration:none;">📊</a>`
         : `<button class="cartera-action-btn" title="Añadir enlace de Google Sheets" onclick="promptDriveUrl('${k}')">＋📊</button>`}
-      <button class="cartera-action-btn" title="Importar / editar datos" onclick="openImportModal('${k}')">📂</button>
+      <button class="cartera-action-btn" style="${m.imp?'background:#f0fdf4;border-color:#bbf7d0;':''}" title="${m.imp?('Importada el '+new Date(m.imp.importDate).toLocaleDateString('es-ES')+' · pulsa para reimportar/editar'):'Pendiente de importar · pulsa para importar tu hoja'}" onclick="openImportModal('${k}')">${m.imp?'📂✓':'📂'}</button>
       <button class="cartera-action-btn red" title="${BUILTIN_KEYS.has(k)?'Ocultar empresa (restaurable)':'Eliminar empresa'}" onclick="deleteCompanyFull('${k}')">🗑</button>
     </div>
   </td>
 </tr>`;
   }).join('');
   _refreshRestoreBtn();
+
+  // Estado de importación: qué empresas usan tu hoja y cuáles faltan por importar
+  const st=document.getElementById('cartera-import-status');
+  if(st){
+    const imported=companies.filter(c=>getImportedData(c.key)).map(c=>c.key);
+    const pending =companies.filter(c=>!getImportedData(c.key)).map(c=>c.key);
+    st.innerHTML=
+      `<span style="color:#16a34a;font-weight:700;">✓ Importadas (usan tus múltiplos): </span>`+
+      `<span style="color:var(--sub);">${imported.length?imported.join(', '):'ninguna'}</span>`+
+      ` &nbsp;·&nbsp; `+
+      `<span style="color:#d97706;font-weight:700;">⬇ Faltan por importar (usan mediana 5Y): </span>`+
+      `<span style="color:var(--sub);">${pending.length?pending.join(', '):'ninguna 🎉'}</span>`;
+  }
 }
 
 // ── Multiple sliders ──
