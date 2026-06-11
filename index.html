@@ -530,6 +530,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <button onclick="openImportModal('NUEVA')" style="padding:7px 16px;border-radius:10px;background:#16a34a;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">＋ Añadir empresa</button>
       <button onclick="openImportModal(null)" style="padding:7px 16px;border-radius:10px;background:#1e3a5f;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">📂 Importar Excel</button>
+      <button id="btn-refresh-imports" onclick="refreshAllImports()" title="Vuelve a descargar y reprocesar todas las empresas que ya importaste" style="padding:7px 14px;border-radius:10px;background:#0891b2;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;">🔄 Actualizar importadas</button>
       <button id="btn-restore-hidden" onclick="restoreHidden()" style="display:none;padding:7px 12px;border-radius:10px;background:#fffbeb;color:#92400e;border:1.5px solid #fde68a;cursor:pointer;font-size:12px;font-weight:700;">↺ Restaurar ocultas</button>
       <span id="dash-prices-ts" style="font-size:9px;color:var(--muted);">—</span>
     </div>
@@ -4467,6 +4468,53 @@ async function importFromLink(){
   const n=document.getElementById('import-file-name');
   if(n){n.textContent='🔗 Hoja descargada desde el enlace';n.style.display='block';}
   showImportProgress('✅ Hoja descargada. Pulsa «Importar datos» para procesarla.');
+}
+
+// Aplica un resultado de parseExcelData a DB (patch financiero si existe, o entrada nueva)
+function _applyImportToDB(key,res){
+  if(DB[key]){
+    const d=DB[key];
+    ['pY','pS','pEB','pF','pEPS','pND','pShares','price','sales','ebitda','ebitdaM','ebit','netIncome','eps','fcf','fcfM','fcfps','roic','netDebt','medEvFcf','medPER','medEvEbitda','medEvEbit','hEvF','hPER','hEvEbitda','hEvEbit'].forEach(f=>{
+      const v=res[f];
+      if(v==null) return;
+      if(Array.isArray(v)&&!v.some(x=>x!=null)) return;
+      d[f]=v;
+    });
+  } else {
+    DB[key]=buildDbEntryFromImport(res);
+  }
+}
+
+// Reimporta de una sola vez todas las empresas ya importadas (re-descarga desde su enlace y reprocesa con el código actual)
+async function refreshAllImports(){
+  const keys=[];
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('vi_import_'))keys.push(k.replace('vi_import_',''));}
+  if(!keys.length){alert('No tienes ninguna empresa importada todavía. Importa primero con 📂.');return;}
+  const btn=document.getElementById('btn-refresh-imports');
+  const origTxt=btn?btn.textContent:'';
+  let ok=0; const fail=[];
+  for(const key of keys){
+    const imp=getImportedData(key);
+    const url=imp?.driveUrl||DASH_COMPANIES.find(c=>c.key===key)?.drive||localStorage.getItem('vi_drive_'+key)||'';
+    const id=(url.match(/\/d\/([^/]+)/)||[])[1];
+    if(!id){fail.push(key+' (sin enlace)');continue;}
+    if(btn) btn.textContent='🔄 '+key+'…';
+    try{
+      let buf=null;
+      try{const r=await fetch('https://docs.google.com/spreadsheets/d/'+id+'/export?format=xlsx',{signal:AbortSignal.timeout(20000)});if(!r.ok)throw 0;buf=await r.arrayBuffer();}
+      catch(e){const r2=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent('https://docs.google.com/spreadsheets/d/'+id+'/export?format=xlsx'),{signal:AbortSignal.timeout(22000)});buf=await r2.arrayBuffer();}
+      const res=parseExcelData(buf,key,imp?.name||DB[key]?.name||key,imp?.sector||DB[key]?.sector||'',imp?.color||DB[key]?.color||'#1e3a5f',url);
+      if(!res) throw new Error('plantilla no válida');
+      localStorage.setItem('vi_import_'+key,JSON.stringify(res));
+      localStorage.removeItem('vi_mults_'+key); // la hoja manda sobre ediciones previas
+      _applyImportToDB(key,res);
+      ok++;
+    }catch(e){fail.push(key);}
+    await new Promise(r=>setTimeout(r,300));
+  }
+  rebuildCoButtons(); renderCartera();
+  if(btn) btn.textContent=origTxt;
+  alert('✅ Actualizadas '+ok+' empresa(s) desde su hoja.'+(fail.length?'\n⚠ No se pudieron actualizar: '+fail.join(', ')+'\n(revisa que tengan enlace de Drive y sean públicas)':''));
 }
 </script>
 </body>
