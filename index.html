@@ -542,10 +542,10 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
         <tr>
           <th style="text-align:left;">Empresa</th>
           <th style="text-align:right;">Precio<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
-          <th style="text-align:right;">Semana</th>
-          <th style="text-align:right;">Entrada 15%<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">precio máx.</span></th>
-          <th style="text-align:right;">Obj. 5Y<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">2030e</span></th>
-          <th style="text-align:right;">Retorno<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">anual 5Y</span></th>
+          <th style="text-align:right;">Sem.</th>
+          <th style="text-align:right;background:#fff8f0;">Obj. EV/FCF<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">precio justo · MdS</span></th>
+          <th style="text-align:right;">Obj. 5Y<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">2030e · ret. anual</span></th>
+          <th style="text-align:right;">Entrada<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
           <th style="text-align:center;">PEG</th>
           <th style="text-align:center;"></th>
         </tr>
@@ -3339,7 +3339,11 @@ const DASH_COMPANIES=[
    drive:'https://docs.google.com/spreadsheets/d/14f2Eq80UMkHYxPoTEQRDOPp85dSMz3tP7QXbKtmAxBk/edit?usp=drive_web'},
 ];
 
-const LOGOS_DASH={CSU:'https://logo.clearbit.com/csisoftware.com',ASML:'https://logo.clearbit.com/asml.com',AMZN:'https://logo.clearbit.com/amazon.com',MSFT:'https://logo.clearbit.com/microsoft.com',AAPL:'https://logo.clearbit.com/apple.com',GOOGL:'https://logo.clearbit.com/google.com',META:'https://logo.clearbit.com/meta.com',NVDA:'https://logo.clearbit.com/nvidia.com',WDC:'https://logo.clearbit.com/westerndigital.com'};
+// Dominio de cada empresa → logo de marca real (Clearbit cerró en 2024; usamos DuckDuckGo + favicon Google de respaldo)
+const LOGO_DOMAINS={CSU:'csisoftware.com',ASML:'asml.com',AMZN:'amazon.com',MSFT:'microsoft.com',AAPL:'apple.com',GOOGL:'google.com',META:'meta.com',NVDA:'nvidia.com',WDC:'westerndigital.com',AMD:'amd.com',NFLX:'netflix.com',STX:'seagate.com',V:'visa.com'};
+function logoUrlFor(key){const dom=LOGO_DOMAINS[key]||(getImportedData(key)?.domain);return dom?('https://icons.duckduckgo.com/ip3/'+dom+'.ico'):null;}
+function logoFallback(key){const dom=LOGO_DOMAINS[key];return dom?('https://www.google.com/s2/favicons?sz=64&domain='+dom):'';}
+const LOGOS_DASH=new Proxy({},{get:(_,k)=>typeof k==='string'?logoUrlFor(k):undefined}); // compat: LOGOS_DASH[key] sigue funcionando
 
 const MACRO_CAL=[
   {date:'2026-05-21',title:'Actas FOMC',sub:'Publicación actas reunión 6-7 mayo',c:'#1e3a5f'},
@@ -3909,6 +3913,8 @@ function carteraMetrics(co){
   // YA calculado en tu hoja (targetPrices) → coincide exactamente (acciones proyectadas, etc.).
   // Obj 5Y por EV/FCF = misma fuente única que el resumen y la valoración (tu hoja / proyecciones analista × tu múltiplo)
   const _evfT=evfTargetsFor(key);
+  const objEVF=_evfT&&_evfT[0]!=null?_evfT[0]:null;       // precio objetivo actual EV/FCF (próx. año) = "precio justo" del resumen
+  const mds=(objEVF&&price)?(objEVF-price)/price*100:null; // margen de seguridad sobre ese objetivo
   const obj5=_evfT&&_evfT[4]!=null?_evfT[4]:null;
   const cagr5=(obj5&&price)?(Math.pow(Math.max(obj5,.01)/Math.max(price,.01),0.2)-1)*100:null;
   const price15=obj5!=null?obj5/Math.pow(1.15,5):null;   // precio máx. hoy para +15% anual a 5 años (EV/FCF)
@@ -3923,7 +3929,7 @@ function carteraMetrics(co){
   else if(pF&&pF[4]>0&&fcf9>0) g=(Math.pow(pF[4]/fcf9,0.2)-1)*100;            // FCF fwd 5Y
   else if(d?.eps&&d.eps[0]>0&&d.eps[9]>0) g=(Math.pow(d.eps[9]/d.eps[0],1/9)-1)*100; // EPS hist
   const peg=(per!=null&&g&&g>0)?per/g:null;
-  return {key,imp,d,price,dailyPct,weeklyPct,obj5,cagr5,price15,per,g,peg};
+  return {key,imp,d,price,dailyPct,weeklyPct,objEVF,mds,obj5,cagr5,price15,per,g,peg};
 }
 function pegColor(peg){return peg==null?'#9a958e':peg<1?'#16a34a':peg<=2?'#eab308':'#dc2626';}
 function pegBar(peg,per,g){
@@ -3951,19 +3957,20 @@ function renderCartera(){
   const fmt=(v,k)=>v!=null?(cur(k)+(Math.abs(v)>=1000?new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(Math.round(v)):v.toFixed(2))):'—';
   const sp=(v,dec=1)=>v!=null?((v>=0?'+':'')+v.toFixed(dec)+'%'):'—';
   const retCol=v=>v==null?'#9a958e':v>=15?'#16a34a':v>=8?'#d97706':'#dc2626';
+  const mdsCol=v=>v==null?'#9a958e':v>=15?'#16a34a':v>=0?'#d97706':'#dc2626';
 
   tbody.innerHTML=companies.map(co=>{
     const m=carteraMetrics(co), k=co.key;
-    const logoUrl=LOGOS_DASH?.[k]||null;
+    const logoUrl=logoUrlFor(k);
     const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);
     const dCol=m.dailyPct==null?'#9a958e':m.dailyPct>=0?'#16a34a':'#dc2626';
     const wCol=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';
     const driveUrl=m.imp?.driveUrl||co.drive||localStorage.getItem('vi_drive_'+k)||null;
     return`<tr id="crow-${k}" style="cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);">
-  <td style="padding:8px 10px;">
+  <td style="padding:7px 10px;">
     <div style="display:flex;align-items:center;gap:9px;">
-      ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>`:''}
-      <div class="cartera-logo-fallback" style="background:${co.color};${logoUrl?'display:none;':''}">${k.substring(0,2)}</div>
+      ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.onerror=null;if(!this.dataset.fb){this.dataset.fb=1;this.src='${logoFallback(k)}';}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"/>`:''}
+      <div class="cartera-logo-fallback" style="background:${co.color};display:none;">${k.substring(0,2)}</div>
       <div>
         <div class="cartera-co-name">${co.name}</div>
         <div class="cartera-ticker">${co.ticker}</div>
@@ -3975,13 +3982,19 @@ function renderCartera(){
     <div id="cday-${k}" style="font-size:9px;font-weight:700;color:${dCol};">${m.dailyPct!=null?sp(m.dailyPct,2):''}</div>
   </td>
   <td style="text-align:right;">
-    <div id="cweek-${k}" style="font-size:13px;font-weight:800;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲ ':'▼ ')+sp(m.weeklyPct,1):'—'}</div>
+    <div id="cweek-${k}" style="font-size:12px;font-weight:800;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
+  </td>
+  <td style="text-align:right;background:#fff8f0;">
+    <div id="cobjevf-${k}" style="font-size:13px;font-weight:800;color:#b45309;">${fmt(m.objEVF,k)}</div>
+    <div id="cmds-${k}" style="font-size:10px;font-weight:800;color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</div>
+  </td>
+  <td style="text-align:right;">
+    <div id="cobj5-${k}" style="font-size:12px;font-weight:700;color:#1e3a5f;">${fmt(m.obj5,k)}</div>
+    <div id="cret-${k}" style="font-size:10px;font-weight:700;color:${retCol(m.cagr5)};">${m.cagr5!=null?sp(m.cagr5,0)+'/año':''}</div>
   </td>
   <td style="text-align:right;">
     <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'#1a1814'};">${fmt(m.price15,k)}</div>
   </td>
-  <td style="text-align:right;"><div class="cartera-vi" id="cobj5-${k}" style="color:#1e3a5f;">${fmt(m.obj5,k)}</div></td>
-  <td style="text-align:right;"><div id="cret-${k}" style="font-size:14px;font-weight:800;color:${retCol(m.cagr5)};">${sp(m.cagr5,1)}</div></td>
   <td style="text-align:center;" id="cpeg-${k}">${pegBar(m.peg,m.per,m.g)}</td>
   <td style="text-align:center;" onclick="event.stopPropagation();">
     <div style="display:flex;gap:3px;justify-content:center;align-items:center;">
@@ -4095,13 +4108,16 @@ function updateCarteraRow(key){
   const fmt=v=>v!=null?(cur+(Math.abs(v)>=1000?new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(Math.round(v)):v.toFixed(2))):'—';
   const sp=(v,dec=1)=>v!=null?((v>=0?'+':'')+v.toFixed(dec)+'%'):'—';
   const retCol=v=>v==null?'#9a958e':v>=15?'#16a34a':v>=8?'#d97706':'#dc2626';
+  const mdsCol=v=>v==null?'#9a958e':v>=15?'#16a34a':v>=0?'#d97706':'#dc2626';
   const p=id=>document.getElementById(id);
   if(p('cprice-'+key)) p('cprice-'+key).textContent=fmt(m.price);
   if(p('cday-'+key)){const c=m.dailyPct==null?'#9a958e':m.dailyPct>=0?'#16a34a':'#dc2626';p('cday-'+key).textContent=m.dailyPct!=null?sp(m.dailyPct,2):'';p('cday-'+key).style.color=c;}
-  if(p('cweek-'+key)){const c=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';p('cweek-'+key).innerHTML=m.weeklyPct!=null?(m.weeklyPct>=0?'▲ ':'▼ ')+sp(m.weeklyPct,1):'—';p('cweek-'+key).style.color=c;}
+  if(p('cweek-'+key)){const c=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';p('cweek-'+key).innerHTML=m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—';p('cweek-'+key).style.color=c;}
+  if(p('cobjevf-'+key)) p('cobjevf-'+key).textContent=fmt(m.objEVF);
+  if(p('cmds-'+key)){p('cmds-'+key).textContent=m.mds!=null?sp(m.mds,0)+' MdS':'—';p('cmds-'+key).style.color=mdsCol(m.mds);}
   if(p('c15-'+key)){const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);p('c15-'+key).textContent=fmt(m.price15);p('c15-'+key).style.color=inZone?'#16a34a':'#1a1814';}
   if(p('cobj5-'+key)) p('cobj5-'+key).textContent=fmt(m.obj5);
-  if(p('cret-'+key)){p('cret-'+key).textContent=sp(m.cagr5,1);p('cret-'+key).style.color=retCol(m.cagr5);}
+  if(p('cret-'+key)){p('cret-'+key).textContent=m.cagr5!=null?sp(m.cagr5,0)+'/año':'';p('cret-'+key).style.color=retCol(m.cagr5);}
   if(p('cpeg-'+key)) p('cpeg-'+key).innerHTML=pegBar(m.peg,m.per,m.g);
 }
 
