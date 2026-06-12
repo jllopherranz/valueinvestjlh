@@ -3277,6 +3277,16 @@ function toggleAcCard(card){const exp=card.querySelector('.ac-expand');const ope
 // DASHBOARD — funciones
 // ═══════════════════════════════════════════════════════════════════
 
+// Auto-refresco de precios del dashboard (mercado + cartera) cada 90s mientras estás en esa vista
+let _dashInterval=null;
+function startDashRefresh(){
+  if(_dashInterval) clearInterval(_dashInterval);
+  _dashInterval=setInterval(()=>{
+    if((localStorage.getItem('vi_view')||'dash')!=='dash'){clearInterval(_dashInterval);_dashInterval=null;return;}
+    fetchCarteraPrices(); fetchDashPrices();
+  },90000);
+}
+
 // ── Navegación entre vistas ──
 function setView(v){
   if(v==='cartera') v='dash'; // Cartera fusionada en el Dashboard
@@ -3320,10 +3330,9 @@ function setView(v){
     renderDashboard();
     renderCartera();                              // tabla rica de la cartera (fusionada)
     setTimeout(()=>fetchCarteraPrices(),250);     // precios en vivo de la tabla rica
-    if(getFinnhubKey()){
-      setTimeout(()=>fetchDashPrices(),200);       // barra de mercado (índices, oro, etc.)
-      if(_dashAllNews.length===0) setTimeout(()=>fetchDashNews(),1000);
-    }
+    setTimeout(()=>fetchDashPrices(),200);         // barra de mercado (Yahoo, no necesita Finnhub)
+    if(_dashAllNews.length===0) setTimeout(()=>fetchDashNews(),1000);
+    startDashRefresh();                            // auto-refresco periódico de precios
   } else {
     cnt.style.display='block';
     if(tabs) tabs.style.display='flex';
@@ -3726,44 +3735,20 @@ function _newsAge(date){
 
 
 async function fetchDashPrices(){
-  const key=getFinnhubKey();
-  if(!key){
-    document.getElementById('dash-prices-ts').textContent='Sin API key — configura Finnhub arriba';
-    return;
-  }
-  document.getElementById('dash-prices-ts').textContent='Actualizando...';
-
-  // Market indices via Finnhub
-  const mktTickers=[
-    {id:'sp500',fh:'SPY',name:'S&P 500'},      // SPY como proxy del S&P
-    {id:'ndx',fh:'QQQ',name:'Nasdaq 100'},     // QQQ como proxy
-    {id:'vix',fh:'VXX',name:'VIX proxy'},
-    {id:'btc',fh:'BINANCE:BTCUSDT',name:'BTC'},
-    {id:'gold',fh:'GLD',name:'Gold ETF'},
-    {id:'eur',fh:'OANDA:EUR_USD',name:'EUR/USD'},
-    {id:'tnote',fh:'TLT',name:'T-Note 10Y proxy'},
-    {id:'oil',fh:'USO',name:'Oil ETF'},
+  const ts=document.getElementById('dash-prices-ts'); if(ts) ts.textContent='Actualizando...';
+  // Índices/activos REALES vía Yahoo (corsproxy). Finnhub free no tiene índices, cripto ni forex,
+  // así que usábamos ETFs proxy (SPY/QQQ/GLD/TLT) → valores engañosos. Ahora son los reales.
+  const mktMap=[
+    {id:'sp500',t:'^GSPC'},{id:'ndx',t:'^NDX'},{id:'vix',t:'^VIX'},
+    {id:'btc',t:'BTC-USD'},{id:'gold',t:'GC=F'},{id:'eur',t:'EURUSD=X'},
+    {id:'tnote',t:'^TNX'},{id:'oil',t:'CL=F'},
   ];
-
-  // Fetch ALL en paralelo con Promise.allSettled — mucho más rápido
-  const mktPromises = mktTickers.map(t=>
-    fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(t.fh)}&token=${key}`,{signal:AbortSignal.timeout(8000)})
-      .then(r=>r.json()).then(d=>{if(d.c) updateDashMktTile(t.id,d.c,d.dp,d.d);}).catch(()=>{})
-  );
-  const coPromises = DASH_COMPANIES.map(co=>
-    fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(co.fhTicker)}&token=${key}`,{signal:AbortSignal.timeout(8000)})
-      .then(r=>r.json()).then(d=>{
-        if(d.c){
-          _dashPriceCache[co.key]={c:d.c,pc:d.pc,dp:d.dp,ts:Date.now()};
-          updateDashCoRow(co.key,d.c,d.dp,d.d);
-          fetchWeeklyChange(co.key,co.fhTicker,key,d.c);
-        }
-      }).catch(()=>{})
-  );
-  await Promise.allSettled([...mktPromises,...coPromises]);
-
+  await Promise.allSettled(mktMap.map(async m=>{
+    const q=await fetchQuoteYF(m.t);
+    if(q&&q.c) updateDashMktTile(m.id,q.c,(q.dp??0),0);
+  }));
   const now=new Date();
-  document.getElementById('dash-prices-ts').textContent='Actualizado: '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
+  if(ts) ts.textContent='Mercado: '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
 }
 
 async function fetchWeeklyChange(key,fhTicker,apiKey,currentPrice){
