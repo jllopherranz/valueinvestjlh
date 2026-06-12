@@ -1600,11 +1600,9 @@ function calcVerdict(){
   const _gm=getCompanyMults(coKeyOf(co));
   const baseEVF=_gm.evf;
   const basePER=_gm.per;
+  // Valor justo SOLO por EV/FCF (método de referencia) con TU múltiplo objetivo
   const fairFromEVF=(co.fcf[9]*_gm.evf-co.netDebt[9])/co.shares;
-  const fairFromPER=co.eps[9]*_gm.per;
-  const fairFromEB =(co.ebitda[9]*_gm.eveb-co.netDebt[9])/co.shares;
-  const fairFromEI =(co.ebit[9]*_gm.evei-co.netDebt[9])/co.shares;
-  const fairBase=(fairFromEVF+fairFromPER+fairFromEB+fairFromEI)/4;
+  const fairBase=fairFromEVF;
   const msBase=((fairBase-price)/price*100);
 
   const moat=calcMoat();
@@ -2239,6 +2237,11 @@ function rResumen(){
   const attractPrice=Math.round(vd.fairBase/1.20);
   const expPrice    =Math.round(vd.fairBase*1.176);
   const zone=price<=attractPrice?'BUY':price<=fairPrice?'FAIR':price<=expPrice?'WATCH':'AVOID';
+  // Tu múltiplo EV/FCF objetivo y su diferencia % vs mediana 5Y y vs el múltiplo actual
+  const gmEvf=_gm.evf;
+  const multVsMed = medEvFcf? Math.round((gmEvf-medEvFcf)/medEvFcf*100):null;   // tu múltiplo vs mediana 5Y
+  const multVsCur = evfcfCurrent? Math.round((gmEvf-evfcfCurrent)/evfcfCurrent*100):null; // tu múltiplo vs el actual
+  const impMult=p=>Math.round((p*co.shares+co.netDebt[9])/co.fcf[9]); // múltiplo EV/FCF implícito en un precio
   const zd={
     BUY: {c:'#16a34a',bg:'#f0fdf4',bd:'#bbf7d0',label:'COMPRAR',emoji:'🟢'},
     FAIR:{c:'#2563eb',bg:'#eff6ff',bd:'#bfdbfe',label:'PRECIO JUSTO',emoji:'🔵'},
@@ -2543,10 +2546,16 @@ function rResumen(){
           </div>
         </div>
         <div>
-          <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
             <div class="verdict-price" style="font-size:26px;font-weight:900;color:#1a1814;">$${N(price,2)}</div>
             <div style="font-size:11px;font-weight:700;color:${vd.msBase>=0?'#16a34a':'#dc2626'}">${vd.msBase>=0?'+':''}${vd.msBase}% MdS</div>
-            <div style="font-size:10px;color:var(--muted);">EV/FCF ${evfcfCurrent}x · med5Y ${medEvFcf}x</div>
+            <div style="font-size:10px;color:var(--muted);">vs precio justo $${N(vd.fairBase)}</div>
+          </div>
+          <!-- NOTA: valoración solo por EV/FCF con tu múltiplo + diferencia % -->
+          <div style="font-size:10px;color:var(--sub);background:rgba(255,255,255,.7);border:1px solid ${vd.verdictColor}25;border-radius:7px;padding:6px 9px;margin-bottom:8px;line-height:1.6;">
+            📐 Valoración <strong>solo por EV/FCF</strong> con tu múltiplo objetivo
+            <strong style="color:#b45309;">${gmEvf}x</strong>.
+            ${multVsMed!=null?`Es <strong style="color:${multVsMed<0?'#16a34a':'#dc2626'};">${multVsMed>=0?'+':''}${multVsMed}%</strong> vs mediana 5Y (${medEvFcf}x)`:''}${multVsCur!=null?` · <strong style="color:${multVsCur<0?'#16a34a':'#dc2626'};">${multVsCur>=0?'+':''}${multVsCur}%</strong> vs múltiplo actual (${evfcfCurrent}x)`:''}.
           </div>
           <div style="position:relative;height:26px;border-radius:8px;overflow:hidden;margin-bottom:6px;background:linear-gradient(90deg,#16a34a 0%,#22c55e 25%,#3b82f6 35%,#93c5fd 50%,#fde68a 65%,#f97316 80%,#ef4444 100%);">
             ${(()=>{
@@ -2562,11 +2571,11 @@ function rResumen(){
             })()}
           </div>
           <div class="price-bar-zones" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:10px;">
-            ${[['🟢','ATRACTIVO',attractPrice,Math.round(medEvFcf*0.65)],['🔵','JUSTO',fairPrice,Math.round(medEvFcf*0.82)],['🔴','CARO',expPrice,medEvFcf]].map(([e,l,p,m])=>`
+            ${[['🟢','ATRACTIVO',attractPrice,'+20% MdS'],['🔵','JUSTO',fairPrice,'tu múltiplo'],['🔴','CARO',expPrice,'−15% MdS']].map(([e,l,p,m])=>`
             <div style="text-align:center;padding:5px 4px;background:rgba(255,255,255,.7);border-radius:7px;">
               <div style="font-size:9px;font-weight:700;color:var(--muted);">${l}</div>
               <div style="font-size:13px;font-weight:800;color:#1a1814;">$${N(p)}</div>
-              <div style="font-size:8px;color:var(--muted);">${m}x EV/FCF</div>
+              <div style="font-size:8px;color:var(--muted);">${impMult(p)}x · ${m}</div>
             </div>`).join('')}
           </div>
           <!-- ROIC mini -->
