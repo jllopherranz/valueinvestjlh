@@ -267,6 +267,11 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 /* ── EVENTS ── */
 .ev-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media(max-width:900px){.ev-grid{grid-template-columns:1fr;}}
+.dash-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;}
+#dash-news-list{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;}
+@media(max-width:760px){#dash-news-list{grid-template-columns:1fr;}.dash-cal-grid{grid-template-columns:1fr !important;}}
+.news-item{padding:9px 0;border-bottom:0.5px solid var(--border);}
+.news-item:hover{background:#faf9f7;}
 .ev-item{display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-bottom:0.5px solid var(--border);}
 .ev-item:last-child{border-bottom:none;}
 .ev-datebox{background:#f5f4f1;border-radius:7px;padding:3px 7px;text-align:center;min-width:40px;flex-shrink:0;}
@@ -555,45 +560,28 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       </tbody>
     </table>
   </div>
-  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:10px;color:var(--muted);">
-    <span>🟢 Importado desde Excel (usa los múltiplos ajustados de tu hoja)</span>
-    <span>🟡 Datos DB (usa la mediana 5Y de su propio histórico)</span>
-    <span style="margin-left:auto;">Valor intrínseco = Promedio (EV/FCF · PER · EV/EBITDA · EV/EBIT) a 2027e, <strong>con los múltiplos propios de cada empresa</strong></span>
-  </div>
   <div id="cartera-mult-grid" style="display:none;"></div>
 
-  <!-- Layout principal -->
-  <div style="display:grid;grid-template-columns:1fr 340px;gap:12px;align-items:start;">
+  <!-- ── Calendarios: próximos resultados + eventos importantes (dos columnas cuadradas) ── -->
+  <div class="dash-cal-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;align-items:stretch;">
+    <div class="card card-sm">
+      <div class="dash-sec-title">📊 Próximos resultados</div>
+      <div id="dash-earnings-list"><!-- JS --></div>
+    </div>
+    <div class="card card-sm">
+      <div class="dash-sec-title">🗓️ Próximos eventos importantes</div>
+      <div id="dash-macro-list"><!-- JS --></div>
+    </div>
+  </div>
 
-    <!-- Columna izq: noticias -->
-    <div style="display:flex;flex-direction:column;gap:12px;">
-
-      <!-- Noticias / Yahoo Finance links -->
-      <div class="card">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px;">📰 Noticias — Yahoo Finance</div>
-        <div id="dash-yf-links" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
-      </div>
-
-    </div><!-- /col izq -->
-
-    <!-- Columna derecha: calendarios + macro -->
-    <div style="display:flex;flex-direction:column;gap:12px;">
-
-      <!-- Earnings companies -->
-      <div class="card card-sm">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">📊 Earnings — próximos resultados</div>
-        <div id="dash-earnings-list"><!-- JS --></div>
-      </div>
-
-      <!-- Calendario macro -->
-      <div class="card card-sm">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;">🏦 Calendario macro</div>
-        <div id="dash-macro-list"><!-- JS --></div>
-      </div>
-
-
-    </div><!-- /col der -->
-  </div><!-- /grid -->
+  <!-- ── Noticias del mercado (titulares reales) ── -->
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+      <div class="dash-sec-title" style="margin:0;">📰 Noticias del mercado</div>
+      <button onclick="fetchDashNews()" style="font-size:10px;padding:3px 10px;border-radius:8px;border:1px solid var(--border);background:#f0ede8;color:var(--sub);cursor:pointer;font-weight:600;">↻ Actualizar</button>
+    </div>
+    <div id="dash-news-list"><!-- JS: titulares --></div>
+  </div>
 </div><!-- /view-dash -->
 
 <!-- Vista Cartera fusionada en el Dashboard (contenedor vacío para compatibilidad) -->
@@ -3604,72 +3592,39 @@ let _dashAllNews=[];
 async function fetchDashNews(){
   const newsEl=document.getElementById('dash-news-list');
   if(!newsEl) return;
-  newsEl.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted);font-size:11px;">Cargando noticias...</div>';
-
-  // Yahoo Finance RSS via allorigins proxy — sin API key, actualizado
+  newsEl.innerHTML='<div style="grid-column:1/-1;padding:16px;text-align:center;color:var(--muted);font-size:11px;">Cargando titulares...</div>';
+  const k=getFinnhubKey();
   const tickers=['AAPL','MSFT','GOOGL','AMZN','META','NVDA','ASML','WDC'];
-  const allItems=[];
-  
-  // Usar Yahoo Finance RSS que sí funciona con allorigins
-  const rssUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://feeds.finance.yahoo.com/rss/2.0/headline?s='+tickers.join(',')+',^GSPC,^VIX&region=US&lang=en-US')}`;
-  
-  try {
-    const res = await fetch(rssUrl, {signal:AbortSignal.timeout(8000)});
-    const data = await res.json();
-    if(data.contents){
-      const parser = new DOMParser();
-      const xml = parser.parseFromString(data.contents, 'text/xml');
-      const items = xml.querySelectorAll('item');
-      items.forEach(item=>{
-        const title = item.querySelector('title')?.textContent||'';
-        const link  = item.querySelector('link')?.textContent||item.querySelector('link')?.nextSibling?.textContent||'';
-        const pubDate = item.querySelector('pubDate')?.textContent||'';
-        const source  = item.querySelector('source')?.textContent||'Yahoo Finance';
-        // Detectar qué ticker menciona
-        const titleUpper = title.toUpperCase();
-        const matchTicker = tickers.find(t=>titleUpper.includes(t)||titleUpper.includes({AMZN:'AMAZON',MSFT:'MICROSOFT',AAPL:'APPLE',GOOGL:'ALPHABET',META:'META',NVDA:'NVIDIA',ASML:'ASML',WDC:'WESTERN DIGITAL'}[t]||''));
-        if(title.length > 10){
-          allItems.push({title, link, pubDate: new Date(pubDate), source, ticker: matchTicker||null});
-        }
-      });
-    }
-  } catch(e) {
-    console.log('RSS error:', e.message);
-  }
-  
-  // Si no hay noticias del RSS (bloqueado en algunos entornos), usar links directos
-  if(allItems.length === 0){
-    newsEl.innerHTML = `
-      <div style="padding:10px;background:#eff6ff;border-radius:8px;margin-bottom:8px;font-size:10px;color:#1d4ed8;">
-        💡 Para noticias en tiempo real, accede directamente:
-      </div>
-      ${DASH_COMPANIES.map(co=>{
-        const gf=`https://finance.yahoo.com/quote/${co.ticker}/news/`;
-        return`<div style="padding:7px 0;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:8px;">
-          <span style="font-size:10px;font-weight:800;color:${co.color};min-width:44px;">${co.key}</span>
-          <a href="${gf}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">Ver noticias ${co.name} →</a>
-        </div>`;
-      }).join('')}`;
+  const NAMES={AMZN:['AMAZON'],MSFT:['MICROSOFT'],AAPL:['APPLE'],GOOGL:['ALPHABET','GOOGLE'],META:['META ','FACEBOOK','INSTAGRAM'],NVDA:['NVIDIA'],ASML:['ASML'],WDC:['WESTERN DIGITAL','SANDISK']};
+  const coMap={AAPL:'#555',MSFT:'#00a4ef',GOOGL:'#4285f4',AMZN:'#e47911',META:'#1877f2',NVDA:'#76b900',ASML:'#0066cc',WDC:'#005594'};
+  let raw=[];
+  try{
+    const r=await fetch('https://finnhub.io/api/v1/news?category=general&token='+k,{signal:AbortSignal.timeout(9000)});
+    if(r.ok){const j=await r.json();if(Array.isArray(j)) raw=j;}
+  }catch(e){}
+  if(!raw.length){
+    newsEl.innerHTML=DASH_COMPANIES.map(co=>`<a href="https://finance.yahoo.com/quote/${co.ticker}/news/" target="_blank" rel="noopener" class="news-item" style="display:block;text-decoration:none;color:#2563eb;font-size:11px;font-weight:600;">Noticias de ${co.name}</a>`).join('')
+      +'<div style="grid-column:1/-1;font-size:10px;color:var(--muted);margin-top:6px;">Titulares en vivo no disponibles ahora (revisa tu API key Finnhub) - pulsa Actualizar.</div>';
     return;
   }
-  
-  // Ordenar por fecha, tomar las 12 más recientes
-  allItems.sort((a,b)=>b.pubDate-a.pubDate);
-  const shown = allItems.slice(0,12);
-  
-  const coMap={AAPL:'#555',MSFT:'#00a4ef',GOOGL:'#4285f4',AMZN:'#e47911',META:'#1877f2',NVDA:'#76b900',ASML:'#0066cc',WDC:'#005594'};
-  newsEl.innerHTML = shown.map(n=>{
-    const age = _newsAge(n.pubDate);
-    const tc = n.ticker ? (coMap[n.ticker]||'#888') : '#888';
-    return`<div style="padding:8px 0;border-bottom:0.5px solid var(--border);">
-      <a href="${n.link}" target="_blank" rel="noopener"
-         style="font-size:11px;font-weight:600;color:#1a1814;text-decoration:none;line-height:1.45;display:block;">
-         ${n.title}
-      </a>
-      <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
-        ${n.ticker?`<span style="font-size:8px;font-weight:700;padding:1px 5px;border-radius:6px;background:${tc}18;color:${tc};">${n.ticker}</span>`:''}
-        <span style="font-size:9px;color:var(--muted);">${age}</span>
-        <span style="font-size:9px;color:var(--muted);">· ${n.source}</span>
+  const tagged=raw.map(n=>{
+    const tu=((n.headline||'')+' '+(n.summary||'')+' '+(n.related||'')).toUpperCase();
+    const mt=tickers.find(t=>tu.includes(t)||(NAMES[t]||[]).some(x=>tu.includes(x)));
+    return {headline:n.headline||'',url:n.url||'#',source:n.source||'',image:n.image||'',ticker:mt||null,dt:new Date((n.datetime||0)*1000)};
+  }).filter(n=>n.headline.length>12);
+  const port=tagged.filter(n=>n.ticker).sort((a,b)=>b.dt-a.dt);
+  const gen=tagged.filter(n=>!n.ticker).sort((a,b)=>b.dt-a.dt);
+  const shown=[...port.slice(0,9),...gen.slice(0,7)].slice(0,16);
+  newsEl.innerHTML=shown.map(n=>{
+    const tc=n.ticker?(coMap[n.ticker]||'#888'):'#888';
+    return`<div class="news-item" style="display:flex;gap:9px;align-items:flex-start;">
+      ${n.image?`<img src="${n.image}" loading="lazy" onerror="this.style.display='none'" style="width:46px;height:46px;border-radius:7px;object-fit:cover;flex-shrink:0;background:#f0ede8;"/>`:''}
+      <div style="flex:1;min-width:0;">
+        <a href="${n.url}" target="_blank" rel="noopener" style="font-size:11.5px;font-weight:600;color:#1a1814;text-decoration:none;line-height:1.4;display:block;">${n.headline}</a>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
+          ${n.ticker?`<span style="font-size:8px;font-weight:700;padding:1px 5px;border-radius:6px;background:${tc}1f;color:${tc};">${n.ticker}</span>`:''}
+          <span style="font-size:9px;color:var(--muted);">${_newsAge(n.dt)} - ${n.source}</span>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -3985,7 +3940,7 @@ function renderCartera(){
     <div id="cweek-${k}" style="font-size:12px;font-weight:800;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
   </td>
   <td style="text-align:right;background:#fff8f0;">
-    <div id="cobjevf-${k}" style="font-size:13px;font-weight:800;color:#b45309;">${fmt(m.objEVF,k)}</div>
+    <div id="cobjevf-${k}" style="font-size:13px;font-weight:800;color:#1a1814;">${fmt(m.objEVF,k)}</div>
     <div id="cmds-${k}" style="font-size:10px;font-weight:800;color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</div>
   </td>
   <td style="text-align:right;">
