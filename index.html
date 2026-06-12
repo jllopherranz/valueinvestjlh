@@ -1665,7 +1665,17 @@ function calcVerdict(){
   const moat=calcMoat();
 
   // ─── PESO REBALANCEADO: MdS 50pts · MOAT 30pts · ROIC 20pts ───
-  const mdsScore=msBase>30?50:msBase>20?42:msBase>10?32:msBase>0?20:msBase>-10?8:msBase>-20?3:0;
+  // Curva CONTINUA (sin escalones). El precio justo base YA es conservador (múltiplo
+  // objetivo = mediana 5Y × 0,82 o tu múltiplo). Por eso 0% MdS = comprar a un valor ya
+  // rebajado → 30/50, no 20. Premiamos entrar a precio justo en negocios de calidad;
+  // la sobrevaloración real la castiga la penalización por euforia. +30% MdS = 50/50.
+  const mdsScore=Math.round(
+    msBase>=30 ? 50 :
+    msBase>=15 ? 42+(msBase-15)/15*8 :   // 15%→42 ... 30%→50
+    msBase>=0  ? 30+msBase/15*12 :        // 0%→30 ... 15%→42
+    msBase>=-20? 30+msBase/20*30 :        // 0%→30 ... -20%→0
+    0
+  );
   const moatScore=Math.round(moat.overall*30/100);
 
   // ─── ROIC: tendencia 5Y + nivel absoluto + momentum ───
