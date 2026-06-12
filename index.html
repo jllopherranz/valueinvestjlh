@@ -20,6 +20,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .brand{font-weight:700;font-size:15px;color:var(--navy);display:flex;align-items:center;gap:7px;}
 .co-btns{display:flex;gap:6px;}
 .co-btn{padding:4px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:12px;font-weight:600;color:var(--sub);transition:all .15s;}
+#co-dropdown .co-btns{flex-direction:column;gap:3px;}
+#co-dropdown .co-btn{width:100%;text-align:left;border-radius:8px;padding:7px 12px;}
 .co-btn.active{color:#fff;}
 .coinfo{font-size:11px;color:var(--muted);padding-left:10px;border-left:1px solid var(--border);}
 .coname{font-size:14px;font-weight:700;}
@@ -434,6 +436,13 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   .kpi-popup-inner{width:92vw !important;max-height:85vh;overflow-y:auto;}
   .dash-co-tbl{font-size:11px;}
   .dash-co-tbl td{padding:6px 6px !important;}
+  /* ── Cabecera Análisis compacta en móvil: solo nav + logo + nombre + precio ── */
+  .hdr .brand{display:none;}
+  #earnings-badge{display:none !important;}
+  #hdr-mktcap{display:none !important;}
+  .hdr-top{margin-bottom:6px;gap:6px;}
+  .coname{font-size:13px;}
+  .price-group{margin-left:auto;}
 }
 @media (max-width:480px){
   .kpi-grid{grid-template-columns:1fr !important;}
@@ -447,11 +456,14 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <div class="hdr-top">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <div class="brand">📊 Value<span style="color:var(--blue);">Invest</span> JLH</div>
-      <div style="display:flex;gap:4px;margin-left:8px;">
+      <div style="display:flex;gap:4px;margin-left:8px;position:relative;">
         <button id="nav-dash" onclick="setView('dash')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--navy);background:var(--navy);cursor:pointer;font-size:11px;font-weight:700;color:#fff;">🏠 Dashboard</button>
-        <button id="nav-analysis" onclick="setView('analysis')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);">📈 Análisis</button>
+        <button id="nav-analysis" onclick="toggleAnalysisMenu(event)" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);">📈 Análisis ▾</button>
+        <div id="co-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:130;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.16);padding:6px;min-width:210px;max-height:70vh;overflow:auto;">
+          <div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:2px 8px 6px;">Elige empresa</div>
+          <div class="co-btns" id="co-btns"></div>
+        </div>
       </div>
-      <div class="co-btns" id="co-btns"></div>
       <div style="display:flex;align-items:center;gap:10px;">
         <div id="co-logo-wrap" style="display:none;align-items:center;flex-shrink:0;">
           <img id="co-logo" src="" alt="" style="width:36px;height:36px;border-radius:9px;object-fit:contain;border:1.5px solid var(--border);padding:3px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08);"/>
@@ -479,7 +491,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
           <button id="hdr-sim-exit" style="display:none;font-size:9px;padding:2px 8px;border-radius:8px;border:1px solid #f59e0b;background:#fffbeb;color:#d97706;cursor:pointer;font-weight:700;align-items:center;gap:3px;white-space:nowrap;" onclick="price=_livePrice||co.price;simMode=false;document.getElementById('price-inp').value=N(price,2);recalc();if(TABS_NEED_RERENDER.includes(curTab))showTab(curTab);">↺ Precio live</button>
         </div>
       </div>
-      <div class="price-box" style="min-width:120px;">
+      <div class="price-box" id="hdr-mktcap" style="min-width:120px;">
         <div class="price-lbl">Market Cap</div>
         <div id="mktcap-display" style="font-size:17px;font-weight:800;color:#1e3a5f;letter-spacing:-.5px;">—</div>
         <div id="mktcap-sub" style="font-size:10px;color:var(--muted);margin-top:1px;"></div>
@@ -1461,7 +1473,21 @@ function switchCo(k){
     btn.style.color=act?'#fff':'';
   });
   resetIS();applyCompanyMults(co);updateEarningsBadge();fetchLivePrice();showTab(curTab);recalc();
+  const _dd=document.getElementById('co-dropdown'); if(_dd) _dd.style.display='none'; // cerrar desplegable al elegir empresa
 }
+
+// Abre/cierra el desplegable de empresas al pulsar "Análisis"
+function toggleAnalysisMenu(ev){
+  if(ev) ev.stopPropagation();
+  setView('analysis');
+  const d=document.getElementById('co-dropdown');
+  if(d) d.style.display = (d.style.display==='block')?'none':'block';
+}
+// Cerrar el desplegable al hacer clic fuera
+document.addEventListener('click',e=>{
+  const d=document.getElementById('co-dropdown');
+  if(d&&d.style.display==='block'&&!d.contains(e.target)&&e.target.id!=='nav-analysis') d.style.display='none';
+});
 
 // ═══════════════════════════════════════════════════════════════════
 // CALCULATIONS
@@ -3242,6 +3268,7 @@ function toggleAcCard(card){const exp=card.querySelector('.ac-expand');const ope
 // ── Navegación entre vistas ──
 function setView(v){
   if(v==='cartera') v='dash'; // Cartera fusionada en el Dashboard
+  if(v!=='analysis'){const _dd=document.getElementById('co-dropdown');if(_dd)_dd.style.display='none';}
   const dash=document.getElementById('view-dash');
   const cartera=document.getElementById('view-cartera');
   const cnt=document.getElementById('cnt');
