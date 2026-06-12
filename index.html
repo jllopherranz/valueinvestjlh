@@ -442,7 +442,14 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   #hdr-mktcap{display:none !important;}
   .hdr-top{margin-bottom:6px;gap:6px;}
   .coname{font-size:13px;}
-  .price-group{margin-left:auto;}
+  .coinfo{font-size:10px;}
+  /* precio análisis compacto: sin recuadro ni etiqueta, solo LIVE + número + variación */
+  .price-group{margin-left:auto;gap:4px;}
+  .price-box{border:none;background:transparent;padding:0;text-align:right;min-width:0 !important;}
+  .price-lbl{font-size:0 !important;margin:0;justify-content:flex-end;gap:3px;}
+  .price-lbl .price-live-badge,.price-lbl #hdr-sim-flag{font-size:8px !important;}
+  .price-inp{width:66px;font-size:15px;}
+  .price-change{font-size:9px;margin-top:0;min-height:0;}
 }
 @media (max-width:480px){
   .kpi-grid{grid-template-columns:1fr !important;}
@@ -1725,8 +1732,8 @@ function recalc(){
   const _ref=_livePrice||co.price;
   if(active&&active.id==='val-price-inp'){price=+active.value||_ref;simMode=Math.abs(price-_ref)>0.5;}
   else if(active&&active.id==='price-inp'){price=+active.value||_ref;simMode=Math.abs(price-_ref)>0.5;}
-  if(hdrInp&&active!==hdrInp) hdrInp.value=N(price,2);
-  if(valInp&&active!==valInp){valInp.value=N(price,2);}
+  if(hdrInp&&active!==hdrInp) hdrInp.value=(+price).toFixed(2);   // punto decimal: válido para input type=number
+  if(valInp&&active!==valInp){valInp.value=(+price).toFixed(2);}
   // Sim indicators
   const sb=document.getElementById('sim-banner');
   if(sb) sb.style.display=simMode?'block':'none';
@@ -2794,7 +2801,7 @@ function rValoracion(){
         <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Precio de análisis</div>
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:13px;color:var(--muted);font-weight:700;">$</span>
-          <input id="val-price-inp" type="number" value="${N(price,2)}"
+          <input id="val-price-inp" type="number" value="${(+price).toFixed(2)}"
             style="width:110px;font-size:28px;font-weight:800;color:${isSimulating?'#d97706':vc};border:none;border-bottom:3px solid ${isSimulating?'#f59e0b':vc};background:transparent;outline:none;text-align:center;transition:color .2s;"
             oninput="price=+this.value||(_livePrice||co.price);simMode=Math.abs(price-(_livePrice||co.price))>0.5;recalc()"/>
           ${isSimulating?`<span style="font-size:9px;font-weight:700;background:#fffbeb;color:#d97706;border:1px solid #f59e0b;padding:2px 7px;border-radius:8px;">SIM</span>`:''}
