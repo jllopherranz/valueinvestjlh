@@ -3651,6 +3651,26 @@ function updateDashCoRow(key,price,pct,change){
 
 // ── Noticias dashboard via Finnhub ──
 let _dashAllNews=[];
+// Alias por compañía: el titular debe mencionar a la empresa para considerarse "directo"
+const NEWS_ALIASES={
+  MSFT:['microsoft','azure','copilot','nadella','xbox','windows 11','windows'],
+  CSU:['constellation software','mark leonard','topicus','lumine'],
+  AMZN:['amazon','aws','bezos','andy jassy','prime video','amazon web services'],
+  META:['meta platforms','meta','facebook','instagram','whatsapp','zuckerberg','reality labs','threads','oculus'],
+  NVDA:['nvidia','jensen huang','geforce','blackwell','cuda'],
+  ASML:['asml','euv lithography','lithography machine'],
+  AAPL:['apple','iphone','ipad','macbook','tim cook','vision pro','app store','ios 18','ios 19'],
+  GOOGL:['google','alphabet','gemini','youtube','waymo','sundar pichai','deepmind'],
+  WDC:['western digital','sandisk','wdc'],
+};
+// Recopilatorios de mercado / listas → NO son noticia directa de la compañía
+const NEWS_BLOCK=/(stocks? to (watch|buy|sell)|best stocks|top \d+ stocks|stocks? that|market wrap|premarket|pre-market|after hours|movers|trending tickers|dow jones|s&p 500|nasdaq (today|closes|futures)|futures (rise|fall|mixed|edge)|jim cramer|analyst (ratings|roundup)|things to know|here'?s what|magnificent seven|7 stocks|cup of joe|stock market today)/i;
+function newsAliasesFor(co){
+  if(NEWS_ALIASES[co.key]) return NEWS_ALIASES[co.key];
+  // empresa importada sin alias fijo: usa palabras del nombre (>3 letras) + ticker
+  const words=(co.name||'').toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>3&&!['corp','inc','company','group','plc','ltd','the'].includes(w));
+  return [...new Set([...words,(co.ticker||co.key).toLowerCase()])];
+}
 // Traduce titulares al español (Google gtx, por lotes, con caché en localStorage)
 async function _translateNews(heads){
   let cache={}; try{cache=JSON.parse(localStorage.getItem('vi_news_es')||'{}');}catch(e){}
@@ -3680,10 +3700,16 @@ async function fetchDashNews(){
   const cos=getAllPortfolioCompanies();
   const to=new Date().toISOString().slice(0,10);
   const from=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
-  const norm=x=>(x||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const norm=x=>' '+(x||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()+' ';
+  // ¿el texto menciona alguno de estos alias como palabra/expresión?
+  const mentions=(txt,aliases)=>aliases.some(a=>txt.includes(' '+a.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()+' '));
+  // alias de TODAS las demás empresas de la cartera (para detectar listas multi-empresa)
+  const aliasByKey={}; cos.forEach(c=>aliasByKey[c.key]=newsAliasesFor(c));
   const seenGlobal=new Set();
   const results=await Promise.allSettled(cos.map(async co=>{
     const sym=YF_TICKER_FH[co.key]||co.fhTicker||co.key;
+    const own=newsAliasesFor(co);
+    const others=cos.filter(c=>c.key!==co.key).flatMap(c=>aliasByKey[c.key]);
     try{
       const r=await fetch('https://finnhub.io/api/v1/company-news?symbol='+encodeURIComponent(sym)+'&from='+from+'&to='+to+'&token='+k,{signal:AbortSignal.timeout(9000)});
       if(!r.ok) return null;
@@ -3692,10 +3718,14 @@ async function fetchDashNews(){
       j.sort((a,b)=>(b.datetime||0)-(a.datetime||0));
       const seen=new Set(), picked=[];
       for(const n of j){
-        const h=norm(n.headline);
-        if(!n.headline||n.headline.length<14||seen.has(h)) continue;
+        const head=n.headline||'';
+        const h=norm(head);
+        if(head.length<14||seen.has(h)) continue;
+        if(NEWS_BLOCK.test(head)) continue;                 // fuera recopilatorios/mercado
+        if(!mentions(h,own)) continue;                       // DEBE nombrar a la compañía
+        if(mentions(h,others)) continue;                     // fuera listas que mezclan otras empresas
         seen.add(h); picked.push(n);
-        if(picked.length>=6) break;   // candidatos (luego deduplicamos a nivel global)
+        if(picked.length>=5) break;   // candidatos (luego dedup global → 3)
       }
       return picked.length?{co,items:picked}:null;
     }catch(e){return null;}
