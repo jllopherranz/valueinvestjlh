@@ -1593,15 +1593,18 @@ function calcVerdict(){
   const ud=(dcf-price)/price*100,um=(mult.avg-price)/price*100;
   const ms=Math.min(ud,um);
 
-  // MdS con los múltiplos EFECTIVOS de la empresa (tu hoja / tus últimos editados) — coherente con resumen/valoración/cartera
+  // Valor justo = media de los 4 métodos (EV/FCF · PER · EV/EBITDA · EV/EBIT) sobre el año actual,
+  // con tus múltiplos efectivos. MISMA base que la cartera, la proyección y las zonas de precio.
   const med5_evf=co.med5EvFcf||co.medEvFcf;
   const med5_per=co.med5PER||co.medPER;
   const _gm=getCompanyMults(coKeyOf(co));
   const baseEVF=_gm.evf;
   const basePER=_gm.per;
-  const fairFromEVF=(co.fcf[9]*baseEVF-co.netDebt[9])/co.shares;
-  const fairFromPER=co.eps[9]*basePER;
-  const fairBase=(fairFromEVF+fairFromPER)/2;
+  const fairFromEVF=(co.fcf[9]*_gm.evf-co.netDebt[9])/co.shares;
+  const fairFromPER=co.eps[9]*_gm.per;
+  const fairFromEB =(co.ebitda[9]*_gm.eveb-co.netDebt[9])/co.shares;
+  const fairFromEI =(co.ebit[9]*_gm.evei-co.netDebt[9])/co.shares;
+  const fairBase=(fairFromEVF+fairFromPER+fairFromEB+fairFromEI)/4;
   const msBase=((fairBase-price)/price*100);
 
   const moat=calcMoat();
@@ -2229,11 +2232,12 @@ function rResumen(){
   const fv5=rowAvg[4];
   const cagr5=((Math.pow(Math.max(fv5,1)/Math.max(price,1),0.2)-1)*100);
 
-  // Price zones
+  // Zonas de precio derivadas del MISMO valor justo del veredicto (vd.fairBase) → coherentes con el MdS.
+  //  COMPRAR: MdS ≥ +20% (precio ≤ justo/1,20) · JUSTO: 0–20% · VIGILAR: −15–0% · CARO: < −15%
   const evfcfCurrent=Math.round((price*co.shares+co.netDebt[9])/co.fcf[9]);
-  const attractPrice=Math.round((co.fcf[9]*Math.round(medEvFcf*0.65)-co.netDebt[9])/co.shares);
-  const fairPrice   =Math.round((co.fcf[9]*Math.round(medEvFcf*0.82)-co.netDebt[9])/co.shares);
-  const expPrice    =Math.round((co.fcf[9]*medEvFcf-co.netDebt[9])/co.shares);
+  const fairPrice   =vd.fairBase;
+  const attractPrice=Math.round(vd.fairBase/1.20);
+  const expPrice    =Math.round(vd.fairBase*1.176);
   const zone=price<=attractPrice?'BUY':price<=fairPrice?'FAIR':price<=expPrice?'WATCH':'AVOID';
   const zd={
     BUY: {c:'#16a34a',bg:'#f0fdf4',bd:'#bbf7d0',label:'COMPRAR',emoji:'🟢'},
