@@ -1421,6 +1421,27 @@ function _persistMults(){const k=coKeyOf(co);if(k)saveCompanyMults(k,{per:tPER,e
 // Carga en tEVF/tPER/… los múltiplos efectivos de la empresa (hoja o últimos editados)
 function applyCompanyMults(c){const k=coKeyOf(c||co);const m=getCompanyMults(k);tEVF=m.evf;tPER=m.per;tEVE=m.eveb;tEVEI=m.evei;}
 
+// ── PRECIOS OBJETIVO EV/FCF (2026e..2030e) — FUENTE ÚNICA para resumen, valoración y cartera ──
+// Prioridad (todo basado en TU plantilla):
+//   1) precios objetivo YA calculados en tu hoja importada (idénticos a la plantilla);
+//   2) cálculo con las proyecciones del analista (FCF, deuda neta y acciones proyectadas de la hoja)
+//      × tu múltiplo objetivo — MISMA base que la cartera;
+//   3) último recurso: modelo IS editable.
+function evfTargetsFor(arg){
+  const k=(typeof arg==='string')?arg:coKeyOf(arg||co);
+  const imp=getImportedData(k), d=DB[k], gm=getCompanyMults(k);
+  let edited=false; try{edited=!!localStorage.getItem('vi_mults_'+k);}catch(e){}
+  if(imp && !edited && imp.targetPrices && Array.isArray(imp.targetPrices.evf) && imp.targetPrices.evf.some(v=>v!=null)){
+    return imp.targetPrices.evf.map(v=>v!=null?Math.round(v):null);
+  }
+  const pF=(imp&&imp.pF)||d?.pF, pND=(imp&&imp.pND)||d?.pND, pSh=(imp&&imp.pShares)||d?.pShares;
+  const sh0=(imp&&imp.shares)||d?.shares;
+  if(pF&&pF.length>=5&&sh0){
+    return pF.slice(0,5).map((f,i)=>{ const sh=(pSh&&pSh[i]>0)?pSh[i]:sh0; const nd=pND?.[i]??0; return Math.round((f*gm.evf-nd)/sh); });
+  }
+  return calcISModel().map(m=>Math.round((m.fcf*gm.evf-m.nd)/m.sh));
+}
+
 // ── COMPANY SWITCH ──
 function switchCo(k){
   co=DB[k];price=co.price;simPrice=null;simMode=false;_livePrice=null;
@@ -1593,16 +1614,15 @@ function calcVerdict(){
   const ud=(dcf-price)/price*100,um=(mult.avg-price)/price*100;
   const ms=Math.min(ud,um);
 
-  // Valor justo = media de los 4 métodos (EV/FCF · PER · EV/EBITDA · EV/EBIT) sobre el año actual,
-  // con tus múltiplos efectivos. MISMA base que la cartera, la proyección y las zonas de precio.
+  // Valor justo = PRECIO OBJETIVO EV/FCF del próximo año (2026e), MISMA fuente que la pestaña
+  // Valoración y tu plantilla (tu múltiplo objetivo · año siguiente). Solo EV/FCF.
   const med5_evf=co.med5EvFcf||co.medEvFcf;
   const med5_per=co.med5PER||co.medPER;
   const _gm=getCompanyMults(coKeyOf(co));
   const baseEVF=_gm.evf;
   const basePER=_gm.per;
-  // Valor justo SOLO por EV/FCF (método de referencia) con TU múltiplo objetivo
-  const fairFromEVF=(co.fcf[9]*_gm.evf-co.netDebt[9])/co.shares;
-  const fairBase=fairFromEVF;
+  const _evfT=evfTargetsFor(co);
+  const fairBase=(_evfT[0]!=null?_evfT[0]:(co.fcf[9]*_gm.evf-co.netDebt[9])/co.shares);
   const msBase=((fairBase-price)/price*100);
 
   const moat=calcMoat();
@@ -1732,7 +1752,7 @@ function _refreshMultTiles(){
 }
 function _refreshPriceTable(){
   const isM=calcISModel();
-  const rows={'ptr-per':isM.map(m=>Math.round(m.eps*tPER)),'ptr-evf':isM.map(m=>Math.round((m.fcf*tEVF-m.nd)/m.sh)),'ptr-eveb':isM.map(m=>Math.round((m.eb*tEVE-m.nd)/m.sh)),'ptr-evei':isM.map(m=>Math.round((m.ebit*tEVEI-m.nd)/m.sh))};
+  const rows={'ptr-per':isM.map(m=>Math.round(m.eps*tPER)),'ptr-evf':evfTargetsFor(co),'ptr-eveb':isM.map(m=>Math.round((m.eb*tEVE-m.nd)/m.sh)),'ptr-evei':isM.map(m=>Math.round((m.ebit*tEVEI-m.nd)/m.sh))};
   rows['ptr-avg']=rows['ptr-evf'].map((_,i)=>Math.round((rows['ptr-per'][i]+rows['ptr-evf'][i]+rows['ptr-eveb'][i]+rows['ptr-evei'][i])/4));
   Object.entries(rows).forEach(([rowId,data])=>{
     data.forEach((v,i)=>{
@@ -1753,16 +1773,16 @@ function _refreshPriceTable(){
 }
 function _refreshCagrRow(){
   const isM=calcISModel();
-  const models={'cagr-per':isM.map((m,i)=>(Math.pow(Math.max(m.eps*tPER,1)/Math.max(price,1),1/(i+1))-1)*100),'cagr-evf':isM.map((m,i)=>(Math.pow(Math.max((m.fcf*tEVF-m.nd)/m.sh,1)/Math.max(price,1),1/(i+1))-1)*100),'cagr-eveb':isM.map((m,i)=>(Math.pow(Math.max((m.eb*tEVE-m.nd)/m.sh,1)/Math.max(price,1),1/(i+1))-1)*100),'cagr-evei':isM.map((m,i)=>(Math.pow(Math.max((m.ebit*tEVEI-m.nd)/m.sh,1)/Math.max(price,1),1/(i+1))-1)*100)};
-  models['cagr-avg']=isM.map((m,i)=>{const p=(m.eps*tPER+(m.fcf*tEVF-m.nd)/m.sh+(m.eb*tEVE-m.nd)/m.sh+(m.ebit*tEVEI-m.nd)/m.sh)/4;return(Math.pow(Math.max(p,1)/Math.max(price,1),1/(i+1))-1)*100;});
+  const evfT=evfTargetsFor(co); // EV/FCF: fuente única (tu hoja / proyecciones analista)
+  const models={'cagr-per':isM.map((m,i)=>(Math.pow(Math.max(m.eps*tPER,1)/Math.max(price,1),1/(i+1))-1)*100),'cagr-evf':isM.map((m,i)=>(Math.pow(Math.max(evfT[i],1)/Math.max(price,1),1/(i+1))-1)*100),'cagr-eveb':isM.map((m,i)=>(Math.pow(Math.max((m.eb*tEVE-m.nd)/m.sh,1)/Math.max(price,1),1/(i+1))-1)*100),'cagr-evei':isM.map((m,i)=>(Math.pow(Math.max((m.ebit*tEVEI-m.nd)/m.sh,1)/Math.max(price,1),1/(i+1))-1)*100)};
+  models['cagr-avg']=isM.map((m,i)=>{const p=(m.eps*tPER+evfT[i]+(m.eb*tEVE-m.nd)/m.sh+(m.ebit*tEVEI-m.nd)/m.sh)/4;return(Math.pow(Math.max(p,1)/Math.max(price,1),1/(i+1))-1)*100;});
   const ccol=v=>v>=20?'#16a34a':v>=10?'#d97706':'#dc2626';
   Object.entries(models).forEach(([id,data])=>{const v5=data[4];const el=document.getElementById(id+'-5y');if(el){el.textContent=(v5>=0?'+':'')+v5.toFixed(0)+'%';el.style.color=ccol(v5);}});
   const bigCagr=document.getElementById('cagr-big');if(bigCagr){const avg5=models['cagr-avg'][4];bigCagr.textContent=(avg5>=0?'+':'')+avg5.toFixed(0)+'%';bigCagr.style.color=ccol(avg5);}
 }
 function _refreshRetorno(){
   const idx=Math.min(hor,5)-1;
-  const isM=calcISModel();
-  const rowEVF=isM.map(m=>Math.round((m.fcf*tEVF-m.nd)/m.sh));
+  const rowEVF=evfTargetsFor(co); // EV/FCF: tu hoja / modelo (misma fuente)
   const priceForRet=Math.round(rowEVF[idx]/Math.pow(1+ret/100,idx+1));
   const diff=((priceForRet-price)/price*100);
   const el=document.getElementById('ret-price'),el2=document.getElementById('ret-diff');
@@ -2223,7 +2243,7 @@ function rResumen(){
   // Precios objetivo con los múltiplos EFECTIVOS de la empresa (tu hoja / tus últimos editados) — misma fuente que Valoración y Cartera
   const _gm=getCompanyMults(coKeyOf(co));
   const rowPER=isM.map(m=>Math.round(m.eps*_gm.per));
-  const rowEVF=isM.map(m=>Math.round((m.fcf*_gm.evf-m.nd)/m.sh));
+  const rowEVF=evfTargetsFor(co); // EV/FCF: tu hoja si está importada, o el modelo con tu múltiplo
   const rowEVEB=isM.map(m=>Math.round((m.eb*_gm.eveb-m.nd)/m.sh));
   const rowEVEI=isM.map(m=>Math.round((m.ebit*_gm.evei-m.nd)/m.sh));
   const rowAvg=rowEVF.map((_,i)=>Math.round((rowEVF[i]+rowPER[i]+rowEVEB[i]+rowEVEI[i])/4));
@@ -2549,7 +2569,7 @@ function rResumen(){
           <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
             <div class="verdict-price" style="font-size:26px;font-weight:900;color:#1a1814;">$${N(price,2)}</div>
             <div style="font-size:11px;font-weight:700;color:${vd.msBase>=0?'#16a34a':'#dc2626'}">${vd.msBase>=0?'+':''}${vd.msBase}% MdS</div>
-            <div style="font-size:10px;color:var(--muted);">vs precio justo $${N(vd.fairBase)}</div>
+            <div style="font-size:10px;color:var(--muted);">vs objetivo EV/FCF próx. año $${N(vd.fairBase)}</div>
           </div>
           <!-- NOTA: valoración solo por EV/FCF con tu múltiplo + diferencia % -->
           <div style="font-size:10px;color:var(--sub);background:rgba(255,255,255,.7);border:1px solid ${vd.verdictColor}25;border-radius:7px;padding:6px 9px;margin-bottom:8px;line-height:1.6;">
@@ -2721,7 +2741,7 @@ function rValoracion(){
   const isM=calcISModel();
   const me=(co.medEvEbit||(Math.round(co.medEvEbitda*co.ebitdaM[9]/Math.max(co.ebitM[9],1))));
   const rowPER=isM.map(m=>Math.round(m.eps*tPER));
-  const rowEVF=isM.map(m=>Math.round((m.fcf*tEVF-m.nd)/m.sh));
+  const rowEVF=evfTargetsFor(co); // EV/FCF: misma fuente que el resumen y tu hoja
   const rowEVEB=isM.map(m=>Math.round((m.eb*tEVE-m.nd)/m.sh));
   const rowEVEI=isM.map(m=>Math.round((m.ebit*tEVEI-m.nd)/m.sh));
   const rowAvg=rowEVF.map((_,i)=>Math.round((rowPER[i]+rowEVF[i]+rowEVEB[i]+rowEVEI[i])/4));
@@ -3887,14 +3907,9 @@ function carteraMetrics(co){
   // Precio objetivo a 2030e por EV/FCF (método de referencia, igual que tu hoja).
   // Si la empresa está importada y NO has tocado los múltiplos a mano, usamos el precio
   // YA calculado en tu hoja (targetPrices) → coincide exactamente (acciones proyectadas, etc.).
-  const edited=(()=>{try{return !!localStorage.getItem('vi_mults_'+key);}catch(e){return false;}})();
-  let obj5=null;
-  if(imp && imp.targetPrices && imp.targetPrices.evf && imp.targetPrices.evf[4]!=null && !edited){
-    obj5=imp.targetPrices.evf[4];
-  } else {
-    const vi5=calcPortfolioVI(key,imp,4);
-    obj5=vi5?vi5.evf:null;
-  }
+  // Obj 5Y por EV/FCF = misma fuente única que el resumen y la valoración (tu hoja / proyecciones analista × tu múltiplo)
+  const _evfT=evfTargetsFor(key);
+  const obj5=_evfT&&_evfT[4]!=null?_evfT[4]:null;
   const cagr5=(obj5&&price)?(Math.pow(Math.max(obj5,.01)/Math.max(price,.01),0.2)-1)*100:null;
   const price15=obj5!=null?obj5/Math.pow(1.15,5):null;   // precio máx. hoy para +15% anual a 5 años (EV/FCF)
   // PEG = PER actual / crecimiento esperado (%)
