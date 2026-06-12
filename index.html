@@ -268,10 +268,18 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .ev-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media(max-width:900px){.ev-grid{grid-template-columns:1fr;}}
 .dash-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;}
-#dash-news-list{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;}
-@media(max-width:760px){#dash-news-list{grid-template-columns:1fr;}.dash-cal-grid{grid-template-columns:1fr !important;}}
+#dash-news-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+@media(max-width:760px){.dash-cal-grid{grid-template-columns:1fr !important;}}
+.news-co{border:1px solid var(--border);border-radius:10px;padding:9px 12px;background:#fafaf9;}
+.news-co-head{display:flex;align-items:center;gap:7px;margin-bottom:5px;}
+.news-co-logo{width:20px;height:20px;border-radius:5px;object-fit:contain;background:#fff;border:1px solid var(--border);padding:1px;flex-shrink:0;}
+.news-co-name{font-size:11px;font-weight:800;color:#1a1814;}
+.news-co-tk{font-size:8px;font-weight:700;color:var(--muted);}
+.news-co-item{display:block;padding:5px 0;border-top:0.5px solid var(--border);text-decoration:none;}
+.news-co-item:hover .news-co-title{color:var(--blue);}
+.news-co-title{display:block;font-size:11px;font-weight:600;color:#1a1814;line-height:1.35;}
+.news-co-meta{font-size:8.5px;color:var(--muted);}
 .news-item{padding:9px 0;border-bottom:0.5px solid var(--border);}
-.news-item:hover{background:#faf9f7;}
 .ev-item{display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-bottom:0.5px solid var(--border);}
 .ev-item:last-child{border-bottom:none;}
 .ev-datebox{background:#f5f4f1;border-radius:7px;padding:3px 7px;text-align:center;min-width:40px;flex-shrink:0;}
@@ -3589,44 +3597,77 @@ function updateDashCoRow(key,price,pct,change){
 
 // ── Noticias dashboard via Finnhub ──
 let _dashAllNews=[];
+// Traduce titulares al español (Google gtx, por lotes, con caché en localStorage)
+async function _translateNews(heads){
+  let cache={}; try{cache=JSON.parse(localStorage.getItem('vi_news_es')||'{}');}catch(e){}
+  const need=[...new Set(heads.filter(h=>h&&!cache[h]))];
+  for(let i=0;i<need.length;i+=8){
+    const chunk=need.slice(i,i+8);
+    try{
+      const url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q='+encodeURIComponent(chunk.join('\n'));
+      const r=await fetch(url,{signal:AbortSignal.timeout(9000)});
+      if(r.ok){
+        const j=await r.json();
+        const parts=j[0].map(x=>x[0]).join('').split('\n').map(x=>x.trim()).filter(x=>x.length);
+        if(parts.length===chunk.length) chunk.forEach((t,n)=>cache[t]=parts[n]);
+      }
+    }catch(e){}
+  }
+  try{localStorage.setItem('vi_news_es',JSON.stringify(cache));}catch(e){}
+  const map={}; heads.forEach(h=>map[h]=cache[h]||h);
+  return map;
+}
+
 async function fetchDashNews(){
   const newsEl=document.getElementById('dash-news-list');
   if(!newsEl) return;
-  newsEl.innerHTML='<div style="grid-column:1/-1;padding:16px;text-align:center;color:var(--muted);font-size:11px;">Cargando titulares...</div>';
+  newsEl.innerHTML='<div style="grid-column:1/-1;padding:16px;text-align:center;color:var(--muted);font-size:11px;">Cargando noticias...</div>';
   const k=getFinnhubKey();
-  const tickers=['AAPL','MSFT','GOOGL','AMZN','META','NVDA','ASML','WDC'];
-  const NAMES={AMZN:['AMAZON'],MSFT:['MICROSOFT'],AAPL:['APPLE'],GOOGL:['ALPHABET','GOOGLE'],META:['META ','FACEBOOK','INSTAGRAM'],NVDA:['NVIDIA'],ASML:['ASML'],WDC:['WESTERN DIGITAL','SANDISK']};
-  const coMap={AAPL:'#555',MSFT:'#00a4ef',GOOGL:'#4285f4',AMZN:'#e47911',META:'#1877f2',NVDA:'#76b900',ASML:'#0066cc',WDC:'#005594'};
-  let raw=[];
-  try{
-    const r=await fetch('https://finnhub.io/api/v1/news?category=general&token='+k,{signal:AbortSignal.timeout(9000)});
-    if(r.ok){const j=await r.json();if(Array.isArray(j)) raw=j;}
-  }catch(e){}
-  if(!raw.length){
-    newsEl.innerHTML=DASH_COMPANIES.map(co=>`<a href="https://finance.yahoo.com/quote/${co.ticker}/news/" target="_blank" rel="noopener" class="news-item" style="display:block;text-decoration:none;color:#2563eb;font-size:11px;font-weight:600;">Noticias de ${co.name}</a>`).join('')
-      +'<div style="grid-column:1/-1;font-size:10px;color:var(--muted);margin-top:6px;">Titulares en vivo no disponibles ahora (revisa tu API key Finnhub) - pulsa Actualizar.</div>';
+  const cos=getAllPortfolioCompanies();
+  const to=new Date().toISOString().slice(0,10);
+  const from=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
+  const norm=x=>(x||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const seenGlobal=new Set();
+  const results=await Promise.allSettled(cos.map(async co=>{
+    const sym=YF_TICKER_FH[co.key]||co.fhTicker||co.key;
+    try{
+      const r=await fetch('https://finnhub.io/api/v1/company-news?symbol='+encodeURIComponent(sym)+'&from='+from+'&to='+to+'&token='+k,{signal:AbortSignal.timeout(9000)});
+      if(!r.ok) return null;
+      const j=await r.json();
+      if(!Array.isArray(j)||!j.length) return null;
+      j.sort((a,b)=>(b.datetime||0)-(a.datetime||0));
+      const seen=new Set(), picked=[];
+      for(const n of j){
+        const h=norm(n.headline);
+        if(!n.headline||n.headline.length<14||seen.has(h)) continue;
+        seen.add(h); picked.push(n);
+        if(picked.length>=6) break;   // candidatos (luego deduplicamos a nivel global)
+      }
+      return picked.length?{co,items:picked}:null;
+    }catch(e){return null;}
+  }));
+  let groups=results.map(r=>r.status==='fulfilled'?r.value:null).filter(Boolean);
+  // Deduplicado GLOBAL: ningún titular se repite entre empresas; máx. 3 por empresa
+  groups=groups.map(g=>{
+    const items=[];
+    for(const n of g.items){const h=norm(n.headline);if(seenGlobal.has(h))continue;seenGlobal.add(h);items.push(n);if(items.length>=3)break;}
+    return {co:g.co,items};
+  }).filter(g=>g.items.length);
+  if(!groups.length){
+    newsEl.innerHTML='<div style="grid-column:1/-1;font-size:11px;color:var(--muted);text-align:center;padding:14px;">No hay noticias disponibles ahora (revisa tu API key Finnhub) - pulsa Actualizar.</div>';
     return;
   }
-  const tagged=raw.map(n=>{
-    const tu=((n.headline||'')+' '+(n.summary||'')+' '+(n.related||'')).toUpperCase();
-    const mt=tickers.find(t=>tu.includes(t)||(NAMES[t]||[]).some(x=>tu.includes(x)));
-    return {headline:n.headline||'',url:n.url||'#',source:n.source||'',image:n.image||'',ticker:mt||null,dt:new Date((n.datetime||0)*1000)};
-  }).filter(n=>n.headline.length>12);
-  const port=tagged.filter(n=>n.ticker).sort((a,b)=>b.dt-a.dt);
-  const gen=tagged.filter(n=>!n.ticker).sort((a,b)=>b.dt-a.dt);
-  const shown=[...port.slice(0,9),...gen.slice(0,7)].slice(0,16);
-  newsEl.innerHTML=shown.map(n=>{
-    const tc=n.ticker?(coMap[n.ticker]||'#888'):'#888';
-    return`<div class="news-item" style="display:flex;gap:9px;align-items:flex-start;">
-      ${n.image?`<img src="${n.image}" loading="lazy" onerror="this.style.display='none'" style="width:46px;height:46px;border-radius:7px;object-fit:cover;flex-shrink:0;background:#f0ede8;"/>`:''}
-      <div style="flex:1;min-width:0;">
-        <a href="${n.url}" target="_blank" rel="noopener" style="font-size:11.5px;font-weight:600;color:#1a1814;text-decoration:none;line-height:1.4;display:block;">${n.headline}</a>
-        <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
-          ${n.ticker?`<span style="font-size:8px;font-weight:700;padding:1px 5px;border-radius:6px;background:${tc}1f;color:${tc};">${n.ticker}</span>`:''}
-          <span style="font-size:9px;color:var(--muted);">${_newsAge(n.dt)} - ${n.source}</span>
-        </div>
-      </div>
-    </div>`;
+  const allHeads=[]; groups.forEach(g=>g.items.forEach(n=>allHeads.push(n.headline)));
+  const tr=await _translateNews(allHeads);
+  newsEl.innerHTML=groups.map(g=>{
+    const logo=logoUrlFor(g.co.key);
+    return '<div class="news-co"><div class="news-co-head">'
+      +(logo?'<img src="'+logo+'" class="news-co-logo" loading="lazy" onerror="this.style.display=\'none\'"/>':'')
+      +'<span class="news-co-name">'+g.co.name+'</span><span class="news-co-tk">'+g.co.ticker+'</span></div>'
+      +g.items.map(n=>'<a href="'+(n.url||'#')+'" target="_blank" rel="noopener" class="news-co-item">'
+        +'<span class="news-co-title">'+(tr[n.headline]||n.headline)+'</span>'
+        +'<span class="news-co-meta">'+_newsAge(new Date((n.datetime||0)*1000))+' · '+(n.source||'')+'</span></a>').join('')
+      +'</div>';
   }).join('');
 }
 
