@@ -597,6 +597,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   </div>
   <div id="cartera-mult-grid" style="display:none;"></div>
 
+  <!-- ── Comparador Growth vs Value de la cartera ── -->
+  <div id="dash-style-compare" style="margin-bottom:12px;"></div>
+
   <!-- ── Calendarios: próximos resultados + eventos importantes (dos columnas cuadradas) ── -->
   <div class="dash-cal-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;align-items:stretch;">
     <div class="card card-sm">
@@ -2289,20 +2292,28 @@ function rMiPosicion(vd,fv5){
 }
 
 // ── CLASIFICACIÓN DE ESTILO: Growth / Value / GARP / Quality ──
-function classifyStyle(){
+// Parametrizable por empresa (c, px) para reutilizar en el comparador del Dashboard.
+function computeStyleFor(c,px){
   const clamp=(v)=>Math.max(0,Math.min(100,v));
-  const gSales5=cagr(co.sales[9],co.sales[4],5);
-  const gFwdSales=(co.pS&&co.pS[4]&&co.sales[9]>0)?(Math.pow(Math.max(co.pS[4],1)/co.sales[9],1/5)-1)*100:gSales5;
-  const gEps5=(co.eps[4]>0&&co.eps[9]>0)?cagr(co.eps[9],co.eps[4],5):gSales5;
+  const gSales5=cagr(c.sales[9],c.sales[4],5);
+  const gFwdSales=(c.pS&&c.pS[4]&&c.sales[9]>0)?(Math.pow(Math.max(c.pS[4],1)/c.sales[9],1/5)-1)*100:gSales5;
+  const gEps5=(c.eps[4]>0&&c.eps[9]>0)?cagr(c.eps[9],c.eps[4],5):gSales5;
   const growth=(gSales5+gFwdSales+gEps5)/3;            // crecimiento representativo (hist + fwd)
-  const roic=co.roic[9], fcfM=co.fcfM[9];
-  const evfcfCur=(price*co.shares+co.netDebt[9])/co.fcf[9];
-  const med=co.med5EvFcf||co.medEvFcf;
+  const roic=c.roic[9], fcfM=c.fcfM[9];
+  const evfcfCur=(px*c.shares+c.netDebt[9])/c.fcf[9];
+  const med=c.med5EvFcf||c.medEvFcf;
   const cheapPct=med?(med-evfcfCur)/med*100:0;          // + = barato vs su propia historia
   const growthScore=clamp(growth/25*100);               // 25%+ → tope
   const qualityScore=clamp(roic/40*60 + fcfM/40*40);
   const valueScore=clamp(50+cheapPct*1.5);              // en mediana=50
   const quality=roic>=20&&fcfM>=18;
+  // ── Indicadores adicionales ──
+  const per=c.eps[9]>0?px/c.eps[9]:null;
+  const peg=(per&&growth>0)?per/growth:null;            // PEG (Lynch): <1 barato, >2 caro
+  const ruleOf40=growth+fcfM;                            // crecimiento% + margen FCF%
+  const fcfYield=c.fcf[9]/(px*c.shares)*100;             // rentabilidad de caja al precio actual
+  const dilution=(c.isD&&c.isD.di&&c.isD.di.length)?c.isD.di[0]:null; // <0 = recompra neta
+  const reinvest=(c.isD&&c.isD.cx&&c.isD.cx.length)?c.isD.cx[0]:null;  // CapEx/Ventas %
   let style,icon,color,desc;
   if(growth>=18&&quality){
     style='Quality Growth';icon='🚀';color='#7c3aed';
@@ -2327,8 +2338,11 @@ function classifyStyle(){
     `EV/FCF ${evfcfCur.toFixed(0)}x (${cheapPct>=0?'−':'+'}${Math.abs(cheapPct).toFixed(0)}% vs media)`,
   ];
   return{style,icon,color,desc,growth:+growth.toFixed(1),roic,fcfM,evfcfCur:+evfcfCur.toFixed(1),cheapPct:+cheapPct.toFixed(1),
-    growthScore:Math.round(growthScore),qualityScore:Math.round(qualityScore),valueScore:Math.round(valueScore),badges};
+    growthScore:Math.round(growthScore),qualityScore:Math.round(qualityScore),valueScore:Math.round(valueScore),badges,
+    per:per!=null?+per.toFixed(1):null,peg:peg!=null?+peg.toFixed(2):null,ruleOf40:+ruleOf40.toFixed(0),
+    fcfYield:+fcfYield.toFixed(1),dilution,reinvest};
 }
+function classifyStyle(){return computeStyleFor(co,price);}
 
 function rResumen(){
   const vd=calcVerdict();
@@ -2662,6 +2676,15 @@ function rResumen(){
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;">
         ${st.badges.map(b=>`<span style="background:#f7f6f3;border:1px solid var(--border);padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;color:#1a1814;">${b}</span>`).join('')}
       </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;border-top:1px dashed var(--border);padding-top:7px;">
+        <span style="font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;align-self:center;">Indicadores</span>
+        ${[
+          {tip:'peg',l:'PEG',v:st.peg!=null?st.peg.toFixed(2):'—',c:st.peg==null?'#6b7280':st.peg<1?'#16a34a':st.peg<2?'#d97706':'#dc2626'},
+          {tip:'ruleof40',l:'Rule of 40',v:st.ruleOf40+'%',c:st.ruleOf40>=40?'#16a34a':st.ruleOf40>=30?'#d97706':'#dc2626'},
+          {tip:'fcfyield',l:'FCF yield',v:st.fcfYield+'%',c:st.fcfYield>=5?'#16a34a':st.fcfYield>=3?'#d97706':'#dc2626'},
+          {tip:'reinversion',l:'Dilución',v:st.dilution!=null?((st.dilution>0?'+':'')+st.dilution+'%'):'—',c:st.dilution==null?'#6b7280':st.dilution<=0?'#16a34a':st.dilution<=1?'#d97706':'#dc2626'},
+        ].map(x=>`<span data-tip="${x.tip}" style="cursor:pointer;background:${x.c}12;color:${x.c};border:1px solid ${x.c}40;padding:2px 9px;border-radius:10px;font-size:9px;font-weight:700;">${x.l}: ${x.v} <span style="opacity:.7;">ⓘ</span></span>`).join('')}
+      </div>
     </div>`;})()}
 
     <!-- ══ BLOQUE 3: VEREDICTO + BARRA PRECIO ══ -->
@@ -2674,9 +2697,9 @@ function rResumen(){
           <div style="background:rgba(255,255,255,.8);border-radius:8px;padding:6px 8px;">
             <div style="font-size:20px;font-weight:900;color:${vd.verdictColor};line-height:1;">${vd.totalScore}<span style="font-size:10px;font-weight:600;">/100</span></div>
             <div style="margin-top:4px;display:grid;gap:3px;">
-              ${[['MdS',vd.mdsScore,50,vd.verdictColor],['MOAT',vd.moatScore,30,moat.color],['ROIC',vd.roicScore,20,co.roic[9]>=co.wacc?'#16a34a':'#dc2626']].map(([l,s,mx,c])=>`
+              ${[['MdS',vd.mdsScore,50,vd.verdictColor,'mds'],['MOAT',vd.moatScore,30,moat.color,'moat'],['ROIC',vd.roicScore,20,co.roic[9]>=co.wacc?'#16a34a':'#dc2626','roic']].map(([l,s,mx,c,tip])=>`
               <div style="display:flex;align-items:center;gap:4px;">
-                <div style="font-size:7px;color:var(--muted);width:28px;text-align:right;">${l}</div>
+                <div data-tip="${tip}" title="Clic: qué es" style="font-size:7px;color:var(--muted);width:28px;text-align:right;cursor:pointer;text-decoration:underline dotted;">${l}</div>
                 <div style="flex:1;height:5px;background:#e5e5e5;border-radius:10px;overflow:hidden;">
                   <div style="height:100%;width:${Math.round(s/mx*100)}%;background:${c};border-radius:10px;"></div>
                 </div>
@@ -2711,6 +2734,7 @@ function rResumen(){
               <div style="position:absolute;top:50%;left:${pp}%;transform:translate(-50%,-50%);width:13px;height:13px;background:#fff;border-radius:50%;border:2.5px solid ${vd.verdictColor};box-shadow:0 1px 4px rgba(0,0,0,.3);"></div>`;
             })()}
           </div>
+          <div data-tip="zonas" style="cursor:pointer;font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Zonas de precio + euforia <span style="opacity:.6;">ⓘ</span></div>
           <div class="price-bar-zones" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:10px;">
             ${[['🟢','ATRACTIVO',attractPrice,'+20% MdS'],['🔵','JUSTO',fairPrice,'tu múltiplo'],['🔴','CARO',expPrice,'−15% MdS']].map(([e,l,p,m])=>`
             <div style="text-align:center;padding:5px 4px;background:rgba(255,255,255,.7);border-radius:7px;">
@@ -2895,7 +2919,7 @@ function rValoracion(){
         <div style="font-size:10px;color:var(--muted);margin-top:3px;">Precio real: $${N(realPrice,2)} · Introduce otro precio para simular</div>
       </div>
       <div class="val-tiles" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
-        ${[{id:'mt-per',lbl:'PER',v:+(price/co.eps[9]).toFixed(1),m:co.medPER,c:'#7c3aed'},{id:'mt-evfcf',lbl:'EV/FCF',v:+((price*co.shares+co.netDebt[9])/co.fcf[9]).toFixed(1),m:co.medEvFcf,c:'#b45309'},{id:'mt-eveb',lbl:'EV/EBITDA',v:+((price*co.shares+co.netDebt[9])/co.ebitda[9]).toFixed(1),m:co.medEvEbitda,c:'#2563eb'},{id:'mt-evei',lbl:'EV/EBIT',v:+((price*co.shares+co.netDebt[9])/co.ebit[9]).toFixed(1),m:me,c:'#16a34a'}].map(t=>{const ok=t.v<=t.m,pct=((t.v-t.m)/t.m*100);return`<div id="${t.id}" style="background:${ok?'#f0fdf4':'#fef2f2'};border:1px solid ${ok?'#bbf7d0':'#fecaca'};border-radius:9px;padding:8px;text-align:center;"><div style="font-size:8px;color:${t.c};font-weight:700;text-transform:uppercase;margin-bottom:3px;">${t.lbl}</div><div class="mt-val" style="font-size:16px;font-weight:800;color:${t.c};">${t.v}x</div><div class="mt-pct" style="font-size:9px;font-weight:700;color:${ok?'#16a34a':'#dc2626'};">${pct>=0?'+':''}${pct.toFixed(0)}% vs med</div></div>`;}).join('')}
+        ${[{id:'mt-per',lbl:'PER',v:+(price/co.eps[9]).toFixed(1),m:co.medPER,c:'#7c3aed',tip:'per'},{id:'mt-evfcf',lbl:'EV/FCF',v:+((price*co.shares+co.netDebt[9])/co.fcf[9]).toFixed(1),m:co.medEvFcf,c:'#b45309',tip:'evfcf'},{id:'mt-eveb',lbl:'EV/EBITDA',v:+((price*co.shares+co.netDebt[9])/co.ebitda[9]).toFixed(1),m:co.medEvEbitda,c:'#2563eb'},{id:'mt-evei',lbl:'EV/EBIT',v:+((price*co.shares+co.netDebt[9])/co.ebit[9]).toFixed(1),m:me,c:'#16a34a'}].map(t=>{const ok=t.v<=t.m,pct=((t.v-t.m)/t.m*100);return`<div id="${t.id}" ${t.tip?`data-tip="${t.tip}" `:''}style="background:${ok?'#f0fdf4':'#fef2f2'};border:1px solid ${ok?'#bbf7d0':'#fecaca'};border-radius:9px;padding:8px;text-align:center;${t.tip?'cursor:pointer;':''}"><div style="font-size:8px;color:${t.c};font-weight:700;text-transform:uppercase;margin-bottom:3px;">${t.lbl}${t.tip?' <span style="opacity:.6;">ⓘ</span>':''}</div><div class="mt-val" style="font-size:16px;font-weight:800;color:${t.c};">${t.v}x</div><div class="mt-pct" style="font-size:9px;font-weight:700;color:${ok?'#16a34a':'#dc2626'};">${pct>=0?'+':''}${pct.toFixed(0)}% vs med</div></div>`;}).join('')}
       </div>
       <div id="val-verd-box" style="background:${vc}12;border:1.5px solid ${vc}40;border-radius:10px;padding:10px 14px;text-align:center;min-width:90px;">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Veredicto</div>
@@ -3080,7 +3104,10 @@ function rDCF(){
   <div>
     <!-- DCF PARAMS (moved from Valoracion) -->
     <div class="card" style="margin-bottom:12px;">
-      <div class="ctitle">📐 Parámetros DCF — Ajusta las hipótesis del modelo</div>
+      <div class="ctitle">📐 Parámetros DCF — Ajusta las hipótesis del modelo
+        <span data-tip="dcf" style="cursor:pointer;color:#2563eb;font-weight:700;border:1px solid #2563eb55;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-left:4px;">i</span>
+        <span data-tip="wacc" style="cursor:pointer;font-size:9px;font-weight:700;color:#6b7280;border:1px solid #6b728055;border-radius:10px;padding:1px 7px;margin-left:4px;">WACC ⓘ</span>
+      </div>
       <div class="dcf-info-box">Fórmula: DCF = Σ[FCF×(1+g)ⁿ/(1+r)ⁿ] + TV×/(1+r)¹⁰ donde TV=FCF₁₀×(1+g)/(r−g)</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
         ${[['gr','Crecimiento FCF (10a)',gr,0,30,0.5,'%','#2563eb','CAGR hist: ~'+((((Math.pow(Math.max(co.fcf[9],.01)/Math.max(co.fcf[0],.01),1/9))-1)*100).toFixed(0))+'%'],['dr','Tasa de descuento',dr,6,20,0.5,'%','#1e3a5f','WACC ~10%'],['tg','Crecimiento terminal',tg,0,5,0.5,'%','#7c3aed','PIB nominal ~4-5%']].map(p=>`<div>${sld(p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8])}</div>`).join('')}
@@ -3310,6 +3337,14 @@ const TIPS={
   per:{emoji:'📐',title:'PER — Price/Earnings',color:'#7c3aed',tag:'VALORACIÓN',def:'Precio entre beneficio por acción. Cuántos años de beneficios actuales pagas por la acción. Útil pero manipulable (beneficio contable) — validar con EV/FCF.',formula:'PER = Precio / EPS',example:(c)=>`${c.name}: PER ${(price/c.eps[9]).toFixed(1)}x vs mediana 5Y ${(c.med5PER||c.medPER)}x.`,bench:[{v:'<15x',c:'#16a34a',bg:'#f0fdf4',label:'Barato'},{v:'15-25x',c:'#d97706',bg:'#fffbeb',label:'Normal'},{v:'>30x',c:'#dc2626',bg:'#fef2f2',label:'Exige crecimiento'}],ref:'Graham (bajo, value) y Lynch (PEG = PER/crecimiento < 1 ideal).'},
   mds:{emoji:'🛡️',title:'Margen de Seguridad (MdS)',color:'#16a34a',tag:'DECISIÓN',def:'Distancia entre el precio actual y tu precio justo. Aquí se mide como potencial al alza: (valor−precio)/precio. Cuanto mayor, más colchón ante errores de estimación.',formula:'MdS = (Precio justo − Precio) / Precio',example:(c)=>`${c.name}: MdS ${calcVerdict().msBase>=0?'+':''}${calcVerdict().msBase}% vs precio justo $${N(calcVerdict().fairBase)}.`,bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Compra'},{v:'0-20%',c:'#d97706',bg:'#fffbeb',label:'Justo'},{v:'<0%',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Graham — "El margen de seguridad es el corazón de invertir." Mayor exigencia cuanto menos predecible es el negocio.'},
   estilo:{emoji:'🎚️',title:'Estilo: Growth / Value / GARP / Calidad',color:'#2563eb',tag:'ENCUADRE',def:'Encuadre del negocio según tres ejes: CRECIMIENTO (ventas/EPS), CALIDAD (ROIC y margen FCF) y VALORACIÓN (barato o caro frente a su propia historia). Growth = crece rápido y caro · Value = barato y lento (reversión) · GARP = crecimiento a precio razonable (Lynch) · Quality/Compounder = ROIC alto que compone valor reinvirtiendo (Buffett/Munger).',formula:'Crecimiento + Calidad + Valoración → estilo',example:(c)=>{const s=classifyStyle();return `${c.name}: ${s.icon} ${s.style}. Crec. ~${s.growth}%/año · ROIC ${s.roic.toFixed(0)}% · EV/FCF ${s.evfcfCur}x (${s.cheapPct>=0?'−':'+'}${Math.abs(s.cheapPct).toFixed(0)}% vs su media).`;},bench:[{v:'Growth',c:'#16a34a',bg:'#f0fdf4',label:'crece y paga prima'},{v:'GARP',c:'#2563eb',bg:'#eff6ff',label:'crece a precio justo'},{v:'Quality',c:'#7c3aed',bg:'#f5f3ff',label:'ROIC alto compone'},{v:'Value',c:'#b45309',bg:'#fffbeb',label:'barato, reversión'}],ref:'Lynch (GARP), Graham (value), Buffett & Munger (quality/compounders), Fisher (growth).'},
+  peg:{emoji:'🧮',title:'PEG — PER ajustado al crecimiento',color:'#7c3aed',tag:'VALORACIÓN',def:'Relaciona lo caro que está el PER con el ritmo de crecimiento. Un PER de 30x es caro si la empresa crece al 10%, pero barato si crece al 40%. PEG normaliza esa relación.',formula:'PEG = PER / Crecimiento EPS (%)',example:(c)=>{const s=classifyStyle();return `${c.name}: PEG ${s.peg!=null?s.peg.toFixed(2):'—'} (PER ${s.per}x ÷ crec. ${s.growth}%). ${s.peg!=null?(s.peg<1?'Barato para su crecimiento.':s.peg<2?'Razonable.':'Caro: pagas mucho por el crecimiento.'):''}`;},bench:[{v:'<1',c:'#16a34a',bg:'#f0fdf4',label:'Barato'},{v:'1-2',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>2',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Peter Lynch — "One Up on Wall Street". Ideal PEG ≤ 1.'},
+  ruleof40:{emoji:'🎯',title:'Rule of 40',color:'#0891b2',tag:'CALIDAD',def:'Regla de oro del software/growth: la suma del crecimiento de ingresos y el margen de flujo de caja debe superar el 40%. Equilibra crecer rápido con ser rentable. Por debajo de 40 = o crece poco o quema demasiado.',formula:'Rule of 40 = Crecimiento ventas (%) + Margen FCF (%)',example:(c)=>{const s=classifyStyle();return `${c.name}: ${s.ruleOf40}% (crec. ${s.growth}% + margen FCF ${s.fcfM.toFixed(0)}%). ${s.ruleOf40>=40?'Supera el listón ✓':'Por debajo de 40.'}`;},bench:[{v:'>40%',c:'#16a34a',bg:'#f0fdf4',label:'Saludable'},{v:'30-40%',c:'#d97706',bg:'#fffbeb',label:'Aceptable'},{v:'<30%',c:'#dc2626',bg:'#fef2f2',label:'Flojo'}],ref:'Estándar de SaaS/venture (Brad Feld) aplicado a calidad operativa.'},
+  fcfyield:{emoji:'💸',title:'FCF Yield — Rentabilidad de caja',color:'#16a34a',tag:'VALORACIÓN',def:'El flujo de caja libre que genera la empresa en un año dividido por lo que cuesta comprarla entera (market cap). Es el inverso del múltiplo P/FCF: dice qué "interés" en caja te paga el negocio al precio actual. Compáralo con el bono a 10 años.',formula:'FCF Yield = FCF anual / Market Cap',example:(c)=>{const s=classifyStyle();return `${c.name}: FCF yield ${s.fcfYield}% (vs bono 10Y ~4,5%). ${s.fcfYield>=5?'Genera más caja que el bono sin riesgo.':s.fcfYield>=3?'Razonable para su calidad/crecimiento.':'Bajo: el precio descuenta crecimiento futuro.'}`;},bench:[{v:'>5%',c:'#16a34a',bg:'#f0fdf4',label:'Atractivo'},{v:'3-5%',c:'#d97706',bg:'#fffbeb',label:'Normal'},{v:'<3%',c:'#dc2626',bg:'#fef2f2',label:'Exigente'}],ref:'Inverso del EV/FCF — útil para comparar contra renta fija y entre empresas.'},
+  reinversion:{emoji:'🔁',title:'Reinversión y Dilución',color:'#b45309',tag:'CAPITAL',def:'Qué hace la empresa con la caja: reinvertir (CapEx) para crecer y cómo trata al accionista. Dilución = emisión de acciones (stock-based comp): positiva resta valor por acción; negativa = recompra neta, que lo aumenta. Reinvertir a ROIC alto es el motor del compounding.',formula:'Dilución = Δ acciones anual % · Reinversión = CapEx / Ventas %',example:(c)=>{const s=classifyStyle();return `${c.name}: dilución ${s.dilution!=null?(s.dilution>0?'+':'')+s.dilution+'%/año':'—'} ${s.dilution!=null?(s.dilution<=0?'(recompra neta ✓)':'(emite acciones)'):''} · CapEx/Ventas ${s.reinvest!=null?s.reinvest+'%':'—'}.`;},bench:[{v:'Recompra',c:'#16a34a',bg:'#f0fdf4',label:'≤0% dilución'},{v:'Estable',c:'#d97706',bg:'#fffbeb',label:'0-1%'},{v:'Diluye',c:'#dc2626',bg:'#fef2f2',label:'>1%/año'}],ref:'Buffett — recompras a precio < valor crean valor; emitir caro lo destruye.'},
+  dcf:{emoji:'🧾',title:'DCF — Flujo de Caja Descontado',color:'#2563eb',tag:'VALORACIÓN',def:'Valora la empresa como la suma de TODO el flujo de caja que generará en el futuro, traído a dinero de hoy con una tasa de descuento (WACC). Es el valor intrínseco "puro". Muy sensible a los supuestos: pequeños cambios en crecimiento o WACC mueven mucho el resultado.',formula:'Valor = Σ FCFₜ / (1+WACC)ᵗ + Valor terminal',example:(c)=>{const d=calcDCF();const up=((d-price)/price*100);return `${c.name}: DCF $${N(d)} vs precio $${N(price)} → ${up>=0?'+':''}${up.toFixed(0)}% de potencial.`;},bench:[{v:'Conservador',c:'#16a34a',bg:'#f0fdf4',label:'usa supuestos prudentes'},{v:'Sensibilidad',c:'#d97706',bg:'#fffbeb',label:'prueba varios WACC/g'}],ref:'Damodaran, Buffett ("owner earnings"). Úsalo como rango, no como número exacto.'},
+  wacc:{emoji:'⚖️',title:'WACC — Coste de Capital',color:'#6b7280',tag:'VALORACIÓN',def:'El retorno mínimo que la empresa debe generar para satisfacer a quienes la financian (accionistas + acreedores). Es la tasa con la que se descuentan los flujos en el DCF y el listón que el ROIC debe superar para crear valor.',formula:'WACC = %Equity·Coste equity + %Deuda·Coste deuda·(1−impuesto)',example:(c)=>`${c.name}: WACC ${c.wacc}%. ROIC ${P(c.roic[9])} → spread ${(c.roic[9]-c.wacc)>=0?'+':''}${(c.roic[9]-c.wacc).toFixed(0)}pp. ${c.roic[9]>c.wacc?'Crea valor ✓':'Destruye valor.'}`,bench:[{v:'ROIC > WACC',c:'#16a34a',bg:'#f0fdf4',label:'Crea valor'},{v:'ROIC < WACC',c:'#dc2626',bg:'#fef2f2',label:'Destruye valor'}],ref:'Si una empresa crece pero ROIC<WACC, crecer la empeora (Buffett/Greenwald).'},
+  moat:{emoji:'🏰',title:'MOAT — Ventaja Competitiva',color:'#0891b2',tag:'CALIDAD',def:'El "foso" que protege los beneficios de la competencia y permite mantener ROIC alto durante años. Fuentes: costes de cambio, efecto red, intangibles (marca/patentes), ventajas de coste y escala. Sin foso, los retornos altos atraen competidores y revierten a la media.',formula:'Score ponderado de 10 dimensiones (switching, ROIC, márgenes, escala…)',example:(c)=>{const m=calcMoat();return `${c.name}: MOAT ${m.label} (${m.overall}/100). Cuanto más ancho y duradero, más prima de múltiplo se justifica.`;},bench:[{v:'≥85',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'70-84',c:'#0891b2',bg:'#ecfeff',label:'Sólido'},{v:'<55',c:'#dc2626',bg:'#fef2f2',label:'Débil'}],ref:'Morningstar (Dorsey, "The Little Book that Builds Wealth"), Buffett.'},
+  zonas:{emoji:'🚦',title:'Zonas de precio y Euforia',color:'#d97706',tag:'DECISIÓN',def:'Bandas derivadas del precio justo para saber dónde compras: COMPRAR (MdS ≥ +20%), JUSTO (0–20%), VIGILAR (−15–0%) y CARO (< −15%). La penalización por EUFORIA recorta la puntuación cuando el múltiplo actual supera claramente su mediana histórica — señal de que el precio descuenta demasiado optimismo.',formula:'Zonas sobre precio justo · Euforia si múltiplo actual > mediana 5Y × 1,10',example:(c)=>{const v=calcVerdict();return `${c.name}: precio justo $${N(v.fairBase)}, MdS ${v.msBase>=0?'+':''}${v.msBase}%${v.euforiaPenalty>0?` · ⚠ Euforia −${v.euforiaPenalty} (múltiplo sobre su media).`:'.'}`;},bench:[{v:'≥+20%',c:'#16a34a',bg:'#f0fdf4',label:'Comprar'},{v:'0-20%',c:'#2563eb',bg:'#eff6ff',label:'Justo'},{v:'<−15%',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Graham (margen de seguridad) + control de euforia para no pagar de más.'},
 };
 function showTip(id,el,extra){
   const t=TIPS[id];if(!t) return;
@@ -3589,6 +3624,7 @@ function renderDashboard(){
       </div>`;
     }).join('');
   }
+  renderStyleCompare();   // comparador Growth vs Value de la cartera
 }
 
 // ── Precios dashboard via Finnhub ──
@@ -4084,6 +4120,64 @@ function pegBar(peg,per,g){
     </div></div>`;
 }
 
+// ── Comparador Growth vs Value de la cartera (cuadrante + tabla) ──
+function renderStyleCompare(){
+  const el=document.getElementById('dash-style-compare'); if(!el) return;
+  const rows=getAllPortfolioCompanies().map(s=>{
+    const c=DB[s.key]; if(!c||!c.sales||!c.fcf) return null;
+    const px=(_carteraPrices[s.key]&&_carteraPrices[s.key].c)||c.price;
+    let st; try{ st=computeStyleFor(c,px); }catch(e){ return null; }
+    return {s,st,px};
+  }).filter(Boolean);
+  if(!rows.length){ el.innerHTML=''; return; }
+  // ── Cuadrante: X = valoración (← caro · barato →), Y = crecimiento (↑) ──
+  const dots=rows.map(r=>{
+    const x=Math.max(4,Math.min(96,r.st.valueScore));      // 0 caro → 100 barato
+    const y=Math.max(4,Math.min(96,100-r.st.growthScore)); // arriba = más crecimiento
+    const logo=logoUrlFor(r.s.key);
+    return `<div title="${r.s.name} — ${r.st.style} · Crec. ${r.st.growth}% · EV/FCF ${r.st.evfcfCur}x" style="position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;cursor:pointer;z-index:2;" onclick="setView('analysis');setTimeout(()=>switchCo('${r.s.key}'),50)">
+      ${logo?`<img src="${logo}" onerror="this.style.display='none'" style="width:22px;height:22px;border-radius:5px;object-fit:contain;background:#fff;border:1.5px solid ${r.st.color};padding:1px;"/>`:`<span style="font-size:9px;font-weight:800;color:${r.st.color};">${r.s.key}</span>`}
+      <span style="font-size:7px;font-weight:700;color:var(--muted);margin-top:1px;">${r.s.key}</span>
+    </div>`;
+  }).join('');
+  const quad=`<div style="position:relative;height:230px;background:linear-gradient(135deg,#fef2f2 0%,#fffbeb 50%,#f0fdf4 100%);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;">
+    <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(0,0,0,.08);"></div>
+    <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(0,0,0,.08);"></div>
+    <div style="position:absolute;top:4px;left:6px;font-size:8px;font-weight:700;color:#dc2626;opacity:.7;">CARO + CRECE<br><span style="font-weight:400;">growth premium</span></div>
+    <div style="position:absolute;top:4px;right:6px;font-size:8px;font-weight:700;color:#16a34a;opacity:.8;text-align:right;">BARATO + CRECE<br><span style="font-weight:400;">oportunidad / GARP</span></div>
+    <div style="position:absolute;bottom:4px;left:6px;font-size:8px;font-weight:700;color:#6b7280;opacity:.7;">CARO + LENTO<br><span style="font-weight:400;">evitar</span></div>
+    <div style="position:absolute;bottom:4px;right:6px;font-size:8px;font-weight:700;color:#b45309;opacity:.8;text-align:right;">BARATO + LENTO<br><span style="font-weight:400;">value / reversión</span></div>
+    ${dots}
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;margin:-6px 2px 8px;"><span>← caro</span><span>↑ crecimiento</span><span>barato →</span></div>`;
+  // ── Tabla ──
+  const sorted=[...rows].sort((a,b)=>b.st.growthScore-a.st.growthScore);
+  const cc=(v,a,b)=>v>=a?'#16a34a':v>=b?'#d97706':'#dc2626';
+  const tbl=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10.5px;min-width:560px;">
+    <thead><tr style="background:#f7f6f3;color:var(--muted);">
+      ${['Empresa','Estilo','Crec.','ROIC','Mg FCF','EV/FCF vs media','PEG','Rule 40','FCF yield'].map((h,i)=>`<th style="padding:6px 7px;text-align:${i<2?'left':'center'};font-weight:700;border-bottom:2px solid var(--border);">${h}</th>`).join('')}
+    </tr></thead><tbody>
+    ${sorted.map(r=>{const st=r.st;const logo=logoUrlFor(r.s.key);return `<tr style="border-bottom:1px solid #f0ede8;cursor:pointer;" onclick="setView('analysis');setTimeout(()=>switchCo('${r.s.key}'),50)">
+      <td style="padding:5px 7px;"><div style="display:flex;align-items:center;gap:6px;">${logo?`<img src="${logo}" onerror="this.style.display='none'" style="width:18px;height:18px;border-radius:4px;object-fit:contain;"/>`:''}<span style="font-weight:700;color:#1a1814;">${r.s.key}</span></div></td>
+      <td style="padding:5px 7px;"><span style="background:${st.color}15;color:${st.color};border:1px solid ${st.color}40;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:800;white-space:nowrap;">${st.icon} ${st.style}</span></td>
+      <td style="text-align:center;font-weight:700;color:${cc(st.growth,12,6)};">${st.growth}%</td>
+      <td style="text-align:center;font-weight:700;color:${cc(st.roic,20,12)};">${st.roic.toFixed(0)}%</td>
+      <td style="text-align:center;font-weight:700;color:${cc(st.fcfM,20,10)};">${st.fcfM.toFixed(0)}%</td>
+      <td style="text-align:center;font-weight:700;color:${st.cheapPct>=0?'#16a34a':'#dc2626'};">${st.evfcfCur}x <span style="font-size:8px;">(${st.cheapPct>=0?'−':'+'}${Math.abs(st.cheapPct).toFixed(0)}%)</span></td>
+      <td style="text-align:center;font-weight:700;color:${st.peg==null?'#6b7280':cc(2-st.peg,1,0)};">${st.peg!=null?st.peg.toFixed(2):'—'}</td>
+      <td style="text-align:center;font-weight:700;color:${cc(st.ruleOf40,40,30)};">${st.ruleOf40}%</td>
+      <td style="text-align:center;font-weight:700;color:${cc(st.fcfYield,5,3)};">${st.fcfYield}%</td>
+    </tr>`;}).join('')}
+  </tbody></table></div>`;
+  el.innerHTML=`<div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+      <div class="dash-sec-title" style="margin:0;">🎚️ Growth vs Value — comparador de la cartera</div>
+      <span onclick="showTip('estilo',this)" style="cursor:pointer;font-size:9px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;">¿Cómo se clasifica? ⓘ</span>
+    </div>
+    ${quad}${tbl}
+  </div>`;
+}
+
 // ── Render portfolio table (compacta y visual) ──
 function renderCartera(){
   if(!_carteraMultiplesReady){
@@ -4240,6 +4334,7 @@ async function fetchCarteraPrices(){
     if(q&&q.c>0){ _carteraPrices[co.key]={c:q.c,dp:q.dp,wp:q.wp}; updateCarteraRow(co.key); }
     await new Promise(r=>setTimeout(r,260));
   }
+  if(typeof renderStyleCompare==='function') renderStyleCompare(); // refresca comparador con precios live
 }
 
 function updateCarteraRow(key){
