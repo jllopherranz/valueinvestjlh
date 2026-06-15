@@ -4319,8 +4319,11 @@ function renderCartera(){
   const retCol=v=>v==null?'#9a958e':v>=15?'#16a34a':v>=8?'#d97706':'#dc2626';
   const mdsCol=v=>v==null?'#9a958e':v>=15?'#16a34a':v>=0?'#d97706':'#dc2626';
 
-  tbody.innerHTML=companies.map(co=>{
-    const m=carteraMetrics(co), k=co.key;
+  // Ordenar por POTENCIAL a 5 años = rendimiento anualizado (cagr5), de mayor a menor
+  const ranked=companies.map(co=>({co,m:carteraMetrics(co)}))
+    .sort((a,b)=>((b.m.cagr5==null?-1e9:b.m.cagr5)-(a.m.cagr5==null?-1e9:a.m.cagr5)));
+  tbody.innerHTML=ranked.map(({co,m})=>{
+    const k=co.key;
     const logoUrl=logoUrlFor(k);
     const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);
     const dCol=m.dailyPct==null?'#9a958e':m.dailyPct>=0?'#16a34a':'#dc2626';
