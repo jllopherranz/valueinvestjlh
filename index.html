@@ -2889,6 +2889,37 @@ function rGraficos(){
 let _multVisible={evfcf:true,per:false,evebitda:false,evebit:false};
 let _multChartInst=null;
 
+// ── Escenarios por empresa = percentiles de SU propio histórico de múltiplos ──
+// Optimista P90 (re-rating alto) · Base mediana (P50) · Conservador = min(P25, mediana últimos 3 años)
+// (capta normalización tras burbujas, ej. NVDA) · Pesimista P10 (suelo). Robusto a un pico aislado.
+function _pctile(sortedAsc,q){
+  if(!sortedAsc.length) return null;
+  if(sortedAsc.length===1) return sortedAsc[0];
+  const i=q*(sortedAsc.length-1),lo=Math.floor(i),hi=Math.ceil(i);
+  return sortedAsc[lo]+(sortedAsc[hi]-sortedAsc[lo])*(i-lo);
+}
+function _seriesStats(series){
+  const clean=(series||[]).filter(v=>v!=null&&v>0);
+  if(!clean.length) return null;
+  const sorted=[...clean].sort((a,b)=>a-b);
+  const last3=clean.slice(-3); const s3=[...last3].sort((a,b)=>a-b);
+  return {p90:_pctile(sorted,0.90),p50:_pctile(sorted,0.50),p25:_pctile(sorted,0.25),p10:_pctile(sorted,0.10),med3:_pctile(s3,0.5)};
+}
+function scenarioMults(){
+  const me=(co.medEvEbit||Math.round(co.medEvEbitda*co.ebitdaM[9]/Math.max(co.ebitM[9],1)));
+  const metrics={evf:co.hEvF,per:co.hPER,eve:co.hEvEbitda,evei:co.hEvEbit};
+  const fb={evf:(co.med5EvFcf||co.medEvFcf),per:(co.med5PER||co.medPER),eve:(co.med5EvEbitda||co.medEvEbitda),evei:me};
+  const R={opt:{},base:{},cons:{},pes:{}};
+  for(const k in metrics){
+    const st=_seriesStats(metrics[k]);
+    if(!st){ const b=fb[k]||0; R.opt[k]=Math.round(b); R.base[k]=Math.round(b*0.85); R.cons[k]=Math.round(b*0.7); R.pes[k]=Math.round(b*0.5); continue; }
+    R.opt[k]=Math.max(1,Math.round(st.p90));
+    R.base[k]=Math.max(1,Math.round(st.p50));
+    R.cons[k]=Math.max(1,Math.round(Math.min(st.p25,st.med3)));
+    R.pes[k]=Math.max(1,Math.round(st.p10));
+  }
+  return R;
+}
 function applyScenario(key,evf,per,eve,evei){
   tEVF=evf;tPER=per;tEVE=eve;tEVEI=evei;
   _persistMults(); // guarda como mis últimos múltiplos para esta empresa
@@ -2897,8 +2928,8 @@ function applyScenario(key,evf,per,eve,evei){
     const inp=document.getElementById('ni-'+id);
     if(inp){inp.value=val;inp.style.background='#fef08a';setTimeout(()=>{if(inp)inp.style.background='#fff7e6';},350);}
   });
-  const colors={opt:'#16a34a',base:'#2563eb',cons:'#d97706',pes:'#dc2626'};
-  ['opt','base','cons','pes'].forEach(k=>{
+  const colors={hoja:'#1e3a5f',opt:'#16a34a',base:'#2563eb',cons:'#d97706',pes:'#dc2626'};
+  Object.keys(colors).forEach(k=>{
     const btn=document.getElementById('scen-btn-'+k);if(!btn) return;
     if(k===key){btn.style.border='2.5px solid '+colors[k];btn.style.boxShadow='0 2px 8px '+colors[k]+'35';btn.style.transform='scale(1.04)';}
     else{btn.style.border='2px solid '+colors[k]+'35';btn.style.boxShadow='none';btn.style.transform='scale(1)';}
@@ -2906,8 +2937,8 @@ function applyScenario(key,evf,per,eve,evei){
   recalc();
 }
 function clearScenBtn(){
-  const colors={opt:'#16a34a',base:'#2563eb',cons:'#d97706',pes:'#dc2626'};
-  ['opt','base','cons','pes'].forEach(k=>{const btn=document.getElementById('scen-btn-'+k);if(btn){btn.style.border='2px solid '+colors[k]+'35';btn.style.boxShadow='none';btn.style.transform='scale(1)';}});
+  const colors={hoja:'#1e3a5f',opt:'#16a34a',base:'#2563eb',cons:'#d97706',pes:'#dc2626'};
+  Object.keys(colors).forEach(k=>{const btn=document.getElementById('scen-btn-'+k);if(btn){btn.style.border='2px solid '+colors[k]+'35';btn.style.boxShadow='none';btn.style.transform='scale(1)';}});
 }
 function toggleMultSeries(key){
   _multVisible[key]=!_multVisible[key];
@@ -3005,9 +3036,15 @@ function rValoracion(){
   <!-- MÚLTIPLOS OBJETIVO + ESCENARIOS -->
   <div class="card" style="margin-bottom:10px;">
     <div class="ctitle">Múltiplos objetivo — Escenarios</div>
-    <div style="font-size:9px;color:var(--muted);margin:-4px 0 8px;">Por defecto se aplica <strong style="color:#2563eb;">⚖️ Base (mediana 5Y × 0,82)</strong>, el mismo escenario que usa el resumen y el veredicto. Cámbialo o edita los múltiplos para simular.</div>
+    <div style="font-size:9px;color:var(--muted);margin:-4px 0 8px;">Por defecto se aplica <strong style="color:#1e3a5f;">📊 Tu hoja (Excel)</strong>. Los escenarios salen de los <strong>percentiles del histórico de CADA empresa</strong>: Optimista P90 · Base mediana · Conservador P25 o últimos 3 años (lo menor) · Pesimista P10.</div>
     <div class="val-scen" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
-      ${(()=>{const scenarios=[{key:'opt',l:'🐂 Optimista',evf:(co.med5EvFcf||co.medEvFcf),per:(co.med5PER||co.medPER),eve:(co.med5EvEbitda||co.medEvEbitda),evei:(co.med5EvEbit||me),c:'#16a34a',bg:'#f0fdf4',bda:'#16a34a',txt:'Mediana 5Y'},{key:'base',l:'⚖️ Base',evf:Math.round((co.med5EvFcf||co.medEvFcf)*0.82),per:Math.round((co.med5PER||co.medPER)*0.82),eve:Math.round((co.med5EvEbitda||co.medEvEbitda)*0.82),evei:Math.round((co.med5EvEbit||me)*0.82),c:'#2563eb',bg:'#eff6ff',bda:'#2563eb',txt:'−18% med 5Y'},{key:'cons',l:'🐻 Conserv.',evf:Math.round((co.med5EvFcf||co.medEvFcf)*0.65),per:Math.round((co.med5PER||co.medPER)*0.65),eve:Math.round((co.med5EvEbitda||co.medEvEbitda)*0.65),evei:Math.round((co.med5EvEbit||me)*0.65),c:'#d97706',bg:'#fffbeb',bda:'#d97706',txt:'−35% med 5Y'},{key:'pes',l:'😱 Pesimista',evf:Math.round((co.med5EvFcf||co.medEvFcf)*0.45),per:Math.round((co.med5PER||co.medPER)*0.45),eve:Math.round((co.med5EvEbitda||co.medEvEbitda)*0.45),evei:Math.round((co.med5EvEbit||me)*0.45),c:'#dc2626',bg:'#fef2f2',bda:'#dc2626',txt:'−55% med 5Y'}];return scenarios.map(s=>{const isActive=(s.evf===tEVF&&s.per===tPER&&s.eve===tEVE&&s.evei===tEVEI);return`<button id="scen-btn-${s.key}" onclick="applyScenario('${s.key}',${s.evf},${s.per},${s.eve},${s.evei})" title="${s.txt} · PER ${s.per}x · EV/EBITDA ${s.eve}x · EV/EBIT ${s.evei}x" style="display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;border:${isActive?'2px':'1.5px'} solid ${s.bda}${isActive?'':'45'};background:${s.bg};cursor:pointer;${isActive?'box-shadow:0 1px 5px '+s.bda+'40;':''}"><span style="font-size:10px;font-weight:700;color:${s.c};">${s.l}</span><span style="font-size:10px;font-weight:800;color:#1e3a5f;">${s.evf}x</span></button>`;}).join('');})()}
+      ${(()=>{const gm=getCompanyMults(coKeyOf(co));const sm=scenarioMults();const scenarios=[
+        {key:'hoja',l:'📊 Tu hoja',evf:gm.evf,per:gm.per,eve:gm.eveb,evei:gm.evei,c:'#1e3a5f',bg:'#eef2f7',bda:'#1e3a5f',txt:'Tus múltiplos del Excel (por defecto)'},
+        {key:'opt',l:'🐂 Optimista',evf:sm.opt.evf,per:sm.opt.per,eve:sm.opt.eve,evei:sm.opt.evei,c:'#16a34a',bg:'#f0fdf4',bda:'#16a34a',txt:'P90 histórico — re-rating alto'},
+        {key:'base',l:'⚖️ Base',evf:sm.base.evf,per:sm.base.per,eve:sm.base.eve,evei:sm.base.evei,c:'#2563eb',bg:'#eff6ff',bda:'#2563eb',txt:'Mediana histórica (P50)'},
+        {key:'cons',l:'🐻 Conserv.',evf:sm.cons.evf,per:sm.cons.per,eve:sm.cons.eve,evei:sm.cons.evei,c:'#d97706',bg:'#fffbeb',bda:'#d97706',txt:'P25 / mediana últimos 3 años (lo menor)'},
+        {key:'pes',l:'😱 Pesimista',evf:sm.pes.evf,per:sm.pes.per,eve:sm.pes.eve,evei:sm.pes.evei,c:'#dc2626',bg:'#fef2f2',bda:'#dc2626',txt:'P10 — suelo histórico'}
+      ];return scenarios.map(s=>{const isActive=(s.evf===tEVF&&s.per===tPER&&s.eve===tEVE&&s.evei===tEVEI);return`<button id="scen-btn-${s.key}" onclick="applyScenario('${s.key}',${s.evf},${s.per},${s.eve},${s.evei})" title="${s.txt} · PER ${Math.round(s.per)}x · EV/EBITDA ${Math.round(s.eve)}x · EV/EBIT ${Math.round(s.evei)}x" style="display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;border:${isActive?'2px':'1.5px'} solid ${s.bda}${isActive?'':'45'};background:${s.bg};cursor:pointer;${isActive?'box-shadow:0 1px 5px '+s.bda+'40;':''}"><span style="font-size:10px;font-weight:700;color:${s.c};">${s.l}</span><span style="font-size:10px;font-weight:800;color:#1e3a5f;">${Math.round(s.evf)}x</span></button>`;}).join('');})()}
     </div>
     <div class="val-tgt" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
       ${[{id:'tPER',label:'PER',val:tPER,med:co.medPER,c:'#7c3aed'},{id:'tEVF',label:'EV/FCF',val:tEVF,med:co.medEvFcf,c:'#b45309'},{id:'tEVE',label:'EV/EBITDA',val:tEVE,med:co.medEvEbitda,c:'#2563eb'},{id:'tEVEI',label:'EV/EBIT',val:tEVEI,med:me,c:'#16a34a'}].map(m=>`<div style="text-align:center;"><div style="font-size:8px;color:${m.c};font-weight:700;text-transform:uppercase;margin-bottom:3px;">${m.label}</div><input type="number" value="${m.val}" id="ni-${m.id}" style="width:100%;font-size:16px;font-weight:800;color:#1e3a5f;background:#fff7e6;border:1.5px solid #f59e0b;border-radius:7px;text-align:center;outline:none;padding:6px 0;" oninput="${m.id}=+this.value;clearScenBtn();_persistMults();recalc()"/><div style="font-size:9px;color:var(--muted);margin-top:2px;">med: ${Math.round(m.med)}x</div></div>`).join('')}
@@ -3109,12 +3146,13 @@ function rProyecciones(){
     const ei=(co.pEB[i]*tEVEI-co.pND[i])/co.shares; // EV/EBIT approx
     return{yr,f,p,e,ei,avg:(f+p+e)/3};
   });
-  // Multi-scenario: 4 price levels × 5 years → CAGR
+  // Multi-scenario: percentiles del histórico de cada empresa (igual que la pestaña Valoración)
+  const _sm=scenarioMults();
   const scenarios=[
-    {key:'opt',l:'🐂 Optimista',evf:co.medEvFcf,c:'#16a34a',bg:'#f0fdf4'},
-    {key:'base',l:'⚖️ Base',evf:Math.round(co.medEvFcf*0.82),c:'#2563eb',bg:'#eff6ff'},
-    {key:'cons',l:'🐻 Conservador',evf:Math.round(co.medEvFcf*0.65),c:'#d97706',bg:'#fffbeb'},
-    {key:'pes',l:'😱 Pesimista',evf:Math.round(co.medEvFcf*0.45),c:'#dc2626',bg:'#fef2f2'},
+    {key:'opt',l:'🐂 Optimista',evf:_sm.opt.evf,c:'#16a34a',bg:'#f0fdf4'},
+    {key:'base',l:'⚖️ Base',evf:_sm.base.evf,c:'#2563eb',bg:'#eff6ff'},
+    {key:'cons',l:'🐻 Conservador',evf:_sm.cons.evf,c:'#d97706',bg:'#fffbeb'},
+    {key:'pes',l:'😱 Pesimista',evf:_sm.pes.evf,c:'#dc2626',bg:'#fef2f2'},
   ];
   const bps=[Math.round(price*0.6),Math.round(price*0.7),Math.round(price*0.8),Math.round(price*0.9),Math.round(price),Math.round(price*1.1),Math.round(price*1.2)];
 
