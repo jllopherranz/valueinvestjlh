@@ -583,9 +583,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
           <th style="text-align:left;">Empresa</th>
           <th style="text-align:right;">Precio<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
           <th style="text-align:right;">Sem.</th>
-          <th style="text-align:right;background:#fff8f0;">Obj. EV/FCF<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">precio justo · MdS</span></th>
+          <th style="text-align:right;background:#fff8f0;">Obj. precio<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
           <th style="text-align:right;">Entrada<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
-          <th style="text-align:right;">Obj. 5Y<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">2030e · ret. anual</span></th>
+          <th style="text-align:right;">Obj. 5Y<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">promedio · ret. anual</span></th>
           <th style="text-align:center;">PEG</th>
           <th style="text-align:center;"></th>
         </tr>
@@ -1475,6 +1475,38 @@ function evfTargetsFor(arg){
     return pF.slice(0,5).map((f,i)=>{ const sh=(pSh&&pSh[i]>0)?pSh[i]:sh0; const nd=pND?.[i]??0; return Math.round((f*gm.evf-nd)/sh); });
   }
   return calcISModel().map(m=>Math.round((m.fcf*gm.evf-m.nd)/m.sh));
+}
+
+// ── PRECIOS OBJETIVO PROMEDIO (media de PER · EV/FCF · EV/EBITDA · EV/EBIT) por año ──
+// Mismo criterio que la fila "Promedio" de la pestaña Valoración, pero por empresa (para la cartera).
+function avgTargetsFor(arg){
+  const k=(typeof arg==='string')?arg:coKeyOf(arg||co);
+  const imp=getImportedData(k), d=DB[k], gm=getCompanyMults(k);
+  let edited=false; try{edited=!!localStorage.getItem('vi_mults_'+k);}catch(e){}
+  // 1) Si la hoja trae precios objetivo por método (y no has editado múltiplos) → promediarlos (idéntico a tu hoja)
+  if(imp && !edited && imp.targetPrices){
+    const tp=imp.targetPrices;
+    const rows=['per','evf','eveb','evei'].map(m=>tp[m]).filter(a=>Array.isArray(a)&&a.some(v=>v!=null));
+    if(rows.length>=2){
+      return [0,1,2,3,4].map(i=>{const vals=rows.map(a=>a[i]).filter(v=>v!=null&&isFinite(v));return vals.length?Math.round(vals.reduce((s,v)=>s+v,0)/vals.length):null;});
+    }
+  }
+  // 2) Calcular desde proyecciones × tus múltiplos (PER·EV/FCF·EV/EBITDA·EV/EBIT) y promediar
+  const pEB=(imp&&imp.pEB)||d?.pEB, pEPS=(imp&&imp.pEPS)||d?.pEPS, pND=(imp&&imp.pND)||d?.pND, pSh=(imp&&imp.pShares)||d?.pShares;
+  const sh0=(imp&&imp.shares)||d?.shares;
+  const ebitRatio=(d&&d.ebitda&&d.ebitda[9]>0)?(d.ebit[9]/d.ebitda[9]):0.85;
+  const evf=evfTargetsFor(k);
+  if(pEPS&&pEB&&sh0){
+    return [0,1,2,3,4].map(i=>{
+      const sh=(pSh&&pSh[i]>0)?pSh[i]:sh0, nd=pND?.[i]??0;
+      const per=(pEPS[i]!=null)?pEPS[i]*gm.per:null;
+      const eveb=(pEB[i]!=null)?(pEB[i]*gm.eveb-nd)/sh:null;
+      const evei=(pEB[i]!=null)?(pEB[i]*ebitRatio*gm.evei-nd)/sh:null;
+      const vals=[per,evf?.[i],eveb,evei].filter(v=>v!=null&&isFinite(v));
+      return vals.length?Math.round(vals.reduce((s,v)=>s+v,0)/vals.length):null;
+    });
+  }
+  return evf; // último recurso: solo EV/FCF
 }
 
 // ── COMPANY SWITCH ──
@@ -4175,12 +4207,15 @@ function carteraMetrics(co){
   // Si la empresa está importada y NO has tocado los múltiplos a mano, usamos el precio
   // YA calculado en tu hoja (targetPrices) → coincide exactamente (acciones proyectadas, etc.).
   // Obj 5Y por EV/FCF = misma fuente única que el resumen y la valoración (tu hoja / proyecciones analista × tu múltiplo)
+  // Precio objetivo = PROMEDIO de los 4 múltiplos (PER·EV/FCF·EV/EBITDA·EV/EBIT), no solo EV/FCF.
+  const _avgT=avgTargetsFor(key);
   const _evfT=evfTargetsFor(key);
-  const objEVF=_evfT&&_evfT[0]!=null?_evfT[0]:null;       // precio objetivo actual EV/FCF (próx. año) = "precio justo" del resumen
-  const mds=(objEVF&&price)?(objEVF-price)/price*100:null; // margen de seguridad sobre ese objetivo
-  const obj5=_evfT&&_evfT[4]!=null?_evfT[4]:null;
+  const objEVF=(_avgT&&_avgT[0]!=null)?_avgT[0]:(_evfT&&_evfT[0]!=null?_evfT[0]:null);  // objetivo próx. año (promedio)
+  const mds=(objEVF&&price)?(objEVF-price)/price*100:null;
+  const obj5=(_avgT&&_avgT[4]!=null)?_avgT[4]:(_evfT&&_evfT[4]!=null?_evfT[4]:null);    // objetivo 5Y (promedio)
+  const objEVF_evf=(_evfT&&_evfT[0]!=null)?_evfT[0]:null;  // referencia EV/FCF (por si se quiere mostrar)
   const cagr5=(obj5&&price)?(Math.pow(Math.max(obj5,.01)/Math.max(price,.01),0.2)-1)*100:null;
-  const price15=obj5!=null?obj5/Math.pow(1.15,5):null;   // precio máx. hoy para +15% anual a 5 años (EV/FCF)
+  const price15=obj5!=null?obj5/Math.pow(1.15,5):null;   // precio máx. hoy para +15% anual a 5 años (promedio)
   // PEG = PER actual / crecimiento esperado (%)
   const eps9=(imp?.eps&&imp.eps.filter(x=>x!=null).slice(-1)[0])||d?.eps?.[9]||null;
   const pEPS=(imp?.pEPS)||d?.pEPS;
