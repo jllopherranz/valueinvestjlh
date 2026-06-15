@@ -4279,7 +4279,6 @@ function renderCartera(){
       ${driveUrl
         ? `<a href="${driveUrl}" target="_blank" rel="noopener" class="cartera-action-btn" title="Abrir hoja de cálculo en Drive para comparar" style="text-decoration:none;">📊</a>`
         : `<button class="cartera-action-btn" title="Añadir enlace de Google Sheets" onclick="promptDriveUrl('${k}')">＋📊</button>`}
-      ${driveUrl?`<button id="sync-${k}" class="cartera-action-btn" title="Sincronizar con tu hoja: re-importa ventas/FCF/EPS y proyecciones (también empresas de fábrica)" onclick="syncCompany('${k}')">🔄</button>`:''}
       <button class="cartera-action-btn" style="${m.imp?'background:#f0fdf4;border-color:#bbf7d0;':''}" title="${m.imp?('Importada el '+new Date(m.imp.importDate).toLocaleDateString('es-ES')+' · pulsa para reimportar/editar'):'Pendiente de importar · pulsa para importar tu hoja'}" onclick="openImportModal('${k}')">${m.imp?'📂✓':'📂'}</button>
       <button class="cartera-action-btn red" title="${BUILTIN_KEYS.has(k)?'Ocultar empresa (restaurable)':'Eliminar empresa'}" onclick="deleteCompanyFull('${k}')">🗑</button>
     </div>
@@ -4799,7 +4798,7 @@ async function importFromLink(){
 function _applyImportToDB(key,res){
   if(DB[key]){
     const d=DB[key];
-    ['pY','pS','pEB','pF','pEPS','pND','pShares','price','sales','ebitda','ebitdaM','ebit','netIncome','eps','fcf','fcfM','fcfps','roic','netDebt','medEvFcf','medPER','medEvEbitda','medEvEbit','hEvF','hPER','hEvEbitda','hEvEbit'].forEach(f=>{
+    ['pY','pS','pEB','pF','pEPS','pND','pShares','price','sales','ebitda','ebitdaM','ebit','ebitM','netIncome','eps','fcf','fcfM','fcfps','roic','netDebt','medEvFcf','medPER','medEvEbitda','medEvEbit','hEvF','hPER','hEvEbitda','hEvEbit'].forEach(f=>{
       const v=res[f];
       if(v==null) return;
       if(Array.isArray(v)&&!v.some(x=>x!=null)) return;
@@ -4819,31 +4818,8 @@ async function _fetchSheetBuf(id){
   try{const r=await fetch('https://docs.google.com/spreadsheets/d/'+id+'/export?format=xlsx',{signal:AbortSignal.timeout(20000)});if(!r.ok)throw 0;return await r.arrayBuffer();}
   catch(e){const r2=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent('https://docs.google.com/spreadsheets/d/'+id+'/export?format=xlsx'),{signal:AbortSignal.timeout(22000)});return await r2.arrayBuffer();}
 }
-// Sincroniza UNA empresa con su hoja: re-descarga, re-parsea y actualiza proyecciones/datos. Vale para builtins.
-async function syncCompany(key){
-  const url=_sheetUrlFor(key);
-  const id=(url.match(/\/d\/([^/]+)/)||[])[1];
-  if(!id){ promptDriveUrl(key); return; }   // sin enlace → pedirlo primero
-  const btn=document.getElementById('sync-'+key); const orig=btn?btn.textContent:'';
-  if(btn){btn.textContent='⏳';btn.disabled=true;}
-  try{
-    const buf=await _fetchSheetBuf(id);
-    const imp=getImportedData(key), dc=DASH_COMPANIES.find(c=>c.key===key);
-    const res=parseExcelData(buf,key,(imp&&imp.name)||DB[key]?.name||key,(imp&&imp.sector)||DB[key]?.sector||'',(imp&&imp.color)||DB[key]?.color||'#1e3a5f',url);
-    if(!res) throw new Error('plantilla no válida');
-    localStorage.setItem('vi_import_'+key,JSON.stringify(res));
-    localStorage.removeItem('vi_mults_'+key);     // la hoja manda
-    _applyImportToDB(key,res);
-    if(coKeyOf(co)===key){ _isEdited=false; applyCompanyMults(co); resetIS(); if(typeof curTab!=='undefined') showTab(curTab); }
-    rebuildCoButtons(); renderCartera();
-    const pf=(res.pF&&res.pF[0])?Math.round(res.pF[0]):'—', ps=(res.pS&&res.pS[0])?Math.round(res.pS[0]):'—';
-    alert('✅ '+key+' sincronizada con tu hoja.\nProyecciones 2026e → Ventas '+ps+' · FCF '+pf+'.');
-  }catch(e){
-    if(btn){btn.textContent=orig;btn.disabled=false;}
-    alert('No se pudo sincronizar '+key+'.\nRevisa que la hoja sea pública («Cualquiera con el enlace») y el enlace correcto.');
-  }
-}
-// Reimporta de una sola vez todas las empresas con enlace de hoja (importadas o de fábrica con Drive guardado)
+// Sincroniza TODAS las empresas con enlace de hoja (importadas o de fábrica): re-descarga, re-parsea
+// y actualiza TODOS los datos — históricos, proyecciones, estimaciones, medianas y múltiplos objetivo.
 async function refreshAllImports(){
   const seen=new Set(), keys=[];
   getAllPortfolioCompanies().forEach(c=>{ if(!seen.has(c.key)&&/\/d\//.test(_sheetUrlFor(c.key))){seen.add(c.key);keys.push(c.key);} });
@@ -4851,29 +4827,32 @@ async function refreshAllImports(){
   if(!keys.length){alert('No hay empresas con enlace de hoja. Añade el enlace de Google Sheets con ＋📊 o importa con 📂.');return;}
   const btn=document.getElementById('btn-refresh-imports');
   const origTxt=btn?btn.textContent:'';
+  if(btn) btn.disabled=true;
+  const activeKey=coKeyOf(co);
   let ok=0; const fail=[];
   for(const key of keys){
-    const imp=getImportedData(key);
-    const url=imp?.driveUrl||DASH_COMPANIES.find(c=>c.key===key)?.drive||localStorage.getItem('vi_drive_'+key)||'';
+    const url=_sheetUrlFor(key);
     const id=(url.match(/\/d\/([^/]+)/)||[])[1];
     if(!id){fail.push(key+' (sin enlace)');continue;}
     if(btn) btn.textContent='🔄 '+key+'…';
     try{
-      let buf=null;
-      try{const r=await fetch('https://docs.google.com/spreadsheets/d/'+id+'/export?format=xlsx',{signal:AbortSignal.timeout(20000)});if(!r.ok)throw 0;buf=await r.arrayBuffer();}
-      catch(e){const r2=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent('https://docs.google.com/spreadsheets/d/'+id+'/export?format=xlsx'),{signal:AbortSignal.timeout(22000)});buf=await r2.arrayBuffer();}
+      const imp=getImportedData(key);
+      const buf=await _fetchSheetBuf(id);
       const res=parseExcelData(buf,key,imp?.name||DB[key]?.name||key,imp?.sector||DB[key]?.sector||'',imp?.color||DB[key]?.color||'#1e3a5f',url);
       if(!res) throw new Error('plantilla no válida');
-      localStorage.setItem('vi_import_'+key,JSON.stringify(res));
-      localStorage.removeItem('vi_mults_'+key); // la hoja manda sobre ediciones previas
+      localStorage.setItem('vi_import_'+key,JSON.stringify(res)); // datos + proyecciones + múltiplos/precios objetivo
+      localStorage.removeItem('vi_mults_'+key);                    // la hoja manda sobre ediciones previas
       _applyImportToDB(key,res);
       ok++;
     }catch(e){fail.push(key);}
     await new Promise(r=>setTimeout(r,300));
   }
+  // Refrescar la empresa abierta con sus datos nuevos
+  if(activeKey){ _isEdited=false; applyCompanyMults(co); resetIS(); }
   rebuildCoButtons(); renderCartera();
-  if(btn) btn.textContent=origTxt;
-  alert('✅ Actualizadas '+ok+' empresa(s) desde su hoja.'+(fail.length?'\n⚠ No se pudieron actualizar: '+fail.join(', ')+'\n(revisa que tengan enlace de Drive y sean públicas)':''));
+  if(typeof curTab!=='undefined' && document.getElementById('cnt')) showTab(curTab);
+  if(btn){ btn.textContent=origTxt; btn.disabled=false; }
+  alert('✅ Sincronizadas '+ok+' empresa(s) con su hoja (datos, proyecciones, estimaciones y múltiplos objetivo).'+(fail.length?'\n⚠ No se pudieron actualizar: '+fail.join(', ')+'\n(revisa que tengan enlace y sean públicas)':''));
 }
 </script>
 </body>
