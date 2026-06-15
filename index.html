@@ -4103,17 +4103,10 @@ function updateDashCoRow(key,price,pct,change){
   // Abrir en dashboard o última vista. Diferido a la siguiente vuelta del event loop
   // para que TODAS las variables de módulo (let _cartera*) estén ya inicializadas
   // antes de que setView('cartera') llame a renderCartera (evita un TDZ al recargar).
-  const lastView=localStorage.getItem('vi_view')||'dash';
-  setTimeout(()=>setView(lastView),0);
-  // Cargar precios y noticias DESPUÉS de que setView haya terminado
-  // y la key ya esté en localStorage
-  if(lastView==='dash'){
-    setTimeout(()=>{fetchDashPrices();},400);
-    setTimeout(()=>{fetchDashNews();},1400);
-  }
-  if(lastView==='cartera'){
-    setTimeout(()=>fetchCarteraPrices(),400);
-  }
+  // La web SIEMPRE arranca en el Dashboard (página principal), sin recordar la última vista.
+  setTimeout(()=>setView('dash'),0);
+  setTimeout(()=>{fetchDashPrices();},400);
+  setTimeout(()=>{fetchDashNews();},1400);
 })();
 
 // ═══════════════════════════════════════════════════════════════════
@@ -4199,7 +4192,8 @@ function carteraMetrics(co){
   else if(pF&&pF[4]>0&&fcf9>0) g=(Math.pow(pF[4]/fcf9,0.2)-1)*100;            // FCF fwd 5Y
   else if(d?.eps&&d.eps[0]>0&&d.eps[9]>0) g=(Math.pow(d.eps[9]/d.eps[0],1/9)-1)*100; // EPS hist
   const peg=(per!=null&&g&&g>0)?per/g:null;
-  return {key,imp,d,price,dailyPct,weeklyPct,objEVF,mds,obj5,cagr5,price15,per,g,peg};
+  const mds15=(price15!=null&&price>0)?(price15-price)/price*100:null; // margen del precio actual hasta el precio de entrada 15%
+  return {key,imp,d,price,dailyPct,weeklyPct,objEVF,mds,obj5,cagr5,price15,mds15,per,g,peg};
 }
 function pegColor(peg){return peg==null?'#9a958e':peg<1?'#16a34a':peg<=2?'#eab308':'#dc2626';}
 function pegBar(peg,per,g){
@@ -4318,6 +4312,7 @@ function renderCartera(){
   </td>
   <td style="text-align:right;">
     <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'#1a1814'};">${fmt(m.price15,k)}</div>
+    <div id="cmds15-${k}" style="font-size:10px;font-weight:800;color:${mdsCol(m.mds15)};">${m.mds15!=null?sp(m.mds15,0)+' MdS':'—'}</div>
   </td>
   <td style="text-align:right;">
     <div id="cobj5-${k}" style="font-size:12px;font-weight:700;color:#1e3a5f;">${fmt(m.obj5,k)}</div>
@@ -4445,6 +4440,7 @@ function updateCarteraRow(key){
   if(p('cobjevf-'+key)) p('cobjevf-'+key).textContent=fmt(m.objEVF);
   if(p('cmds-'+key)){p('cmds-'+key).textContent=m.mds!=null?sp(m.mds,0)+' MdS':'—';p('cmds-'+key).style.color=mdsCol(m.mds);}
   if(p('c15-'+key)){const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);p('c15-'+key).textContent=fmt(m.price15);p('c15-'+key).style.color=inZone?'#16a34a':'#1a1814';}
+  if(p('cmds15-'+key)){p('cmds15-'+key).textContent=m.mds15!=null?sp(m.mds15,0)+' MdS':'—';p('cmds15-'+key).style.color=mdsCol(m.mds15);}
   if(p('cobj5-'+key)) p('cobj5-'+key).textContent=fmt(m.obj5);
   if(p('cret-'+key)){p('cret-'+key).textContent=m.cagr5!=null?sp(m.cagr5,0)+'/año':'';p('cret-'+key).style.color=retCol(m.cagr5);}
   if(p('cpeg-'+key)) p('cpeg-'+key).innerHTML=pegBar(m.peg,m.per,m.g);
