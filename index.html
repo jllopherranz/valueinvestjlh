@@ -1483,9 +1483,12 @@ function avgTargetsFor(arg){
   const k=(typeof arg==='string')?arg:coKeyOf(arg||co);
   const imp=getImportedData(k), d=DB[k], gm=getCompanyMults(k);
   let edited=false; try{edited=!!localStorage.getItem('vi_mults_'+k);}catch(e){}
-  // 1) Si la hoja trae precios objetivo por método (y no has editado múltiplos) → promediarlos (idéntico a tu hoja)
+  // 1) Si la hoja trae precios objetivo (y no has editado múltiplos):
   if(imp && !edited && imp.targetPrices){
     const tp=imp.targetPrices;
+    // 1a) usar la fila "Promedio" de TU hoja si existe → idéntico a tu Excel
+    if(Array.isArray(tp.avg) && tp.avg.some(v=>v!=null)) return tp.avg.map(v=>v!=null?Math.round(v):null);
+    // 1b) si no, promediar los métodos por año
     const rows=['per','evf','eveb','evei'].map(m=>tp[m]).filter(a=>Array.isArray(a)&&a.some(v=>v!=null));
     if(rows.length>=2){
       return [0,1,2,3,4].map(i=>{const vals=rows.map(a=>a[i]).filter(v=>v!=null&&isFinite(v));return vals.length?Math.round(vals.reduce((s,v)=>s+v,0)/vals.length):null;});
