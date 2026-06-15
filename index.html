@@ -1250,6 +1250,7 @@ let HIDDEN=new Set();       // empresas de fábrica ocultadas por el usuario (re
 let _BUILTIN_DB={};         // snapshot de las empresas de fábrica para poder restaurarlas
 let _livePrice=null; // always holds the last live-fetched price regardless of sim mode
 let isSG,isEM,isTR,isDI,isCX,isWC;
+let _isEdited=false; // true cuando el usuario edita la tabla IS → pasa a modo simulación (si no, usa las proyecciones de la hoja tal cual)
 let curTab='resumen';let charts={};
 
 // ── HELPERS ──
@@ -1263,9 +1264,17 @@ const pct=(v,ref)=>ref===0?0:((v-ref)/Math.abs(ref)*100);
 const fmtMC=v=>v>=1e6?'$'+(v/1e6).toFixed(2)+'T':v>=1e3?'$'+(v/1e3).toFixed(1)+'B':'$'+N(Math.round(v))+'M';
 
 function resetIS(){
-  isSG=[...co.isD.sg];
+  _isEdited=false; // volver a las proyecciones de la hoja
   const ebitRatio=co.ebitM[9]/Math.max(co.ebitdaM[9],1);
-  isEM=co.isD.em.map(v=>+(v*ebitRatio).toFixed(1));
+  // Si hay proyecciones de la hoja, derivamos los % de ELLAS (así la tabla editable cuadra con lo mostrado)
+  if(co.pS&&co.pS.length>=5&&co.pEB&&co.pEPS){
+    const ebRatio=co.ebitda[9]>0?(co.ebit[9]/co.ebitda[9]):0.85;
+    isSG=co.pS.map((s,i)=>+(((s/(i===0?co.sales[9]:co.pS[i-1]))-1)*100).toFixed(1));
+    isEM=co.pS.map((s,i)=>+((co.pEB[i]*ebRatio/s)*100).toFixed(1)); // margen EBIT implícito
+  }else{
+    isSG=[...co.isD.sg];
+    isEM=co.isD.em.map(v=>+(v*ebitRatio).toFixed(1));
+  }
   isTR=[...co.isD.tr];isDI=[...co.isD.di];isCX=[...co.isD.cx];isWC=[...co.isD.wc];
 }
 // ═══════════════════════════════════════════════════════════════════
@@ -1522,6 +1531,22 @@ function calcMult(){
 }
 
 function calcISModel(){
+  // ── FUENTE ÚNICA = LA HOJA ──
+  // Si hay proyecciones importadas/de la hoja y NO se ha editado el modelo, se usan TAL CUAL
+  // (ventas, EBITDA, FCF, EPS, deuda neta). Así Valoración, target y múltiplo 2026e cuadran
+  // con la hoja y con la pestaña Proyecciones. El modo % editable es solo simulación.
+  if(!_isEdited && co.pS&&co.pF&&co.pEB&&co.pEPS && co.pS.length>=5){
+    const ebRatio=co.ebitda[9]>0?(co.ebit[9]/co.ebitda[9]):0.85;
+    return co.pS.slice(0,5).map((s,i)=>{
+      const eb=co.pEB[i], ebit=eb*ebRatio, fcf=co.pF[i], eps=co.pEPS[i];
+      const nd=(co.pND&&co.pND[i]!=null)?co.pND[i]:co.netDebt[9];
+      const tr=(co.isD&&co.isD.tr&&co.isD.tr[i]!=null)?co.isD.tr[i]/100:0.18;
+      // acciones proyectadas: de la hoja si existen; si no, derivadas de EPS y beneficio (nopat/eps)
+      const sh=(co.pShares&&co.pShares[i]>0)?co.pShares[i]:(eps>0?(ebit*(1-tr))/eps:co.shares);
+      return {yr:co.pY[i],s,eb,ebit,fcf,eps,sh,nd,em:s>0?ebit/s*100:0,ebm:s>0?eb/s*100:0,fm:s>0?fcf/s*100:0};
+    });
+  }
+  // ── Modo simulación (porcentajes editables) ──
   const rows=[];let ps=co.sales[9],psh=co.shares;
   const ebitdaEbitRatio=(co.ebitdaM[9]/Math.max(co.ebitM[9],1));
   for(let i=0;i<5;i++){
@@ -2866,7 +2891,8 @@ function buildMultHistChart(){
   if(_multChartInst){try{_multChartInst.destroy();}catch(e){}}_multChartInst=null;
   const c=document.getElementById('c-mult-hist');if(!c) return;
   const gc='rgba(0,0,0,0.04)',tc='#9a958e',ny=co.years.length,labels=[...co.years.map(String),'2026e'],n=labels.length;
-  const fwdPER=+(price/Math.max(co.eps[9],0.01)).toFixed(1),fwdEvF=+((price*co.shares+co.netDebt[9])/Math.max(co.fcf[9],1)).toFixed(1),fwdEvEB=+((price*co.shares+co.netDebt[9])/Math.max(co.ebitda[9],1)).toFixed(1),fwdEvEBIT=+((price*co.shares+co.netDebt[9])/Math.max(co.ebit[9],1)).toFixed(1);
+  const _ism=calcISModel()[0]; // proyección 2026e (misma fuente que la hoja)
+  const fwdPER=+(price/Math.max(_ism.eps,0.01)).toFixed(1),fwdEvF=+((price*co.shares+co.netDebt[9])/Math.max(_ism.fcf,1)).toFixed(1),fwdEvEB=+((price*co.shares+co.netDebt[9])/Math.max(_ism.eb,1)).toFixed(1),fwdEvEBIT=+((price*co.shares+co.netDebt[9])/Math.max(_ism.ebit,1)).toFixed(1);
   const medEvEBIT=co.medEvEbit||(Math.round(co.medEvEbitda*co.ebitdaM[9]/Math.max(co.ebitM[9],1)));
   function withFwd(arr,fwd){const a=[...arr];while(a.length<ny)a.push(null);a.length=ny;a.push(fwd);return a;} // 2025 queda fijo, se añade 2026e
   const series={evfcf:{label:'EV/FCF',data:withFwd(co.hEvF,fwdEvF),color:'#b45309',med:co.medEvFcf},per:{label:'PER',data:withFwd(co.hPER,fwdPER),color:'#7c3aed',med:co.medPER},evebitda:{label:'EV/EBITDA',data:withFwd(co.hEvEbitda||[],fwdEvEB),color:'#2563eb',med:co.medEvEbitda},evebit:{label:'EV/EBIT',data:withFwd(co.hEvEbit||[],fwdEvEBIT),color:'#16a34a',med:medEvEBIT}};
@@ -2942,7 +2968,7 @@ function rValoracion(){
     </div>
     ${co.spinoffNote?`<div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:7px 11px;font-size:10px;color:#92400e;margin-bottom:8px;border-radius:4px;">⚠ <strong>Atención a las medianas:</strong> los datos pre-${co.years[8]} incluyen el negocio escindido. <strong>Mediana 5Y</strong> es más representativa pero contiene años de pérdidas (FY23-24). Trata Med 10Y con cautela.</div>`:''}
     <div class="val-hist" style="display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start;">
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="width:100%;min-width:520px;border-collapse:collapse;font-size:12.5px;"><thead><tr style="background:#f7f6f3;"><th style="text-align:left;padding:7px 8px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);">Múltiplo</th>${co.years.map(y=>`<th style="text-align:center;padding:5px 4px;font-weight:600;color:var(--muted);border-bottom:2px solid var(--border);">${y}</th>`).join('')}<th style="text-align:center;padding:5px 6px;font-weight:800;color:#b45309;border-bottom:2px solid var(--border);background:#fff3e0;" title="Múltiplo actual al que cotiza la empresa: precio de hoy ÷ últimos resultados (2025). Simula tu múltiplo objetivo en la tarjeta de abajo.">2026e<br><span style="font-size:7px;font-weight:600;color:#b45309;">actual</span></th><th style="text-align:center;padding:5px 6px;font-weight:800;color:#1e3a5f;border-bottom:2px solid var(--border);background:#fef3c7;">Med 5Y</th><th style="text-align:center;padding:5px 6px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);background:#eff6ff;">Med 10Y</th></tr></thead><tbody>${[{label:'PER',data:co.hPER,med10:co.medPER,med5:(co.med5PER||co.medPER),color:'#7c3aed',fwd:+(price/Math.max(co.eps[9],0.01)).toFixed(1)},{label:'EV/FCF',data:co.hEvF,med10:co.medEvFcf,med5:(co.med5EvFcf||co.medEvFcf),color:'#b45309',fwd:+((price*co.shares+co.netDebt[9])/Math.max(co.fcf[9],1)).toFixed(1)},{label:'EV/EBITDA',data:co.hEvEbitda,med10:co.medEvEbitda,med5:(co.med5EvEbitda||co.medEvEbitda),color:'#2563eb',fwd:+((price*co.shares+co.netDebt[9])/Math.max(co.ebitda[9],1)).toFixed(1)},{label:'EV/EBIT',data:co.hEvEbit,med10:me,med5:(co.med5EvEbit||me),color:'#16a34a',fwd:+((price*co.shares+co.netDebt[9])/Math.max(co.ebit[9],1)).toFixed(1)}].map(row=>{const cells=row.data.map((v,i)=>{const val=(v??null),clr=val!=null?(val<=row.med5?'#16a34a':'#dc2626'):'var(--muted)';return`<td style="text-align:center;padding:6px 5px;font-weight:500;color:${clr};border-bottom:1px solid #f0ede8;">${val!=null?val+'x':'—'}</td>`;}).join('');const fwdClr=row.fwd<=row.med5?'#16a34a':'#dc2626';const fwdCell=`<td style="text-align:center;padding:6px 5px;font-weight:800;color:${fwdClr};background:#fff8f0;border-bottom:1px solid #f0ede8;">${row.fwd}x</td>`;return`<tr><td style="padding:6px 8px;font-weight:700;color:${row.color};border-bottom:1px solid #f0ede8;border-left:3px solid ${row.color};">${row.label}</td>${cells}${fwdCell}<td style="text-align:center;padding:5px 6px;font-weight:800;color:#1e3a5f;background:#fef3c7;border-bottom:1px solid #f0ede8;">${row.med5}x</td><td style="text-align:center;padding:5px 6px;font-weight:700;color:var(--muted);background:#eff6ff;border-bottom:1px solid #f0ede8;">${row.med10}x</td></tr>`;}).join('')}</tbody></table></div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="width:100%;min-width:520px;border-collapse:collapse;font-size:12.5px;"><thead><tr style="background:#f7f6f3;"><th style="text-align:left;padding:7px 8px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);">Múltiplo</th>${co.years.map(y=>`<th style="text-align:center;padding:5px 4px;font-weight:600;color:var(--muted);border-bottom:2px solid var(--border);">${y}</th>`).join('')}<th style="text-align:center;padding:5px 6px;font-weight:800;color:#b45309;border-bottom:2px solid var(--border);background:#fff3e0;" title="Múltiplo forward: precio actual ÷ proyección 2026e de TU HOJA (el EV usa precio y deuda actuales). Cambia cuando editas las proyecciones.">2026e<br><span style="font-size:7px;font-weight:600;color:#b45309;">estim.</span></th><th style="text-align:center;padding:5px 6px;font-weight:800;color:#1e3a5f;border-bottom:2px solid var(--border);background:#fef3c7;">Med 5Y</th><th style="text-align:center;padding:5px 6px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);background:#eff6ff;">Med 10Y</th></tr></thead><tbody>${[{label:'PER',data:co.hPER,med10:co.medPER,med5:(co.med5PER||co.medPER),color:'#7c3aed',fwd:+(price/Math.max(isM[0].eps,0.01)).toFixed(1)},{label:'EV/FCF',data:co.hEvF,med10:co.medEvFcf,med5:(co.med5EvFcf||co.medEvFcf),color:'#b45309',fwd:+((price*co.shares+co.netDebt[9])/Math.max(isM[0].fcf,1)).toFixed(1)},{label:'EV/EBITDA',data:co.hEvEbitda,med10:co.medEvEbitda,med5:(co.med5EvEbitda||co.medEvEbitda),color:'#2563eb',fwd:+((price*co.shares+co.netDebt[9])/Math.max(isM[0].eb,1)).toFixed(1)},{label:'EV/EBIT',data:co.hEvEbit,med10:me,med5:(co.med5EvEbit||me),color:'#16a34a',fwd:+((price*co.shares+co.netDebt[9])/Math.max(isM[0].ebit,1)).toFixed(1)}].map(row=>{const cells=row.data.map((v,i)=>{const val=(v??null),clr=val!=null?(val<=row.med5?'#16a34a':'#dc2626'):'var(--muted)';return`<td style="text-align:center;padding:6px 5px;font-weight:500;color:${clr};border-bottom:1px solid #f0ede8;">${val!=null?val+'x':'—'}</td>`;}).join('');const fwdClr=row.fwd<=row.med5?'#16a34a':'#dc2626';const fwdCell=`<td style="text-align:center;padding:6px 5px;font-weight:800;color:${fwdClr};background:#fff8f0;border-bottom:1px solid #f0ede8;">${row.fwd}x</td>`;return`<tr><td style="padding:6px 8px;font-weight:700;color:${row.color};border-bottom:1px solid #f0ede8;border-left:3px solid ${row.color};">${row.label}</td>${cells}${fwdCell}<td style="text-align:center;padding:5px 6px;font-weight:800;color:#1e3a5f;background:#fef3c7;border-bottom:1px solid #f0ede8;">${row.med5}x</td><td style="text-align:center;padding:5px 6px;font-weight:700;color:var(--muted);background:#eff6ff;border-bottom:1px solid #f0ede8;">${row.med10}x</td></tr>`;}).join('')}</tbody></table></div>
       <div><div style="position:relative;height:130px;background:#fafaf9;border-radius:10px;padding:6px;"><canvas id="c-mult-hist"></canvas></div><div style="font-size:9px;color:var(--muted);text-align:center;margin-top:3px;">Verde ≤ mediana · Rojo > mediana</div></div>
     </div>
   </div>
@@ -3023,20 +3049,20 @@ function rValoracion(){
   <!-- IS MODEL — ALWAYS OPEN, COLLAPSIBLE -->
   <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f9f8f6;cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none';this.querySelector('.is-arrow').style.transform=b.style.display!=='none'?'rotate(180deg)':'';">
-      <span style="font-size:11px;font-weight:700;color:#1e3a5f;">🧮 Proyecciones IS / FCF — Modelo editable</span>
+      <span style="font-size:11px;font-weight:700;color:#1e3a5f;">🧮 Proyecciones IS / FCF ${_isEdited?'<span style="font-size:8px;font-weight:700;color:#d97706;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:1px 6px;">SIMULACIÓN (editado)</span>':'<span style="font-size:8px;font-weight:700;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:1px 6px;">DATOS DE TU HOJA</span>'}</span>
       <div style="display:flex;align-items:center;gap:8px;">
-        <button onclick="event.stopPropagation();resetIS();showTab('valoracion')" style="font-size:9px;padding:2px 8px;border-radius:10px;border:1px solid var(--border);cursor:pointer;background:#fff;font-weight:600;color:var(--muted);">↺ Reset</button>
+        <button onclick="event.stopPropagation();resetIS();showTab('valoracion')" title="Volver a las proyecciones de tu hoja" style="font-size:9px;padding:2px 8px;border-radius:10px;border:1px solid var(--border);cursor:pointer;background:#fff;font-weight:600;color:var(--muted);">↺ Reset a hoja</button>
         <span class="is-arrow" style="font-size:12px;color:var(--muted);transition:transform .2s;transform:rotate(180deg);">▾</span>
       </div>
     </div>
     <div style="padding:10px 14px;display:block;">
       <div style="overflow-x:auto;"><table class="is-tbl" style="font-size:10px;"><thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.pY.map(y=>`<th style="text-align:right;color:#2563eb;">${y}E</th>`).join('')}</tr></thead><tbody>
-        <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">% Crec. Ventas</td>${isSG.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.5" onchange="isSG[${i}]=+this.value;recalc()"/>%</td>`).join('')}</tr>
-        <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">Mg. EBIT %</td>${isEM.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isEM[${i}]=+this.value;recalc()"/>%</td>`).join('')}</tr>
-        <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">Tax Rate %</td>${isTR.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.5" onchange="isTR[${i}]=+this.value;recalc()"/>%</td>`).join('')}</tr>
-        <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">Dil. Acc. %</td>${isDI.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isDI[${i}]=+this.value;recalc()"/>%</td>`).join('')}</tr>
-        <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">CapEx/Vtas %</td>${isCX.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isCX[${i}]=+this.value;recalc()"/>%</td>`).join('')}</tr>
-        <tr style="background:#fffbeb;border-bottom:2px solid var(--border);"><td style="color:#d97706;font-weight:700;">WC/Vtas %</td>${isWC.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="1" onchange="isWC[${i}]=+this.value;recalc()"/>%</td>`).join('')}</tr>
+        <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">% Crec. Ventas</td>${isSG.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.5" onchange="isSG[${i}]=+this.value;_isEdited=true;recalc()"/>%</td>`).join('')}</tr>
+        <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">Mg. EBIT %</td>${isEM.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isEM[${i}]=+this.value;_isEdited=true;recalc()"/>%</td>`).join('')}</tr>
+        <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">Tax Rate %</td>${isTR.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.5" onchange="isTR[${i}]=+this.value;_isEdited=true;recalc()"/>%</td>`).join('')}</tr>
+        <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">Dil. Acc. %</td>${isDI.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isDI[${i}]=+this.value;_isEdited=true;recalc()"/>%</td>`).join('')}</tr>
+        <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">CapEx/Vtas %</td>${isCX.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isCX[${i}]=+this.value;_isEdited=true;recalc()"/>%</td>`).join('')}</tr>
+        <tr style="background:#fffbeb;border-bottom:2px solid var(--border);"><td style="color:#d97706;font-weight:700;">WC/Vtas %</td>${isWC.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="1" onchange="isWC[${i}]=+this.value;_isEdited=true;recalc()"/>%</td>`).join('')}</tr>
         ${[{l:"Ventas",k:"s",c:"#2563eb",f:v=>"$"+N(Math.round(v))},{l:"EBIT",k:"ebit",c:"#b45309",f:v=>"$"+N(Math.round(v))},{l:"FCF",k:"fcf",c:"#16a34a",f:v=>"$"+N(Math.round(v))},{l:"EPS",k:"eps",c:"#d97706",f:v=>"$"+N(v,2)}].map(r=>`<tr style="background:#f9f8f6;"><td style="color:${r.c};font-weight:700;">${r.l}</td>${isM.map(m=>`<td class="isres" style="color:${r.c}">${r.f(m[r.k])}</td>`).join('')}</tr>`).join('')}
       </tbody></table></div>
     </div>
