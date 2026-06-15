@@ -1828,6 +1828,17 @@ function _refreshFwd2026(){
     el.textContent=val+'x';
     el.style.color=(med5&&d.v<=med5)?'#16a34a':'#dc2626';
   });
+  // Actualiza el punto 2026e del gráfico de múltiplos para que también reaccione al precio (simulación/live)
+  if(typeof _multChartInst!=='undefined' && _multChartInst){
+    const fwdByLabel={'EV/FCF':ev/Math.max(m.fcf,1),'PER':price/Math.max(m.eps,0.01),'EV/EBITDA':ev/Math.max(m.eb,1),'EV/EBIT':ev/Math.max(m.ebit,1)};
+    let touched=false;
+    _multChartInst.data.datasets.forEach(ds=>{
+      if(fwdByLabel[ds.label]!=null && Array.isArray(ds.data) && ds.data.length){
+        ds.data[ds.data.length-1]=+fwdByLabel[ds.label].toFixed(1); touched=true;
+      }
+    });
+    if(touched) _multChartInst.update('none');
+  }
 }
 function _refreshMultTiles(){
   const me2=(co.medEvEbit||(Math.round(co.medEvEbitda*co.ebitdaM[9]/Math.max(co.ebitM[9],1))));
