@@ -570,7 +570,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <button onclick="openImportModal('NUEVA')" style="padding:7px 16px;border-radius:10px;background:#16a34a;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">＋ Añadir empresa</button>
       <button onclick="openImportModal(null)" style="padding:7px 16px;border-radius:10px;background:#1e3a5f;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">📂 Importar Excel</button>
-      <button id="btn-refresh-imports" onclick="refreshAllImports()" title="Vuelve a descargar y reprocesar todas las empresas que ya importaste" style="padding:7px 14px;border-radius:10px;background:#0891b2;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;">🔄 Actualizar importadas</button>
+      <button id="btn-refresh-imports" onclick="refreshAllImports()" title="Re-descarga y reprocesa desde su hoja TODAS las empresas con enlace (incluidas las de fábrica) — iguala proyecciones y múltiplos a tu Excel" style="padding:7px 14px;border-radius:10px;background:#0891b2;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;">🔄 Sincronizar con hojas</button>
       <button id="btn-restore-hidden" onclick="restoreHidden()" style="display:none;padding:7px 12px;border-radius:10px;background:#fffbeb;color:#92400e;border:1.5px solid #fde68a;cursor:pointer;font-size:12px;font-weight:700;">↺ Restaurar ocultas</button>
       <span id="dash-prices-ts" style="font-size:9px;color:var(--muted);">—</span>
     </div>
@@ -4279,6 +4279,7 @@ function renderCartera(){
       ${driveUrl
         ? `<a href="${driveUrl}" target="_blank" rel="noopener" class="cartera-action-btn" title="Abrir hoja de cálculo en Drive para comparar" style="text-decoration:none;">📊</a>`
         : `<button class="cartera-action-btn" title="Añadir enlace de Google Sheets" onclick="promptDriveUrl('${k}')">＋📊</button>`}
+      ${driveUrl?`<button id="sync-${k}" class="cartera-action-btn" title="Sincronizar con tu hoja: re-importa ventas/FCF/EPS y proyecciones (también empresas de fábrica)" onclick="syncCompany('${k}')">🔄</button>`:''}
       <button class="cartera-action-btn" style="${m.imp?'background:#f0fdf4;border-color:#bbf7d0;':''}" title="${m.imp?('Importada el '+new Date(m.imp.importDate).toLocaleDateString('es-ES')+' · pulsa para reimportar/editar'):'Pendiente de importar · pulsa para importar tu hoja'}" onclick="openImportModal('${k}')">${m.imp?'📂✓':'📂'}</button>
       <button class="cartera-action-btn red" title="${BUILTIN_KEYS.has(k)?'Ocultar empresa (restaurable)':'Eliminar empresa'}" onclick="deleteCompanyFull('${k}')">🗑</button>
     </div>
@@ -4809,11 +4810,45 @@ function _applyImportToDB(key,res){
   }
 }
 
-// Reimporta de una sola vez todas las empresas ya importadas (re-descarga desde su enlace y reprocesa con el código actual)
+// Resuelve el enlace de hoja de una empresa (importada, builtin con Drive guardado, o de fábrica)
+function _sheetUrlFor(key){
+  const imp=getImportedData(key);
+  return (imp&&imp.driveUrl)||localStorage.getItem('vi_drive_'+key)||DASH_COMPANIES.find(c=>c.key===key)?.drive||'';
+}
+async function _fetchSheetBuf(id){
+  try{const r=await fetch('https://docs.google.com/spreadsheets/d/'+id+'/export?format=xlsx',{signal:AbortSignal.timeout(20000)});if(!r.ok)throw 0;return await r.arrayBuffer();}
+  catch(e){const r2=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent('https://docs.google.com/spreadsheets/d/'+id+'/export?format=xlsx'),{signal:AbortSignal.timeout(22000)});return await r2.arrayBuffer();}
+}
+// Sincroniza UNA empresa con su hoja: re-descarga, re-parsea y actualiza proyecciones/datos. Vale para builtins.
+async function syncCompany(key){
+  const url=_sheetUrlFor(key);
+  const id=(url.match(/\/d\/([^/]+)/)||[])[1];
+  if(!id){ promptDriveUrl(key); return; }   // sin enlace → pedirlo primero
+  const btn=document.getElementById('sync-'+key); const orig=btn?btn.textContent:'';
+  if(btn){btn.textContent='⏳';btn.disabled=true;}
+  try{
+    const buf=await _fetchSheetBuf(id);
+    const imp=getImportedData(key), dc=DASH_COMPANIES.find(c=>c.key===key);
+    const res=parseExcelData(buf,key,(imp&&imp.name)||DB[key]?.name||key,(imp&&imp.sector)||DB[key]?.sector||'',(imp&&imp.color)||DB[key]?.color||'#1e3a5f',url);
+    if(!res) throw new Error('plantilla no válida');
+    localStorage.setItem('vi_import_'+key,JSON.stringify(res));
+    localStorage.removeItem('vi_mults_'+key);     // la hoja manda
+    _applyImportToDB(key,res);
+    if(coKeyOf(co)===key){ _isEdited=false; applyCompanyMults(co); resetIS(); if(typeof curTab!=='undefined') showTab(curTab); }
+    rebuildCoButtons(); renderCartera();
+    const pf=(res.pF&&res.pF[0])?Math.round(res.pF[0]):'—', ps=(res.pS&&res.pS[0])?Math.round(res.pS[0]):'—';
+    alert('✅ '+key+' sincronizada con tu hoja.\nProyecciones 2026e → Ventas '+ps+' · FCF '+pf+'.');
+  }catch(e){
+    if(btn){btn.textContent=orig;btn.disabled=false;}
+    alert('No se pudo sincronizar '+key+'.\nRevisa que la hoja sea pública («Cualquiera con el enlace») y el enlace correcto.');
+  }
+}
+// Reimporta de una sola vez todas las empresas con enlace de hoja (importadas o de fábrica con Drive guardado)
 async function refreshAllImports(){
-  const keys=[];
-  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('vi_import_'))keys.push(k.replace('vi_import_',''));}
-  if(!keys.length){alert('No tienes ninguna empresa importada todavía. Importa primero con 📂.');return;}
+  const seen=new Set(), keys=[];
+  getAllPortfolioCompanies().forEach(c=>{ if(!seen.has(c.key)&&/\/d\//.test(_sheetUrlFor(c.key))){seen.add(c.key);keys.push(c.key);} });
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('vi_import_')){const key=k.replace('vi_import_','');if(!seen.has(key)){seen.add(key);keys.push(key);}}}
+  if(!keys.length){alert('No hay empresas con enlace de hoja. Añade el enlace de Google Sheets con ＋📊 o importa con 📂.');return;}
   const btn=document.getElementById('btn-refresh-imports');
   const origTxt=btn?btn.textContent:'';
   let ok=0; const fail=[];
