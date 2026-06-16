@@ -1727,18 +1727,23 @@ function calcVerdict(){
 
   const moat=calcMoat();
 
-  // ─── PESO REBALANCEADO: MdS 50pts · MOAT 30pts · ROIC 20pts ───
-  // Curva CONTINUA (sin escalones). El precio justo base YA es conservador (múltiplo
-  // objetivo = mediana 5Y × 0,82 o tu múltiplo). Por eso 0% MdS = comprar a un valor ya
-  // rebajado → 30/50, no 20. Premiamos entrar a precio justo en negocios de calidad;
-  // la sobrevaloración real la castiga la penalización por euforia. +30% MdS = 50/50.
-  const mdsScore=Math.round(
-    msBase>=30 ? 50 :
-    msBase>=15 ? 42+(msBase-15)/15*8 :   // 15%→42 ... 30%→50
-    msBase>=0  ? 30+msBase/15*12 :        // 0%→30 ... 15%→42
-    msBase>=-20? 30+msBase/20*30 :        // 0%→30 ... -20%→0
+  // ─── PESO REBALANCEADO v2: Retorno 5Y 35 · MOAT 30 · ROIC 20 · MdS próx.año 15 ───
+  // El componente principal pasa a ser el RETORNO ESPERADO ANUALIZADO a 5 años (CAGR hasta
+  // tu objetivo PROMEDIO 5Y — el mismo número del dashboard). Antes el MdS de PRÓXIMO año
+  // pesaba 50 y hundía a compounders de crecimiento (caros a 1 año pero con gran CAGR 5Y,
+  // ej. NVIDIA). El MdS a 1 año sigue contando (15) como control de no sobrepagar a corto.
+  const _avgT5=avgTargetsFor(co);
+  const fair5=(_avgT5&&_avgT5[4]!=null)?_avgT5[4]:(_evfT&&_evfT[4]!=null?_evfT[4]:fairBase);
+  const cagr5e=(fair5&&price>0)?(Math.pow(Math.max(fair5,1)/Math.max(price,1),0.2)-1)*100:0;
+  const retScore=Math.round(
+    cagr5e>=20 ? 35 :
+    cagr5e>=12 ? 22+(cagr5e-12)/8*13 :   // 12%→22 ... 20%→35
+    cagr5e>=0  ? cagr5e/12*22 :           // 0%→0 ... 12%→22
     0
   );
+  // MdS próximo año (curva continua, escalada a 0-15)
+  const _mdsRaw=( msBase>=30?50: msBase>=15?42+(msBase-15)/15*8 : msBase>=0?30+msBase/15*12 : msBase>=-20?30+msBase/20*30 : 0 );
+  const mdsScore=Math.round(_mdsRaw*15/50);
   const moatScore=Math.round(moat.overall*30/100);
 
   // ─── ROIC: tendencia 5Y + nivel absoluto + momentum ───
@@ -1762,7 +1767,7 @@ function calcVerdict(){
   else if(roicTrend5<-7) roicScore=Math.max(0,roicScore-3);
   else if(roicTrend5>=5) roicScore=Math.min(20,roicScore+2);
 
-  let totalScore=mdsScore+moatScore+roicScore;
+  let totalScore=retScore+mdsScore+moatScore+roicScore;
 
   // ─── PENALIZACIÓN POR EUFORIA: precio por encima del múltiplo más alto razonable ───
   const evfcfActual=Math.round((price*co.shares+co.netDebt[9])/co.fcf[9]);
@@ -1770,28 +1775,26 @@ function calcVerdict(){
   const euforiaEVF=evfcfActual>med5_evf*1.10; // >10% sobre mediana 5Y
   const euforiaPER=perActual>med5_per*1.10;
   let euforiaPenalty=0;
-  if(euforiaEVF&&euforiaPER){euforiaPenalty=15;totalScore=Math.max(0,totalScore-15);}
-  else if(euforiaEVF||euforiaPER){euforiaPenalty=8;totalScore=Math.max(0,totalScore-8);}
+  if(euforiaEVF&&euforiaPER){euforiaPenalty=10;totalScore=Math.max(0,totalScore-10);}
+  else if(euforiaEVF||euforiaPER){euforiaPenalty=5;totalScore=Math.max(0,totalScore-5);}
 
-  // ─── DECISIÓN: el MdS pesa más ───
+  // ─── DECISIÓN: manda el RETORNO ESPERADO 5Y + calidad (MOAT) ───
   let verdict,verdictColor,verdictBg;
-  if(msBase>=20&&moat.overall>=65){
-    verdict='COMPRAR';verdictColor='#16a34a';verdictBg='#f0fdf4';
-  }else if(msBase>=10&&moat.overall>=70&&!euforiaEVF){
-    verdict='COMPRAR';verdictColor='#16a34a';verdictBg='#f0fdf4';
-  }else if(msBase<=-15||euforiaPenalty>=15){
-    verdict='EVITAR';verdictColor='#dc2626';verdictBg='#fef2f2';
-  }else if(moat.overall<55){
-    verdict='EVITAR';verdictColor='#dc2626';verdictBg='#fef2f2';
-  }else if(msBase>=-5){
-    verdict='MANTENER';verdictColor='#d97706';verdictBg='#fffbeb';
+  if(moat.overall<55){
+    verdict='EVITAR';verdictColor='#dc2626';verdictBg='#fef2f2';        // sin foso, fuera
+  }else if(cagr5e>=15&&moat.overall>=65){
+    verdict='COMPRAR';verdictColor='#16a34a';verdictBg='#f0fdf4';       // gran retorno esperado + calidad
+  }else if(cagr5e>=10&&moat.overall>=70&&msBase>=-20){
+    verdict='COMPRAR';verdictColor='#16a34a';verdictBg='#f0fdf4';       // buen retorno + calidad alta
+  }else if(cagr5e<5||msBase<=-30){
+    verdict='EVITAR';verdictColor='#dc2626';verdictBg='#fef2f2';        // poco recorrido o muy caro
   }else{
-    verdict='EVITAR';verdictColor='#dc2626';verdictBg='#fef2f2';
+    verdict='MANTENER';verdictColor='#d97706';verdictBg='#fffbeb';
   }
 
-  const reasoning=`Score ${totalScore}/100 — MdS(${mdsScore}/50) + MOAT(${moatScore}/30) + ROIC(${roicScore}/20)${euforiaPenalty>0?` − Euforia(-${euforiaPenalty})`:''}. Precio justo base: $${N(Math.round(fairBase))} → MdS ${msBase>=0?'+':''}${msBase.toFixed(0)}%`;
+  const reasoning=`Score ${totalScore}/100 — Retorno 5Y(${retScore}/35) + MOAT(${moatScore}/30) + ROIC(${roicScore}/20) + MdS(${mdsScore}/15)${euforiaPenalty>0?` − Euforia(-${euforiaPenalty})`:''}. Retorno esperado ~${cagr5e>=0?'+':''}${cagr5e.toFixed(0)}%/año · Precio justo 1Y $${N(Math.round(fairBase))} (MdS ${msBase>=0?'+':''}${msBase.toFixed(0)}%)`;
 
-  return{verdict,verdictColor,verdictBg,totalScore,mdsScore,moatScore,roicScore,
+  return{verdict,verdictColor,verdictBg,totalScore,retScore,cagr5e:+cagr5e.toFixed(1),mdsScore,moatScore,roicScore,
     ms:+ms.toFixed(1),msBase:+msBase.toFixed(1),fairBase:Math.round(fairBase),
     roicTrend,roicTrend5,roicTrend10,roicSlope:+roicSlope.toFixed(1),roicMomentum,
     euforiaEVF,euforiaPER,euforiaPenalty,
@@ -2786,7 +2789,7 @@ function rResumen(){
           <div style="background:rgba(255,255,255,.8);border-radius:8px;padding:6px 8px;">
             <div style="font-size:20px;font-weight:900;color:${vd.verdictColor};line-height:1;">${vd.totalScore}<span style="font-size:10px;font-weight:600;">/100</span></div>
             <div style="margin-top:4px;display:grid;gap:3px;">
-              ${[['MdS',vd.mdsScore,50,vd.verdictColor,'mds'],['MOAT',vd.moatScore,30,moat.color,'moat'],['ROIC',vd.roicScore,20,co.roic[9]>=co.wacc?'#16a34a':'#dc2626','roic']].map(([l,s,mx,c,tip])=>`
+              ${[['Ret.5Y',vd.retScore,35,vd.retScore>=22?'#16a34a':vd.retScore>=12?'#d97706':'#dc2626','retorno'],['MOAT',vd.moatScore,30,moat.color,'moat'],['ROIC',vd.roicScore,20,co.roic[9]>=co.wacc?'#16a34a':'#dc2626','roic'],['MdS',vd.mdsScore,15,vd.verdictColor,'mds']].map(([l,s,mx,c,tip])=>`
               <div style="display:flex;align-items:center;gap:4px;">
                 <div data-tip="${tip}" title="Clic: qué es" style="font-size:7px;color:var(--muted);width:28px;text-align:right;cursor:pointer;text-decoration:underline dotted;">${l}</div>
                 <div style="flex:1;height:5px;background:#e5e5e5;border-radius:10px;overflow:hidden;">
@@ -3463,6 +3466,7 @@ const TIPS={
   netDebt:{emoji:'🏦',title:'Deuda Neta',color:'#dc2626',tag:'BALANCE',def:'Deuda Total − Caja. Negativo = posición de caja neta. "Fortín financiero" para crisis.',formula:'ND = Deuda Financiera − Efectivo y Equivalentes',example:(c)=>`${c.name} 2025: ND/EBITDA ${(c.netDebt[9]/c.ebitda[9]).toFixed(1)}x. ${c.netDebt[9]<0?'Caja neta: $'+N(Math.abs(c.netDebt[9]))+'M.':''}`,bench:[{v:'<1x',c:'#16a34a',bg:'#f0fdf4',label:'Excelente'},{v:'1-2x',c:'#d97706',bg:'#fffbeb',label:'Razonable'}],ref:'Buffett — "No debt is the best hedge."'},
   evfcf:{emoji:'🏆',title:'EV/FCF',color:'#b45309',tag:'VALORACIÓN',def:'EV (Enterprise Value) dividido por FCF anual. El múltiplo más honesto. Difícil de manipular vs PER.',formula:'EV/FCF = (Market Cap + Deuda Neta) / FCF anual',example:(c)=>`${c.name}: EV/FCF ${Math.round((price*c.shares+c.netDebt[9])/c.fcf[9])}x vs mediana hist ${Math.round(c.medEvFcf)}x.`,bench:[{v:'<20x',c:'#16a34a',bg:'#f0fdf4',label:'Atractivo'},{v:'20-35x',c:'#d97706',bg:'#fffbeb',label:'Razonable'}],ref:'Cunningham — favorito de Buffett en su metodología de intrínseco.'},
   per:{emoji:'📐',title:'PER — Price/Earnings',color:'#7c3aed',tag:'VALORACIÓN',def:'Precio entre beneficio por acción. Cuántos años de beneficios actuales pagas por la acción. Útil pero manipulable (beneficio contable) — validar con EV/FCF.',formula:'PER = Precio / EPS',example:(c)=>`${c.name}: PER ${Math.round(price/c.eps[9])}x vs mediana 5Y ${Math.round(c.med5PER||c.medPER)}x.`,bench:[{v:'<15x',c:'#16a34a',bg:'#f0fdf4',label:'Barato'},{v:'15-25x',c:'#d97706',bg:'#fffbeb',label:'Normal'},{v:'>30x',c:'#dc2626',bg:'#fef2f2',label:'Exige crecimiento'}],ref:'Graham (bajo, value) y Lynch (PEG = PER/crecimiento < 1 ideal).'},
+  retorno:{emoji:'📈',title:'Retorno esperado 5 años (CAGR)',color:'#16a34a',tag:'DECISIÓN',def:'Rentabilidad anualizada estimada si la acción alcanza tu precio objetivo PROMEDIO (4 múltiplos) en 5 años. Es el componente principal del veredicto: combina crecimiento + valoración + punto de entrada. Un negocio "caro" hoy pero que compone rápido puede dar gran retorno; uno "barato" que no crece, poco.',formula:'CAGR = (Precio objetivo 5Y / Precio)^(1/5) − 1',example:(c)=>{const v=calcVerdict();return `${c.name}: ~${v.cagr5e>=0?'+':''}${v.cagr5e}%/año esperado (${v.retScore}/35 en el veredicto).`;},bench:[{v:'>15%',c:'#16a34a',bg:'#f0fdf4',label:'Excelente'},{v:'10-15%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'<8%',c:'#dc2626',bg:'#fef2f2',label:'Flojo'}],ref:'Lynch/Fisher — el retorno viene del crecimiento del valor intrínseco, no solo del descuento de entrada.'},
   mds:{emoji:'🛡️',title:'Margen de Seguridad (MdS)',color:'#16a34a',tag:'DECISIÓN',def:'Distancia entre el precio actual y tu precio justo. Aquí se mide como potencial al alza: (valor−precio)/precio. Cuanto mayor, más colchón ante errores de estimación.',formula:'MdS = (Precio justo − Precio) / Precio',example:(c)=>`${c.name}: MdS ${calcVerdict().msBase>=0?'+':''}${calcVerdict().msBase}% vs precio justo $${N(calcVerdict().fairBase)}.`,bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Compra'},{v:'0-20%',c:'#d97706',bg:'#fffbeb',label:'Justo'},{v:'<0%',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Graham — "El margen de seguridad es el corazón de invertir." Mayor exigencia cuanto menos predecible es el negocio.'},
   estilo:{emoji:'🎚️',title:'Estilo: Growth / Value / GARP / Calidad',color:'#2563eb',tag:'ENCUADRE',def:'Encuadre del negocio según tres ejes: CRECIMIENTO (ventas/EPS), CALIDAD (ROIC y margen FCF) y VALORACIÓN (barato o caro frente a su propia historia). Growth = crece rápido y caro · Value = barato y lento (reversión) · GARP = crecimiento a precio razonable (Lynch) · Quality/Compounder = ROIC alto que compone valor reinvirtiendo (Buffett/Munger).',formula:'Crecimiento + Calidad + Valoración → estilo',example:(c)=>{const s=classifyStyle();return `${c.name}: ${s.icon} ${s.style}. Crec. ~${s.growth}%/año · ROIC ${s.roic.toFixed(0)}% · EV/FCF ${s.evfcfCur}x (${s.cheapPct>=0?'−':'+'}${Math.abs(s.cheapPct).toFixed(0)}% vs su media).`;},bench:[{v:'Growth',c:'#16a34a',bg:'#f0fdf4',label:'crece y paga prima'},{v:'GARP',c:'#2563eb',bg:'#eff6ff',label:'crece a precio justo'},{v:'Quality',c:'#7c3aed',bg:'#f5f3ff',label:'ROIC alto compone'},{v:'Value',c:'#b45309',bg:'#fffbeb',label:'barato, reversión'}],ref:'Lynch (GARP), Graham (value), Buffett & Munger (quality/compounders), Fisher (growth).'},
   peg:{emoji:'🧮',title:'PEG — PER ajustado al crecimiento',color:'#7c3aed',tag:'VALORACIÓN',def:'Relaciona lo caro que está el PER con el ritmo de crecimiento. Un PER de 30x es caro si la empresa crece al 10%, pero barato si crece al 40%. PEG normaliza esa relación.',formula:'PEG = PER / Crecimiento EPS (%)',example:(c)=>{const s=classifyStyle();return `${c.name}: PEG ${s.peg!=null?s.peg.toFixed(2):'—'} (PER ${s.per}x ÷ crec. ${s.growth}%). ${s.peg!=null?(s.peg<1?'Barato para su crecimiento.':s.peg<2?'Razonable.':'Caro: pagas mucho por el crecimiento.'):''}`;},bench:[{v:'<1',c:'#16a34a',bg:'#f0fdf4',label:'Barato'},{v:'1-2',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>2',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Peter Lynch — "One Up on Wall Street". Ideal PEG ≤ 1.'},
