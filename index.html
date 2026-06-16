@@ -1281,6 +1281,7 @@ function resetIS(){
 // LIVE PRICE — Multi-source + BUG FIX: re-render tras precio en vivo
 // ═══════════════════════════════════════════════════════════════════
 let _priceInterval=null,_lastPriceTs=0;
+let _priceLive=false; // ¿el precio en vivo (o fallback tras error) ya está resuelto para la empresa actual?
 const _priceCache={};
 const YF_TICKER={CSU:'CSU.TO',ASML:'ASML',AMZN:'AMZN',MSFT:'MSFT',AAPL:'AAPL',GOOGL:'GOOGL',META:'META',NVDA:'NVDA',WDC:'WDC'};
 // Finnhub symbol mapping (ASML cotiza en NASDAQ en Finnhub, CSU.TO en TSX)
@@ -1308,10 +1309,12 @@ function _showLiveBadge(ok){
 
 function _applyPrice(livePrice,prevClose,isLive){
   _livePrice=Math.round(livePrice*100)/100; // always track live price
+  const wasLive=_priceLive; _priceLive=true;
   // If user is in simulation mode, only refresh the live badge — never override their price
   if(simMode){
     _showLiveBadge(isLive);
     _lastPriceTs=Date.now();
+    if(!wasLive && TABS_NEED_RERENDER.includes(curTab)) showTab(curTab);
     return;
   }
   const prevPrice=price;
@@ -1334,8 +1337,8 @@ function _applyPrice(livePrice,prevClose,isLive){
     chEl.style.color=change>=0?'#16a34a':'#dc2626';
   }
   _lastPriceTs=Date.now();
-  if(Math.abs(price-prevPrice)>0.01 && TABS_NEED_RERENDER.includes(curTab)){
-    showTab(curTab);
+  if((Math.abs(price-prevPrice)>0.01 || !wasLive) && TABS_NEED_RERENDER.includes(curTab)){
+    showTab(curTab);   // re-render para reemplazar "Calculando…" por el veredicto real
   } else {
     recalc();
   }
@@ -1379,6 +1382,8 @@ async function fetchLivePrice(){
       const dot=document.getElementById('live-dot');
       if(dot){dot.style.background='#dc2626';dot.style.animation='none';}
     }
+    // Sin precio en vivo: mostrar el veredicto con el precio de la hoja (no quedarse en "Calculando")
+    if(!_priceLive){_priceLive=true; if(TABS_NEED_RERENDER.includes(curTab)) showTab(curTab);}
   }
 }
 function startPriceRefresh(){
@@ -1514,7 +1519,7 @@ function avgTargetsFor(arg){
 
 // ── COMPANY SWITCH ──
 function switchCo(k){
-  co=DB[k];price=co.price;simPrice=null;simMode=false;_livePrice=null;
+  co=DB[k];price=co.price;simPrice=null;simMode=false;_livePrice=null;_priceLive=false;
   document.getElementById('price-inp').value=price;
   document.getElementById('price-change').textContent='';
   const b=_getLiveBadge();if(b)b.classList.remove('visible');
@@ -2776,7 +2781,8 @@ function rResumen(){
     </div>`;})()}
 
     <!-- ══ BLOQUE 3: VEREDICTO + BARRA PRECIO ══ -->
-    <div class="card" style="margin-bottom:10px;background:${vd.verdictBg};border-color:${vd.verdictColor}60;border-width:2px;">
+    <div class="card" style="margin-bottom:10px;background:${vd.verdictBg};border-color:${vd.verdictColor}60;border-width:2px;position:relative;">
+      ${!_priceLive?`<div style="position:absolute;inset:0;background:rgba(255,255,255,.9);z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:inherit;text-align:center;padding:10px;"><div style="font-size:24px;">⏳</div><div style="font-size:13px;font-weight:800;color:#1e3a5f;margin-top:6px;">Calculando veredicto…</div><div style="font-size:10px;color:var(--muted);margin-top:3px;">Esperando el precio en vivo para no valorar con datos desactualizados</div></div>`:''}
       <div class="verdict-grid" style="display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:start;">
         <div style="text-align:center;padding:6px 0;">
           <div style="font-size:9px;font-weight:700;color:${vd.verdictColor};text-transform:uppercase;letter-spacing:.09em;margin-bottom:4px;">Veredicto</div>
