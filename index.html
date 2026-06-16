@@ -1778,18 +1778,14 @@ function calcVerdict(){
   if(euforiaEVF&&euforiaPER){euforiaPenalty=10;totalScore=Math.max(0,totalScore-10);}
   else if(euforiaEVF||euforiaPER){euforiaPenalty=5;totalScore=Math.max(0,totalScore-5);}
 
-  // ─── DECISIÓN: manda el RETORNO ESPERADO 5Y + calidad (MOAT) ───
+  // ─── DECISIÓN alineada a la PUNTUACIÓN total (retorno+MOAT+ROIC+MdS ya están dentro) ───
   let verdict,verdictColor,verdictBg;
-  if(moat.overall<55){
-    verdict='EVITAR';verdictColor='#dc2626';verdictBg='#fef2f2';        // sin foso, fuera
-  }else if(cagr5e>=15&&moat.overall>=65){
-    verdict='COMPRAR';verdictColor='#16a34a';verdictBg='#f0fdf4';       // gran retorno esperado + calidad
-  }else if(cagr5e>=10&&moat.overall>=70&&msBase>=-20){
-    verdict='COMPRAR';verdictColor='#16a34a';verdictBg='#f0fdf4';       // buen retorno + calidad alta
-  }else if(cagr5e<5||msBase<=-30){
-    verdict='EVITAR';verdictColor='#dc2626';verdictBg='#fef2f2';        // poco recorrido o muy caro
-  }else{
+  if(totalScore>=65){
+    verdict='COMPRAR';verdictColor='#16a34a';verdictBg='#f0fdf4';
+  }else if(totalScore>=45){
     verdict='MANTENER';verdictColor='#d97706';verdictBg='#fffbeb';
+  }else{
+    verdict='EVITAR';verdictColor='#dc2626';verdictBg='#fef2f2';
   }
 
   const reasoning=`Score ${totalScore}/100 — Retorno 5Y(${retScore}/35) + MOAT(${moatScore}/30) + ROIC(${roicScore}/20) + MdS(${mdsScore}/15)${euforiaPenalty>0?` − Euforia(-${euforiaPenalty})`:''}. Retorno esperado ~${cagr5e>=0?'+':''}${cagr5e.toFixed(0)}%/año · Precio justo 1Y $${N(Math.round(fairBase))} (MdS ${msBase>=0?'+':''}${msBase.toFixed(0)}%)`;
