@@ -2915,16 +2915,13 @@ function rResumen(){
 // GRÁFICOS
 // ═══════════════════════════════════════════════════════════════════
 function rGraficos(){
+  const H='position:relative;height:220px;'; // mismo tamaño para todos
   return`
-  <div class="card"><div class="ctitle">📈 Ventas, FCF y EPS — Histórico ${co.years[0]}–${co.years[9]} + Proyecciones ${co.pY[0]}–${co.pY[4]}</div>
-  <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Escala logarítmica activada.</div>
-  <div style="position:relative;height:260px;"><canvas id="c-sales"></canvas></div></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-    <div class="card"><div class="ctitle">📊 Márgenes históricos — EBITDA %, EBIT % y FCF %</div><div style="position:relative;height:200px;"><canvas id="c-mg"></canvas></div></div>
-    <div class="card"><div class="ctitle">🎯 ROIC vs WACC (${co.wacc}%) — Creación de valor</div><div style="position:relative;height:200px;"><canvas id="c-roic"></canvas></div><div class="chart-note">Verde = ROIC > WACC (crea valor) · Rojo = destruye valor</div></div>
-  </div>
-  <div class="card"><div class="ctitle">💹 Múltiplos históricos — EV/FCF y PER</div><div style="position:relative;height:200px;"><canvas id="c-mult"></canvas></div><div class="chart-note">Línea punteada = mediana histórica</div></div>
-  <div class="card"><div class="ctitle">🔮 Proyecciones de tu hoja — Ventas, FCF y EPS (${co.pY[0]}–${co.pY[4]})</div><div style="position:relative;height:220px;"><canvas id="c-proj"></canvas></div><div class="chart-note">Estimaciones importadas de tu Excel (Ventas y FCF en $M, eje izq · EPS en $, eje der)</div></div>`;
+  <div class="card"><div class="ctitle">📊 Histórico — Ventas, FCF y EPS (${co.years[0]}–${co.years[9]})</div><div style="${H}"><canvas id="c-hist"></canvas></div><div class="chart-note">Ventas y FCF en $M (eje izq) · EPS en $ (eje der)</div></div>
+  <div class="card"><div class="ctitle">🔮 Proyecciones de tu hoja — Ventas, FCF y EPS (${co.pY[0]}–${co.pY[4]})</div><div style="${H}"><canvas id="c-proj"></canvas></div><div class="chart-note">Estimaciones de tu Excel · mismo formato que el histórico (Ventas/FCF $M eje izq · EPS $ eje der)</div></div>
+  <div class="card"><div class="ctitle">📈 Márgenes históricos — EBITDA %, EBIT % y FCF %</div><div style="${H}"><canvas id="c-mg"></canvas></div></div>
+  <div class="card"><div class="ctitle">🎯 ROIC vs WACC (${co.wacc}%) — Creación de valor</div><div style="${H}"><canvas id="c-roic"></canvas></div><div class="chart-note">Verde = ROIC > WACC (crea valor) · Rojo = destruye valor</div></div>
+  <div class="card"><div class="ctitle">💹 Múltiplos históricos — EV/FCF y PER</div><div style="${H}"><canvas id="c-mult"></canvas></div><div class="chart-note">Línea punteada = mediana histórica</div></div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3319,6 +3316,30 @@ function refreshDCFSim(){} // placeholder if needed
 // ═══════════════════════════════════════════════════════════════════
 // ALERTAS
 // ═══════════════════════════════════════════════════════════════════
+// ── Gráfico ampliado de una partida (clic en Análisis) para ver la tendencia ──
+let _metricChartInst=null;
+function openMetricChart(el){
+  const series=(el.dataset.cs||'').split(',').map(v=>v===''?null:+v);
+  if(!series.length) return;
+  const label=el.dataset.cl||'', color=el.dataset.color||'#2563eb', unit=el.dataset.cu||'';
+  const fmt=unit==='%'?(v=>(Math.round(v*10)/10)+'%'):unit==='$'?(v=>'$'+N(v,2)):(v=>'$'+N(Math.round(v))+'M');
+  const labels=co.years.slice(-series.length).map(String);
+  let modal=document.getElementById('metric-modal');
+  if(!modal){
+    modal=document.createElement('div'); modal.id='metric-modal';
+    modal.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;align-items:center;justify-content:center;padding:16px;';
+    modal.addEventListener('click',e=>{if(e.target===modal)closeMetricChart();});
+    modal.innerHTML='<div style="background:#fff;border-radius:14px;padding:18px;max-width:700px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;"><div id="metric-modal-title" style="font-size:14px;font-weight:800;color:#1a1814;"></div><button onclick="closeMetricChart()" style="border:none;background:#f0ede8;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px;flex-shrink:0;">✕</button></div><div style="position:relative;height:320px;"><canvas id="metric-modal-canvas"></canvas></div><div id="metric-modal-note" style="font-size:10px;color:var(--muted);margin-top:8px;"></div></div>';
+    document.body.appendChild(modal);
+  }
+  document.getElementById('metric-modal-title').textContent=label+' · '+co.name;
+  document.getElementById('metric-modal-note').textContent='Tendencia '+labels[0]+'–'+labels[labels.length-1]+(unit==='%'?' (%)':unit==='$'?' (por acción)':' (millones $)')+'. Toca fuera o ✕ para cerrar.';
+  modal.style.display='flex';
+  if(_metricChartInst){try{_metricChartInst.destroy();}catch(e){}}
+  _metricChartInst=new Chart(document.getElementById('metric-modal-canvas'),{type:'line',data:{labels,datasets:[{label,data:series,borderColor:color,backgroundColor:color+'18',fill:true,tension:.3,pointRadius:4,borderWidth:2.5,pointBackgroundColor:series.map(v=>v!=null&&v<0?'#dc2626':color)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(c.raw!=null?fmt(c.raw):'—')}}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10}}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>fmt(v)}}}}});
+}
+function closeMetricChart(){const m=document.getElementById('metric-modal');if(m)m.style.display='none';if(_metricChartInst){try{_metricChartInst.destroy();}catch(e){}_metricChartInst=null;}}
+
 // ── ANÁLISIS por partidas (IS · FCF · ROIC · Valoración) con semáforo + explicación ──
 function rAnalisis(){
   const vd=calcVerdict(), q=calcFCFQuality();
@@ -3390,7 +3411,7 @@ function rAnalisis(){
    </div>`;})()}
    ${blocks.map(b=>`<div class="card" style="margin-bottom:10px;">
      <div class="ctitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">${b.title}<span style="font-size:9px;font-weight:600;color:var(--muted);background:#f0ede8;padding:2px 7px;border-radius:8px;white-space:nowrap;">hoja ${b.sheet}</span></div>
-     ${b.items.map(it=>{const m=stM[it.status];return`<div style="display:grid;grid-template-columns:auto 1fr auto;gap:10px;padding:9px 0;border-bottom:1px solid #f0ede8;align-items:start;">
+     ${b.items.map(it=>{const m=stM[it.status];const cu=/Margen|ROIC|Tendencia/.test(it.label)?'%':/EPS|Beneficio/.test(it.label)?'$':'M';const clk=it.series?`data-cs="${it.series.map(v=>v==null?'':v).join(',')}" data-cu="${cu}" data-cl="${it.label}" data-color="${it.color||m.c}" onclick="openMetricChart(this)" style="cursor:pointer;`:`style="`;return`<div ${clk}display:grid;grid-template-columns:auto 1fr auto;gap:10px;padding:9px 0;border-bottom:1px solid #f0ede8;align-items:start;">
        <span style="font-size:17px;">${it.icon}</span>
        <div style="min-width:0;">
          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -3401,7 +3422,7 @@ function rAnalisis(){
          <div style="font-size:10px;color:var(--sub);margin-top:3px;line-height:1.5;"><b style="color:#1a1814;">Qué es:</b> ${it.why}</div>
          <div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.5;">👁 <b>Vigilar:</b> ${it.watch}${it.bench?` · <span style="color:#16a34a;font-weight:600;">Ref: ${it.bench}</span>`:''}</div>
        </div>
-       <div style="text-align:right;min-width:42px;">${it.series?spark(it.series,it.color||m.c):''}${it.series?`<div style="font-size:7px;color:var(--muted);margin-top:2px;">${yr[yr.length-1]}</div>`:''}</div>
+       <div style="text-align:right;min-width:42px;">${it.series?spark(it.series,it.color||m.c):''}${it.series?`<div style="font-size:7px;color:var(--muted);margin-top:2px;">${yr[yr.length-1]} · 🔍</div>`:''}</div>
      </div>`;}).join('')}
    </div>`).join('')}
    <div class="card"><div class="ctitle">Histórico completo ${co.years[0]}–${co.years[9]}</div>
@@ -3455,9 +3476,13 @@ function buildCharts(tab){
   const baseOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}};
 
   if(tab==='graficos'){
-    const aY=[...co.years,...co.pY],aS=[...co.sales,...co.pS],aF=[...co.fcf,...co.pF],aEPSnorm=[...co.eps,...co.pEPS].map(v=>v*co.shares);
-    const c1=document.getElementById('c-sales');
-    if(c1) charts.s=new Chart(c1,{type:'line',data:{labels:aY,datasets:[{label:'Ventas ($M)',data:aS,borderColor:'#2563eb',backgroundColor:'#2563eb10',fill:true,tension:.35,pointRadius:3,borderWidth:2.5},{label:'FCF ($M)',data:aF,borderColor:'#16a34a',backgroundColor:'#16a34a08',fill:true,tension:.35,pointRadius:3,borderWidth:2},{label:'NI × Acc ($M)',data:aEPSnorm,borderColor:'#d97706',borderDash:[6,3],tension:.35,pointRadius:3,borderWidth:2,backgroundColor:'transparent'}]},options:{...baseOpts,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10,padding:14}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{type:'logarithmic',grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>{if(v>=1000000)return'$'+(v/1000000).toFixed(0)+'B';if(v>=1000)return'$'+(v/1000).toFixed(0)+'K';return'$'+v;}}}}}});
+    const _vfeOpts={...baseOpts,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10,padding:12}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{position:'left',grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v}},y1:{position:'right',grid:{display:false},ticks:{color:'#d97706',font:{size:10},callback:v=>'$'+v}}}};
+    const cH=document.getElementById('c-hist');
+    if(cH) charts.hist=new Chart(cH,{data:{labels:co.years.map(String),datasets:[
+      {type:'bar',label:'Ventas ($M)',data:co.sales,backgroundColor:'#2563eb',borderRadius:4,yAxisID:'y',order:3},
+      {type:'bar',label:'FCF ($M)',data:co.fcf,backgroundColor:'#16a34a',borderRadius:4,yAxisID:'y',order:2},
+      {type:'line',label:'EPS ($)',data:co.eps,borderColor:'#d97706',backgroundColor:'#d97706',tension:.35,pointRadius:3,borderWidth:2.5,yAxisID:'y1',order:1}
+    ]},options:_vfeOpts});
     const c2=document.getElementById('c-mg');
     if(c2) charts.mg=new Chart(c2,{type:'line',data:{labels:co.years,datasets:[{label:'EBITDA %',data:co.ebitdaM,borderColor:'#b45309',tension:.35,pointRadius:3,borderWidth:2.5},{label:'EBIT %',data:co.ebitM,borderColor:'#d97706',tension:.35,pointRadius:3,borderWidth:2,borderDash:[4,2]},{label:'FCF %',data:co.fcfM,borderColor:'#16a34a',tension:.35,pointRadius:3,borderWidth:2,borderDash:[7,3]}]},options:{...baseOpts,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v+'%'}}}}});
     const c3=document.getElementById('c-roic');
@@ -3473,7 +3498,7 @@ function buildCharts(tab){
       {type:'bar',label:'Ventas ($M)',data:co.pS,backgroundColor:'#2563eb',borderRadius:4,yAxisID:'y',order:3},
       {type:'bar',label:'FCF ($M)',data:co.pF,backgroundColor:'#16a34a',borderRadius:4,yAxisID:'y',order:2},
       {type:'line',label:'EPS ($)',data:co.pEPS,borderColor:'#d97706',backgroundColor:'#d97706',tension:.35,pointRadius:4,borderWidth:2.5,yAxisID:'y1',order:1}
-    ]},options:{...baseOpts,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{position:'left',grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v}},y1:{position:'right',grid:{display:false},ticks:{color:'#d97706',font:{size:10},callback:v=>'$'+v}}}}});
+    ]},options:_vfeOpts});
   }
   if(tab==='valoracion') setTimeout(()=>buildMultHistChart(),60);
   if(tab==='proyecciones'){
