@@ -1896,6 +1896,9 @@ function _refreshMultTiles(){
     el.querySelector('.mt-pct').textContent=(pct>=0?'+':'')+pct.toFixed(0)+'%';el.querySelector('.mt-pct').style.color=ok?'#16a34a':'#dc2626';
   });
 }
+// Colores únicos para la tabla de precios objetivo (render + refresco usan los MISMOS)
+function potColor(p){return p>1.5?'#16a34a':p<-1.5?'#dc2626':'#6b7280';}       // potencial/MdS: + verde · − rojo · ~0 neutro
+function cagrColor(v){return v>=15?'#16a34a':v>=8?'#d97706':v>=0?'#6b7280':'#dc2626';} // CAGR: alto verde · medio ámbar · bajo neutro · negativo rojo
 function _refreshPriceTable(){
   const isM=calcISModel();
   const rows={'ptr-per':isM.map(m=>Math.round(m.eps*tPER)),'ptr-evf':evfTargetsFor(co),'ptr-eveb':isM.map(m=>Math.round((m.eb*tEVE-m.nd)/m.sh)),'ptr-evei':isM.map(m=>Math.round((m.ebit*tEVEI-m.nd)/m.sh))};
@@ -1905,14 +1908,14 @@ function _refreshPriceTable(){
       const cell=document.getElementById(rowId+'-'+i);if(!cell) return;
       const up=(v-price)/price*100;
       const ptv=cell.querySelector('.ptv'),ptp=cell.querySelector('.ptp');
-      if(ptv){ptv.textContent='$'+N(v);ptv.style.color=up>15?'#16a34a':up>0?'#2563eb':up>-15?'#d97706':'#dc2626';}
-      if(ptp){ptp.textContent=(up>=0?'+':'')+up.toFixed(0)+'%';ptp.style.color=up>=0?'#16a34a':'#dc2626';}
+      if(ptv){ptv.textContent='$'+N(v);ptv.style.color=potColor(up);}
+      if(ptp){ptp.textContent=(up>=0?'+':'')+up.toFixed(0)+'%';ptp.style.color=potColor(up);}
     });
     if(rowId==='ptr-evf'){
       data.forEach((v,i)=>{
         const mds=document.getElementById('ptr-mds-'+i),pot=document.getElementById('ptr-pot-'+i);
-        if(mds){const p=(v-price)/price*100;mds.textContent=(p>=0?'+':'')+p.toFixed(0)+'%';mds.style.color=p>=0?'#16a34a':'#dc2626';}
-        if(pot){const p=(v/price-1)*100;pot.textContent=(p>=0?'+':'')+p.toFixed(0)+'%';pot.style.color=p>=0?'#16a34a':'#dc2626';}
+        if(mds){const p=(v-price)/price*100;mds.textContent=(p>=0?'+':'')+p.toFixed(0)+'%';mds.style.color=potColor(p);}
+        if(pot){const p=(v/price-1)*100;pot.textContent=(p>=0?'+':'')+p.toFixed(0)+'%';pot.style.color=potColor(p);}
       });
     }
   });
@@ -1922,9 +1925,8 @@ function _refreshCagrRow(){
   const evfT=evfTargetsFor(co); // EV/FCF: fuente única (tu hoja / proyecciones analista)
   const models={'cagr-per':isM.map((m,i)=>(Math.pow(Math.max(m.eps*tPER,1)/Math.max(price,1),1/(i+1))-1)*100),'cagr-evf':isM.map((m,i)=>(Math.pow(Math.max(evfT[i],1)/Math.max(price,1),1/(i+1))-1)*100),'cagr-eveb':isM.map((m,i)=>(Math.pow(Math.max((m.eb*tEVE-m.nd)/m.sh,1)/Math.max(price,1),1/(i+1))-1)*100),'cagr-evei':isM.map((m,i)=>(Math.pow(Math.max((m.ebit*tEVEI-m.nd)/m.sh,1)/Math.max(price,1),1/(i+1))-1)*100)};
   models['cagr-avg']=isM.map((m,i)=>{const p=(m.eps*tPER+evfT[i]+(m.eb*tEVE-m.nd)/m.sh+(m.ebit*tEVEI-m.nd)/m.sh)/4;return(Math.pow(Math.max(p,1)/Math.max(price,1),1/(i+1))-1)*100;});
-  const ccol=v=>v>=20?'#16a34a':v>=10?'#d97706':'#dc2626';
-  Object.entries(models).forEach(([id,data])=>{const v5=data[4];const el=document.getElementById(id+'-5y');if(el){el.textContent=(v5>=0?'+':'')+v5.toFixed(0)+'%';el.style.color=ccol(v5);}});
-  const bigCagr=document.getElementById('cagr-big');if(bigCagr){const avg5=models['cagr-avg'][4];bigCagr.textContent=(avg5>=0?'+':'')+avg5.toFixed(0)+'%';bigCagr.style.color=ccol(avg5);}
+  Object.entries(models).forEach(([id,data])=>{const v5=data[4];const el=document.getElementById(id+'-5y');if(el){el.textContent=(v5>=0?'+':'')+v5.toFixed(0)+'%';el.style.color=cagrColor(v5);}});
+  const bigCagr=document.getElementById('cagr-big');if(bigCagr){const avg5=models['cagr-avg'][4];bigCagr.textContent=(avg5>=0?'+':'')+avg5.toFixed(0)+'%';bigCagr.style.color=cagrColor(avg5);}
 }
 function _refreshRetorno(){
   const idx=Math.min(hor,5)-1;
@@ -3097,7 +3099,7 @@ function rValoracion(){
       <div class="ctitle" style="margin-bottom:0;">Precio objetivo ${co.pY[0]}–${co.pY[4]} + CAGR 5Y</div>
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:9px;background:#fff3e0;color:#b45309;border:1.5px solid #f59e0b;padding:2px 8px;border-radius:10px;font-weight:700;">★ EV/FCF = referencia principal</span>
-        <div style="text-align:center;background:#1e3a5f;border-radius:8px;padding:5px 14px;"><div style="font-size:7px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px;">CAGR promedio 5Y</div><div id="cagr-big" style="font-size:20px;font-weight:800;color:${ccol(cagr5.avg)};line-height:1;">${cagr5.avg>=0?'+':''}${cagr5.avg.toFixed(0)}%</div></div>
+        <div style="text-align:center;background:#1e3a5f;border-radius:8px;padding:5px 14px;"><div style="font-size:7px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px;">CAGR promedio 5Y</div><div id="cagr-big" style="font-size:20px;font-weight:800;color:${cagrColor(cagr5.avg)};line-height:1;">${cagr5.avg>=0?'+':''}${cagr5.avg.toFixed(0)}%</div></div>
       </div>
     </div>
     <div style="overflow-x:auto;">
@@ -3114,16 +3116,15 @@ function rValoracion(){
       </thead>
       <tbody>
         ${[{id:'ptr-per',label:'PER',data:rowPER,cagrV:cagr5.per,cagrId:'cagr-per',c:'#7c3aed',evfRow:false},{id:'ptr-evf',label:'EV/FCF ★',data:rowEVF,cagrV:cagr5.evf,cagrId:'cagr-evf',c:'#b45309',evfRow:true},{id:'ptr-eveb',label:'EV/EBITDA',data:rowEVEB,cagrV:cagr5.eveb,cagrId:'cagr-eveb',c:'#2563eb',evfRow:false},{id:'ptr-evei',label:'EV/EBIT',data:rowEVEI,cagrV:cagr5.evei,cagrId:'cagr-evei',c:'#16a34a',evfRow:false},{id:'ptr-avg',label:'Promedio',data:rowAvg,cagrV:cagr5.avg,cagrId:'cagr-avg',c:'#1e3a5f',bold:true}].map(row=>{
-          const cagrColor=row.cagrV>=15?'#16a34a':row.cagrV>=10?'#d97706':'#dc2626';
           return`<tr style="border-bottom:1px solid #f0ede8;${row.bold?'background:#eff6ff;':row.evfRow?'background:#fffbf0;':''}">
             <td style="padding:6px 10px;font-weight:${row.bold||row.evfRow?'800':'600'};color:${row.c};border-left:3px solid ${row.c};white-space:nowrap;">${row.label}</td>
-            ${row.data.map((v,i)=>{const up=(v-price)/price*100;return`<td id="${row.id}-${i}" style="text-align:right;padding:5px 4px;${row.evfRow?'background:#fff8f0;':''}border-right:none;"><div class="ptv" style="font-size:11px;font-weight:${row.bold||row.evfRow?'800':'600'};color:#1a1814;">$${N(v)}</div></td><td style="text-align:left;padding:5px 2px 5px 1px;${row.evfRow?'background:#fff8f0;':''}border-right:1px solid #f0ede8;"><div class="ptp" style="font-size:10px;font-weight:700;color:${up>15?'#16a34a':up>0?'#2563eb':up>-15?'#d97706':'#dc2626'};">${up>=0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}
-            <td style="text-align:center;padding:6px 8px;background:#eff6ff;"><span id="${row.cagrId}-5y" style="font-size:14px;font-weight:800;color:${cagrColor};">${row.cagrV>=0?'+':''}${row.cagrV.toFixed(0)}%</span></td>
+            ${row.data.map((v,i)=>{const up=(v-price)/price*100;return`<td id="${row.id}-${i}" style="text-align:right;padding:5px 4px;${row.evfRow?'background:#fff8f0;':''}border-right:none;"><div class="ptv" style="font-size:11px;font-weight:${row.bold||row.evfRow?'800':'600'};color:${potColor(up)};">$${N(v)}</div></td><td style="text-align:left;padding:5px 2px 5px 1px;${row.evfRow?'background:#fff8f0;':''}border-right:1px solid #f0ede8;"><div class="ptp" style="font-size:10px;font-weight:700;color:${potColor(up)};">${up>=0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}
+            <td style="text-align:center;padding:6px 8px;background:#eff6ff;"><span id="${row.cagrId}-5y" style="font-size:14px;font-weight:800;color:${cagrColor(row.cagrV)};">${row.cagrV>=0?'+':''}${row.cagrV.toFixed(0)}%</span></td>
           </tr>`;
         }).join('')}
         <tr style="background:#f9f8f6;border-top:1px solid var(--border);">
           <td style="padding:4px 10px;font-size:9px;color:var(--muted);font-style:italic;">MdS / Potencial EV/FCF<br><span style="font-size:8px;">(objetivo−precio)/precio · mismo criterio que el veredicto</span></td>
-          ${rowEVF.map((v,i)=>{const p=(v-price)/price*100;return`<td colspan="2" style="text-align:center;padding:4px 3px;"><span id="ptr-mds-${i}" style="font-weight:700;font-size:10px;color:${p>=0?'#16a34a':'#dc2626'};">${p>=0?'+':''}${p.toFixed(0)}%</span></td>`;}).join('')}
+          ${rowEVF.map((v,i)=>{const p=(v-price)/price*100;return`<td colspan="2" style="text-align:center;padding:4px 3px;"><span id="ptr-mds-${i}" style="font-weight:700;font-size:10px;color:${potColor(p)};">${p>=0?'+':''}${p.toFixed(0)}%</span></td>`;}).join('')}
           <td style="background:#eff6ff;"></td>
         </tr>
       </tbody>
