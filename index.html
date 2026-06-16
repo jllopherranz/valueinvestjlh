@@ -1907,7 +1907,8 @@ function _refreshPriceTable(){
     data.forEach((v,i)=>{
       const cell=document.getElementById(rowId+'-'+i);if(!cell) return;
       const up=(v-price)/price*100;
-      const ptv=cell.querySelector('.ptv'),ptp=cell.querySelector('.ptp');
+      const ptv=cell.querySelector('.ptv');
+      const ptp=cell.nextElementSibling?cell.nextElementSibling.querySelector('.ptp'):null; // el potencial está en la celda HERMANA
       if(ptv){ptv.textContent='$'+N(v);ptv.style.color=potColor(up);}
       if(ptp){ptp.textContent=(up>=0?'+':'')+up.toFixed(0)+'%';ptp.style.color=potColor(up);}
     });
