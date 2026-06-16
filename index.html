@@ -1286,7 +1286,7 @@ const _priceCache={};
 const YF_TICKER={CSU:'CSU.TO',ASML:'ASML',AMZN:'AMZN',MSFT:'MSFT',AAPL:'AAPL',GOOGL:'GOOGL',META:'META',NVDA:'NVDA',WDC:'WDC'};
 // Finnhub symbol mapping (ASML cotiza en NASDAQ en Finnhub, CSU.TO en TSX)
 const YF_TICKER_FH={CSU:'CSU',ASML:'ASML','CSU.TO':'CSU','ASML.AS':'ASML'};
-const TABS_NEED_RERENDER=['resumen','valoracion','dcf','proyecciones','alertas'];
+const TABS_NEED_RERENDER=['resumen','valoracion','alertas'];
 
 function _getLiveBadge(){return document.getElementById('live-badge');}
 function _getPriceChange(){return document.getElementById('price-change');}
@@ -2923,7 +2923,8 @@ function rGraficos(){
     <div class="card"><div class="ctitle">📊 Márgenes históricos — EBITDA %, EBIT % y FCF %</div><div style="position:relative;height:200px;"><canvas id="c-mg"></canvas></div></div>
     <div class="card"><div class="ctitle">🎯 ROIC vs WACC (${co.wacc}%) — Creación de valor</div><div style="position:relative;height:200px;"><canvas id="c-roic"></canvas></div><div class="chart-note">Verde = ROIC > WACC (crea valor) · Rojo = destruye valor</div></div>
   </div>
-  <div class="card"><div class="ctitle">💹 Múltiplos históricos — EV/FCF y PER</div><div style="position:relative;height:200px;"><canvas id="c-mult"></canvas></div><div class="chart-note">Línea punteada = mediana histórica</div></div>`;
+  <div class="card"><div class="ctitle">💹 Múltiplos históricos — EV/FCF y PER</div><div style="position:relative;height:200px;"><canvas id="c-mult"></canvas></div><div class="chart-note">Línea punteada = mediana histórica</div></div>
+  <div class="card"><div class="ctitle">🔮 Proyecciones de tu hoja — Ventas, FCF y EPS (${co.pY[0]}–${co.pY[4]})</div><div style="position:relative;height:220px;"><canvas id="c-proj"></canvas></div><div class="chart-note">Estimaciones importadas de tu Excel (Ventas y FCF en $M, eje izq · EPS en $, eje der)</div></div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3371,6 +3372,22 @@ function rAnalisis(){
      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:12px;text-align:center;"><div style="font-size:11px;font-weight:700;color:#dc2626;">Red flags</div><div style="font-size:32px;font-weight:800;color:#dc2626;">${neg}</div></div>
    </div>
    <div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Análisis automático de las partidas de TU hoja (IS · FCF · ROIC · Valoración). Cada métrica: dato + tendencia (últimos 6 años, rojo = negativo) + semáforo + qué es y qué vigilar.</div>
+   ${(()=>{const moat=vd.moat;const ds=[...moat.items].sort((a,b)=>b.s-a.s);const strong=ds.slice(0,3),weak=ds.slice(-3).reverse();const dc=s=>s>=75?'#16a34a':s>=55?'#d97706':'#dc2626';return`<div class="card" style="margin-bottom:10px;">
+     <div class="ctitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">🏰 Foso competitivo (MOAT) <span data-tip="moat" style="cursor:pointer;font-size:9px;font-weight:600;color:#0891b2;border:1px solid #0891b255;border-radius:10px;padding:2px 8px;">¿qué es? ⓘ</span></div>
+     <div style="display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:center;">
+       <div style="text-align:center;background:${moat.color}10;border:1.5px solid ${moat.color}40;border-radius:12px;padding:10px 6px;">
+         <div style="font-size:32px;font-weight:800;color:${moat.color};line-height:1;">${moat.overall}</div>
+         <div style="font-size:8px;color:var(--muted);">/100</div>
+         <div style="font-size:10px;font-weight:800;color:${moat.color};margin-top:4px;">${moat.label}</div>
+       </div>
+       <div style="min-width:0;">
+         <div style="font-size:9px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Fortalezas del foso</div>
+         ${strong.map(d=>`<div style="font-size:10px;color:var(--sub);line-height:1.5;margin-bottom:2px;">🟢 <b style="color:#1a1814;">${d.n}</b> <span style="color:${dc(d.s)};font-weight:700;">${d.s}</span> — ${d.why}</div>`).join('')}
+         <div style="font-size:9px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.04em;margin:7px 0 3px;">Puntos más débiles</div>
+         ${weak.map(d=>`<div style="font-size:10px;color:var(--sub);line-height:1.5;margin-bottom:2px;">${d.s>=55?'🟡':'🔴'} <b style="color:#1a1814;">${d.n}</b> <span style="color:${dc(d.s)};font-weight:700;">${d.s}</span> — ${d.why}</div>`).join('')}
+       </div>
+     </div>
+   </div>`;})()}
    ${blocks.map(b=>`<div class="card" style="margin-bottom:10px;">
      <div class="ctitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">${b.title}<span style="font-size:9px;font-weight:600;color:var(--muted);background:#f0ede8;padding:2px 7px;border-radius:8px;white-space:nowrap;">hoja ${b.sheet}</span></div>
      ${b.items.map(it=>{const m=stM[it.status];return`<div style="display:grid;grid-template-columns:auto 1fr auto;gap:10px;padding:9px 0;border-bottom:1px solid #f0ede8;align-items:start;">
@@ -3451,6 +3468,12 @@ function buildCharts(tab){
     }
     const c4=document.getElementById('c-mult');
     if(c4) charts.mult=new Chart(c4,{type:'line',data:{labels:co.years,datasets:[{label:'EV/FCF',data:co.hEvF,borderColor:'#b45309',tension:.35,pointRadius:3,borderWidth:2.5,spanGaps:false},{label:'PER',data:co.hPER,borderColor:'#7c3aed',tension:.35,pointRadius:3,borderWidth:2,borderDash:[5,3],spanGaps:false},{label:`Med. EV/FCF ${Math.round(co.medEvFcf)}x`,data:Array(co.years.length).fill(co.medEvFcf),borderColor:'#b45309',borderWidth:1,borderDash:[3,3],pointRadius:0},{label:`Med. PER ${Math.round(co.medPER)}x`,data:Array(co.years.length).fill(co.medPER),borderColor:'#7c3aed',borderWidth:1,borderDash:[3,3],pointRadius:0}]},options:{...baseOpts,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>Math.round(v)+'x'}}}}});
+    const c5=document.getElementById('c-proj');
+    if(c5&&co.pS&&co.pF&&co.pEPS) charts.proj=new Chart(c5,{data:{labels:co.pY.map(y=>y+'e'),datasets:[
+      {type:'bar',label:'Ventas ($M)',data:co.pS,backgroundColor:'#2563eb',borderRadius:4,yAxisID:'y',order:3},
+      {type:'bar',label:'FCF ($M)',data:co.pF,backgroundColor:'#16a34a',borderRadius:4,yAxisID:'y',order:2},
+      {type:'line',label:'EPS ($)',data:co.pEPS,borderColor:'#d97706',backgroundColor:'#d97706',tension:.35,pointRadius:4,borderWidth:2.5,yAxisID:'y1',order:1}
+    ]},options:{...baseOpts,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{position:'left',grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v}},y1:{position:'right',grid:{display:false},ticks:{color:'#d97706',font:{size:10},callback:v=>'$'+v}}}}});
   }
   if(tab==='valoracion') setTimeout(()=>buildMultHistChart(),60);
   if(tab==='proyecciones'){
@@ -4190,13 +4213,10 @@ function updateDashCoRow(key,price,pct,change){
   const TABS=[
     {t:'resumen',l:'📋 Resumen'},
     {t:'graficos',l:'📈 Gráficos'},
+    {t:'alertas',l:'🔍 Análisis'},
     {t:'valoracion',l:'💰 Valoración'},
-    {t:'dcf',l:'📐 DCF / Stress'},
-    {t:'proyecciones',l:'🔮 Proyecciones'},
-    {t:'moat',l:'🏰 MOAT'},
     {t:'academia',l:'📚 Academia'},
     {t:'tesis',l:'🤖 Tesis IA'},
-    {t:'alertas',l:'🔍 Análisis'},
   ];
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab" data-t="${t.t}" onclick="showTab('${t.t}')">${t.l}</button>`).join('');
   BUILTIN_KEYS=new Set(Object.keys(DB));        // empresas de fábrica
