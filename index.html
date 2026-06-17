@@ -3769,9 +3769,52 @@ const DASH_COMPANIES=[
 ];
 
 // Dominio de cada empresa → logo de marca real (Clearbit cerró en 2024; usamos DuckDuckGo + favicon Google de respaldo)
+// Catálogo de empresas conocidas: aparecen por nombre en "Añadir/Importar" y autocompletan
+// nombre, sector, color y logo (sin tener que escribirlo a mano). Amplíalo libremente.
+const CATALOG={
+  MSFT:{name:'Microsoft',domain:'microsoft.com',color:'#00a4ef',sector:'Software / Cloud / IA'},
+  AAPL:{name:'Apple',domain:'apple.com',color:'#555555',sector:'Hardware / Consumo'},
+  GOOGL:{name:'Alphabet (Google)',domain:'google.com',color:'#4285f4',sector:'Publicidad / IA / Cloud'},
+  AMZN:{name:'Amazon',domain:'amazon.com',color:'#e47911',sector:'eCommerce / Cloud (AWS)'},
+  META:{name:'Meta Platforms',domain:'meta.com',color:'#1877f2',sector:'Redes sociales / Publicidad'},
+  NVDA:{name:'NVIDIA',domain:'nvidia.com',color:'#76b900',sector:'Semiconductores / IA'},
+  ASML:{name:'ASML Holding',domain:'asml.com',color:'#0066cc',sector:'Semiconductores (litografía)'},
+  CSU:{name:'Constellation Software',domain:'csisoftware.com',color:'#1e3a5f',sector:'Software (VMS)'},
+  WDC:{name:'Western Digital',domain:'westerndigital.com',color:'#005594',sector:'Almacenamiento (HDD)'},
+  AVGO:{name:'Broadcom',domain:'broadcom.com',color:'#cc092f',sector:'Semiconductores / Software'},
+  AMD:{name:'Advanced Micro Devices',domain:'amd.com',color:'#ed1c24',sector:'Semiconductores'},
+  TSM:{name:'TSMC',domain:'tsmc.com',color:'#d4002a',sector:'Semiconductores (foundry)'},
+  INTC:{name:'Intel',domain:'intel.com',color:'#0071c5',sector:'Semiconductores'},
+  QCOM:{name:'Qualcomm',domain:'qualcomm.com',color:'#3253dc',sector:'Semiconductores / Móvil'},
+  TXN:{name:'Texas Instruments',domain:'ti.com',color:'#cc0000',sector:'Semiconductores (analógico)'},
+  MU:{name:'Micron Technology',domain:'micron.com',color:'#0a2240',sector:'Memoria / Semiconductores'},
+  STX:{name:'Seagate Technology',domain:'seagate.com',color:'#6ebe49',sector:'Almacenamiento (HDD)'},
+  AMAT:{name:'Applied Materials',domain:'appliedmaterials.com',color:'#0077c8',sector:'Equipos semiconductores'},
+  LRCX:{name:'Lam Research',domain:'lamresearch.com',color:'#00a3e0',sector:'Equipos semiconductores'},
+  KLAC:{name:'KLA Corporation',domain:'kla.com',color:'#005eb8',sector:'Equipos semiconductores'},
+  ORCL:{name:'Oracle',domain:'oracle.com',color:'#f80000',sector:'Software / Cloud'},
+  CRM:{name:'Salesforce',domain:'salesforce.com',color:'#00a1e0',sector:'Software (CRM)'},
+  ADBE:{name:'Adobe',domain:'adobe.com',color:'#ed2224',sector:'Software (creativo)'},
+  NOW:{name:'ServiceNow',domain:'servicenow.com',color:'#62d84e',sector:'Software (workflow)'},
+  INTU:{name:'Intuit',domain:'intuit.com',color:'#365ebf',sector:'Software / Fintech'},
+  SAP:{name:'SAP',domain:'sap.com',color:'#0faaff',sector:'Software empresarial'},
+  NFLX:{name:'Netflix',domain:'netflix.com',color:'#e50914',sector:'Streaming'},
+  TSLA:{name:'Tesla',domain:'tesla.com',color:'#cc0000',sector:'Automoción / Energía'},
+  V:{name:'Visa',domain:'visa.com',color:'#1a1f71',sector:'Pagos'},
+  MA:{name:'Mastercard',domain:'mastercard.com',color:'#eb001b',sector:'Pagos'},
+  PYPL:{name:'PayPal',domain:'paypal.com',color:'#003087',sector:'Pagos / Fintech'},
+  COST:{name:'Costco',domain:'costco.com',color:'#e32737',sector:'Retail (membresía)'},
+  SHOP:{name:'Shopify',domain:'shopify.com',color:'#95bf47',sector:'eCommerce SaaS'},
+  UBER:{name:'Uber',domain:'uber.com',color:'#000000',sector:'Movilidad / Delivery'},
+  PLTR:{name:'Palantir',domain:'palantir.com',color:'#101113',sector:'Software / Datos'},
+  CRWD:{name:'CrowdStrike',domain:'crowdstrike.com',color:'#e01a22',sector:'Ciberseguridad'},
+  SNOW:{name:'Snowflake',domain:'snowflake.com',color:'#29b5e8',sector:'Datos / Cloud'},
+  PANW:{name:'Palo Alto Networks',domain:'paloaltonetworks.com',color:'#f04e23',sector:'Ciberseguridad'},
+};
 const LOGO_DOMAINS={CSU:'csisoftware.com',ASML:'asml.com',AMZN:'amazon.com',MSFT:'microsoft.com',AAPL:'apple.com',GOOGL:'google.com',META:'meta.com',NVDA:'nvidia.com',WDC:'westerndigital.com',AMD:'amd.com',NFLX:'netflix.com',STX:'seagate.com',V:'visa.com'};
-function logoUrlFor(key){const dom=LOGO_DOMAINS[key]||(getImportedData(key)?.domain);return dom?('https://icons.duckduckgo.com/ip3/'+dom+'.ico'):null;}
-function logoFallback(key){const dom=LOGO_DOMAINS[key];return dom?('https://www.google.com/s2/favicons?sz=64&domain='+dom):'';}
+function _domainFor(key){return LOGO_DOMAINS[key]||(CATALOG[key]&&CATALOG[key].domain)||(getImportedData(key)?.domain);}
+function logoUrlFor(key){const dom=_domainFor(key);return dom?('https://icons.duckduckgo.com/ip3/'+dom+'.ico'):null;}
+function logoFallback(key){const dom=_domainFor(key);return dom?('https://www.google.com/s2/favicons?sz=64&domain='+dom):'';}
 const LOGOS_DASH=new Proxy({},{get:(_,k)=>typeof k==='string'?logoUrlFor(k):undefined}); // compat: LOGOS_DASH[key] sigue funcionando
 
 const MACRO_CAL=[
@@ -4267,6 +4310,7 @@ function updateDashCoRow(key,price,pct,change){
   // para que TODAS las variables de módulo (let _cartera*) estén ya inicializadas
   // antes de que setView('cartera') llame a renderCartera (evita un TDZ al recargar).
   // La web SIEMPRE arranca en el Dashboard (página principal), sin recordar la última vista.
+  if(typeof populateImportCatalog==='function') populateImportCatalog(); // empresas por nombre en el desplegable
   setTimeout(()=>setView('dash'),0);
   setTimeout(()=>{fetchDashPrices();},400);
   setTimeout(()=>{fetchDashNews();},1400);
@@ -4660,7 +4704,17 @@ function toggleNuevaFields(){
   const fields=document.getElementById('import-nueva-fields');
   if(sel&&fields) fields.style.display=sel.value==='NUEVA'?'block':'none';
 }
-
+// Rellena el desplegable de empresas desde el catálogo (ordenado por nombre) — así aparecen
+// por nombre (Broadcom, etc.) y no hay que escribirlas a mano.
+function populateImportCatalog(){
+  const sel=document.getElementById('import-ticker-sel'); if(!sel) return;
+  const cur=sel.value;
+  const entries=Object.entries(CATALOG).sort((a,b)=>a[1].name.localeCompare(b[1].name,'es'));
+  sel.innerHTML='<option value="">— Selecciona empresa —</option>'+
+    entries.map(([t,c])=>`<option value="${t}">${t} · ${c.name}</option>`).join('')+
+    '<option value="NUEVA">＋ Nueva empresa (no listada)…</option>';
+  if(cur) sel.value=cur;
+}
 document.getElementById('import-ticker-sel')?.addEventListener('change',toggleNuevaFields);
 
 function handleImportFile(file){
@@ -4691,16 +4745,18 @@ async function doImport(){
   if(!_importedFile) return showImportError('Selecciona un archivo .xlsx primero.');
   let ticker=document.getElementById('import-ticker-sel').value;
   if(!ticker) return showImportError('Selecciona la empresa.');
-  let name,sector,color;
+  let name,sector,color,domain;
   if(ticker==='NUEVA'){
     ticker=(document.getElementById('import-nueva-ticker').value||'').trim().toUpperCase();
     name=document.getElementById('import-nueva-name').value.trim();
     sector=document.getElementById('import-nueva-sector').value.trim();
     color=document.getElementById('import-nueva-color').value.trim();
     if(!ticker||!name) return showImportError('Introduce el ticker y nombre de la empresa.');
+    domain=(CATALOG[ticker]&&CATALOG[ticker].domain)||'';
   } else {
-    const d=DB[ticker];
-    name=d?.name||ticker;sector=d?.sector||'';color=d?.color||'#1e3a5f';
+    const d=DB[ticker], cat=CATALOG[ticker];
+    name=d?.name||cat?.name||ticker; sector=d?.sector||cat?.sector||''; color=d?.color||cat?.color||'#1e3a5f';
+    domain=(cat&&cat.domain)||LOGO_DOMAINS[ticker]||'';
   }
   const driveUrl=document.getElementById('import-drive-url').value.trim();
   showImportProgress('Leyendo archivo Excel…');
@@ -4708,6 +4764,7 @@ async function doImport(){
     const buf=await _importedFile.arrayBuffer();
     const result=parseExcelData(buf,ticker,name,sector,color,driveUrl);
     if(!result) return showImportError('No se pudo leer la plantilla. Verifica que es la Plantilla Valoración IDC.');
+    if(domain) result.domain=domain;  // para el logo
     localStorage.setItem('vi_import_'+ticker,JSON.stringify(result));
     localStorage.removeItem('vi_mults_'+ticker); // una importación nueva manda sobre ediciones previas
     if(DB[ticker]){
