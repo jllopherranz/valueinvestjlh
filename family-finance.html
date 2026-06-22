@@ -125,6 +125,14 @@ tbody tr:hover{background:var(--surface-2);}
 .inline-amount{width:100px;padding:5px 7px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;}
 .form-panel{border-top:1px dashed var(--border);margin-top:4px;padding-top:14px;}
 .view-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.seg-toggle{display:inline-flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:2px;}
+.seg{border:none;background:transparent;color:var(--sub);font-weight:600;font-size:12px;padding:5px 13px;border-radius:8px;cursor:pointer;font-family:inherit;}
+.seg.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+.balance-nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;padding:0 18px 18px;}
+.bn{background:var(--surface-2);border-radius:12px;padding:11px 13px;}
+.bn .l{font-size:11.5px;color:var(--sub);display:flex;align-items:center;gap:6px;}
+.bn .v{font-size:17px;font-weight:700;margin-top:3px;}
+.bn .sw{width:10px;height:10px;border-radius:3px;display:inline-block;}
 </style>
 </head>
 <body>
@@ -169,9 +177,16 @@ tbody tr:hover{background:var(--surface-2);}
         <div class="chart-wrap"><canvas id="chNetWorth"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-head">Ingresos vs gastos vs ahorro</div>
-        <div class="card-sub">Mensual</div>
-        <div class="chart-wrap"><canvas id="chIncomeExpense"></canvas></div>
+        <div class="card-head view-head">
+          <span>Ingresos · gastos · ahorro</span>
+          <span class="seg-toggle">
+            <button class="seg active" id="seg-mes" onclick="setBalanceScope('mes')">Mes</button>
+            <button class="seg" id="seg-tri" onclick="setBalanceScope('trimestre')">Trimestre</button>
+          </span>
+        </div>
+        <div class="card-sub" id="balance-scope-label"></div>
+        <div class="chart-wrap" style="height:210px;"><canvas id="chBalance"></canvas></div>
+        <div class="balance-nums" id="balance-nums"></div>
       </div>
       <div class="card">
         <div class="card-head">Distribución de gastos por categoría</div>
@@ -264,7 +279,12 @@ tbody tr:hover{background:var(--surface-2);}
     <div class="section-title">👥 Calculadora de reparto de un gasto</div>
     <div class="two-col">
       <div class="card card-pad">
-        <div class="field"><label>Importe del gasto (€)</label><input type="number" id="rep-amount" value="1700"></div>
+        <div class="stat-box" style="margin-bottom:14px;">
+          <div class="l">Gasto total del mes seleccionado</div>
+          <div class="v" id="rep-month-total">—</div>
+          <button class="btn ghost" style="margin-top:8px;padding:6px 12px;font-size:12.5px;" onclick="useMonthTotalForSplit()">Usar este importe ↑</button>
+        </div>
+        <div class="field"><label>Importe a repartir (€)</label><input type="number" id="rep-amount" value="1700" oninput="calcSplit()"></div>
         <div class="field"><label>Modo de reparto</label>
           <select id="rep-mode" onchange="calcSplit()">
             <option value="PROPORTIONAL">Proporcional a ingresos (68,7% / 31,3%)</option>
@@ -305,14 +325,7 @@ tbody tr:hover{background:var(--surface-2);}
         <div style="font-weight:600;margin-bottom:12px;">Resumen</div>
         <div class="three-col" id="mort-summary"></div>
         <div class="kpi-hint" id="mort-link-note" style="margin-top:10px;line-height:1.5;"></div>
-        <div class="section-title" style="font-size:14px;margin:20px 0 10px;">Simulador de amortización anticipada</div>
-        <div class="field"><label>Importe a amortizar (€)</label><input type="number" id="mort-prepay" value="20000" oninput="renderMortgage()"></div>
-        <div id="mort-prepay-result"></div>
       </div>
-    </div>
-    <div class="card" style="margin-top:18px;">
-      <div class="card-head">Cuadro de amortización (primeros 12 meses)</div>
-      <div class="card-pad" style="overflow-x:auto;"><table id="mort-table"></table></div>
     </div>
   </section>
 
@@ -388,7 +401,7 @@ function defaultState(){
       {name:"Cartera de inversión",balance:15000,liability:false},
       {name:"Vivienda (Vidreres)",balance:380000,liability:false},
     ],
-    mortgage:{outstanding:228000,ratePct:3.0,termMonths:163,prepay:20000},
+    mortgage:{outstanding:228000,ratePct:3.0,termMonths:163},
     expenses:[
       {id:"ibi",name:"IBI",cat:"Impuestos",monthly:round2(1000/12),housing:true},
       {id:"seguro-hogar",name:"Seguro del hogar",cat:"Seguros",monthly:round2(600/12),housing:true},
@@ -493,7 +506,12 @@ function setActual(expenseId,monthKey,value){
 function extrasForMonth(monthKey){ return STATE.extras.filter(x=>x.month===monthKey); }
 function monthFixedTotal(monthKey){ return allExpenses().reduce((a,e)=>a+actualAmount(e.id,monthKey),0); }
 function monthExtrasTotal(monthKey){ return extrasForMonth(monthKey).reduce((a,x)=>a+x.amount,0); }
-function monthExpensesTotal(monthKey){ return monthFixedTotal(monthKey)+monthExtrasTotal(monthKey); }
+// Gasto "puro" del mes (fijos + extra), sin contar aportaciones a objetivos.
+function monthSpending(monthKey){ return monthFixedTotal(monthKey)+monthExtrasTotal(monthKey); }
+// Aportación mensual a objetivos aún no completados (cuenta como salida de dinero).
+function monthGoalsTotal(){ return STATE.goals.reduce((a,g)=> a + (((g.target||0)-(g.current||0))>0 ? (g.monthly||0) : 0), 0); }
+// Salida total del mes = gasto + aportación a objetivos (el "gasto mensual" unificado).
+function monthExpensesTotal(monthKey){ return monthSpending(monthKey)+monthGoalsTotal(); }
 function monthHousingTotal(monthKey){
   let t=allExpenses().filter(e=>e.housing).reduce((a,e)=>a+actualAmount(e.id,monthKey),0);
   t+=extrasForMonth(monthKey).filter(x=>x.cat==="Vivienda").reduce((a,x)=>a+x.amount,0);
@@ -507,7 +525,8 @@ function monthCategoryTotals(monthKey){
 }
 function annualFixedTotal(){ return MONTHS.reduce((a,mo)=>a+monthFixedTotal(mo.key),0); }
 function annualExtrasTotal(){ return MONTHS.reduce((a,mo)=>a+monthExtrasTotal(mo.key),0); }
-function annualTotal(){ return annualFixedTotal()+annualExtrasTotal(); }
+function annualGoalsTotal(){ return monthGoalsTotal()*MONTHS.length; }
+function annualTotal(){ return annualFixedTotal()+annualExtrasTotal()+annualGoalsTotal(); }
 
 function setSelectedMonth(key){ STATE.selectedMonth=key; saveState(); renderAll(); }
 
@@ -518,7 +537,7 @@ function emergencyFundAmount(){ const g=STATE.goals.find(x=>x.type==="Emergencia
 
 function savingsRateFor(monthKey){ const inc=monthIncome(monthKey); if(!inc) return 0; return (inc-monthExpensesTotal(monthKey))/inc; }
 function housingRatioFor(monthKey){ const inc=monthIncome(monthKey); if(!inc) return 0; return monthHousingTotal(monthKey)/inc; }
-function emergencyMonthsFor(monthKey){ const exp=monthExpensesTotal(monthKey); if(!exp) return 0; return emergencyFundAmount()/exp; }
+function emergencyMonthsFor(monthKey){ const exp=monthSpending(monthKey); if(!exp) return 0; return emergencyFundAmount()/exp; }
 
 function evalAlerts(monthKey){
   const a=[];
@@ -580,9 +599,9 @@ function renderDashboard(){
   const moLabel=(MONTHS.find(m=>m.key===mk)||{}).label||"";
   document.getElementById("kpi-grid").innerHTML=[
     kpiCard("Patrimonio neto",eur(nw),"🏦","Activos − pasivos"),
-    kpiCard("Ahorro del mes",eur(sav),"🐷","Ingresos − gastos",sav>=0?"up":"down"),
+    kpiCard("Ahorro libre del mes",eur(sav),"🐷","Tras gastos y objetivos",sav>=0?"up":"down"),
     kpiCard("Tasa de ahorro",pct(sr),"％",sr>=0.2?"Objetivo ≥ 20% ✓":"Por debajo del 20%",sr>=0.2?"up":"down"),
-    kpiCard("Gastos del mes",eur(exp),"📉",moLabel),
+    kpiCard("Salidas del mes",eur(exp),"📉","Gastos + objetivos · "+moLabel),
     kpiCard("Ratio vivienda",pct(hr),"🏠",hr<=0.35?"Umbral ≤ 35% ✓":"Supera el 35%",hr<=0.35?"up":"down"),
     kpiCard("Fondo emergencia",em.toFixed(1)+" meses","🛡️",em>=6?"≥ 6 meses ✓":"Menos de 6 meses",em>=6?"up":"down"),
   ].join("");
@@ -618,7 +637,7 @@ function drawCharts(){
   const c=chartColors();
   const labels=MONTHS.map(m=>m.short);
   const inc=MONTHS.map(m=>monthIncome(m.key));
-  const exp=MONTHS.map(m=>monthExpensesTotal(m.key));
+  const exp=MONTHS.map(m=>monthSpending(m.key));
   const sav=inc.map((v,i)=>v-exp[i]);
   const endNW=netWorthNow();
   const nw=new Array(MONTHS.length);
@@ -629,18 +648,50 @@ function drawCharts(){
     data:{labels,datasets:[{label:"Patrimonio",data:nw,borderColor:"#00b894",backgroundColor:"rgba(0,184,148,.12)",fill:true,tension:.35,borderWidth:2,pointRadius:0}]},
     options:lineOpts(c)});
 
-  charts.ie=new Chart(document.getElementById("chIncomeExpense"),{type:"bar",
-    data:{labels,datasets:[
-      {label:"Ingresos",data:inc,backgroundColor:"#16a34a",borderRadius:4},
-      {label:"Gastos",data:exp,backgroundColor:"#e11d48",borderRadius:4},
-      {label:"Ahorro",data:sav,backgroundColor:"#00b894",borderRadius:4}]},
-    options:barOpts(c)});
-
   const cat=monthCategoryTotals(STATE.selectedMonth);
   const cl=Object.keys(cat).filter(k=>cat[k]>0);
   charts.cat=new Chart(document.getElementById("chCategory"),{type:"doughnut",
     data:{labels:cl,datasets:[{data:cl.map(k=>round2(cat[k])),backgroundColor:cl.map(k=>CAT_COLORS[k]||"#94a3b8"),borderWidth:0}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:"62%",plugins:{legend:{position:"right",labels:{color:c.text,boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:x=>` ${x.label}: ${eur(x.raw)}`}}}}});
+
+  drawBalance();
+}
+
+let balanceScope="mes";
+function quarterMonthsOf(monthKey){ const mo=MONTHS.find(x=>x.key===monthKey)||MONTHS[MONTHS.length-1]; return MONTHS.filter(x=>x.year===mo.year && x.q===mo.q); }
+function setBalanceScope(scope){
+  balanceScope=scope;
+  const a=document.getElementById("seg-mes"), b=document.getElementById("seg-tri");
+  if(a) a.classList.toggle("active",scope==="mes");
+  if(b) b.classList.toggle("active",scope==="trimestre");
+  drawBalance();
+}
+function drawBalance(){
+  const canvas=document.getElementById("chBalance"); if(!canvas) return;
+  const mk=STATE.selectedMonth;
+  const qm=quarterMonthsOf(mk);
+  const months = balanceScope==="trimestre" ? qm : [MONTHS.find(x=>x.key===mk)||MONTHS[MONTHS.length-1]];
+  const inc=months.reduce((a,mo)=>a+monthIncome(mo.key),0);
+  const spend=months.reduce((a,mo)=>a+monthSpending(mo.key),0);
+  const goals=monthGoalsTotal()*months.length;
+  const margen=inc-spend-goals;
+  const periodo = balanceScope==="trimestre" ? ("Trimestre Q"+qm[0].q+" "+qm[0].year) : ((MONTHS.find(x=>x.key===mk)||{}).label||"");
+  const lbl=document.getElementById("balance-scope-label"); if(lbl) lbl.textContent=periodo;
+  const segs=[["Gastos",spend,"#e11d48"],["Objetivos",goals,"#7c3aed"]];
+  if(margen>0) segs.push(["Ahorro libre",margen,"#16a34a"]);
+  if(charts.bal){ charts.bal.destroy(); charts.bal=null; }
+  charts.bal=new Chart(canvas,{type:"doughnut",
+    data:{labels:segs.map(s=>s[0]),datasets:[{data:segs.map(s=>round2(s[1])),backgroundColor:segs.map(s=>s[2]),borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:"66%",plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>` ${x.label}: ${eur(x.raw)}`}}}}});
+  const nums=[
+    ["Ingresos",inc,"#16a34a"],
+    ["Gastos (fijos+extra)",spend,"#e11d48"],
+    ["Objetivos",goals,"#7c3aed"],
+    [margen>=0?"Ahorro libre":"Déficit",margen,margen>=0?"#16a34a":"#e11d48"],
+  ];
+  document.getElementById("balance-nums").innerHTML=nums.map(n=>
+    `<div class="bn"><div class="l"><span class="sw" style="background:${n[2]}"></span>${n[0]}</div><div class="v" style="color:${n[2]}">${eur(n[1])}</div></div>`
+  ).join("")+`<div class="bn"><div class="l">Tasa de ahorro</div><div class="v">${pct(inc?margen/inc:0)}</div></div>`;
 }
 function lineOpts(c){return{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>` ${eur(x.raw)}`}}},scales:{x:{grid:{display:false},ticks:{color:c.text}},y:{grid:{color:c.grid},ticks:{color:c.text,callback:v=>(v/1000)+"k"}}}};}
 function barOpts(c){return{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:c.text,boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:x=>` ${x.dataset.label}: ${eur(x.raw)}`}}},scales:{x:{grid:{display:false},ticks:{color:c.text}},y:{grid:{color:c.grid},ticks:{color:c.text,callback:v=>(v/1000)+"k"}}}};}
@@ -678,14 +729,15 @@ function simulateSalary(){
 /* GASTOS */
 function renderGastos(){
   const mk=STATE.selectedMonth;
-  const fixedTotal=monthFixedTotal(mk), extrasTotal=monthExtrasTotal(mk), total=fixedTotal+extrasTotal;
+  const fixedTotal=monthFixedTotal(mk), extrasTotal=monthExtrasTotal(mk), goalsTotal=monthGoalsTotal();
+  const total=fixedTotal+extrasTotal+goalsTotal;
   const plannedTotal=allExpenses().reduce((a,e)=>a+e.monthly,0);
   const moShort=(MONTHS.find(m=>m.key===mk)||{}).short||"";
   document.getElementById("gastos-kpis").innerHTML=[
-    kpiCard("Previsto (fijos)",eur(plannedTotal),"📋"),
-    kpiCard("Real (fijos) este mes",eur(fixedTotal),"🧾",fixedTotal>plannedTotal?"Por encima de lo previsto":"Dentro de lo previsto",fixedTotal>plannedTotal?"down":"up"),
-    kpiCard("Gastos extra este mes",eur(extrasTotal),"🛠️"),
-    kpiCard("Total del mes",eur(total),"💳"),
+    kpiCard("Gastos fijos (real)",eur(fixedTotal),"🧾",fixedTotal>plannedTotal?"Por encima de lo previsto":"Dentro de lo previsto",fixedTotal>plannedTotal?"down":"up"),
+    kpiCard("Gastos extra",eur(extrasTotal),"🛠️"),
+    kpiCard("Aportación a objetivos",eur(goalsTotal),"🎯"),
+    kpiCard("Salidas totales del mes",eur(total),"💳","Gastos + objetivos"),
   ].join("");
 
   document.getElementById("expense-table").innerHTML=
@@ -729,14 +781,15 @@ function renderGastos(){
     (extras.length?`<tr><td><strong>Total extra</strong></td><td></td><td><strong>${eur(extrasTotal)}</strong></td><td></td></tr>`:"")+
     `</tbody>`;
 
+  const gMonthly=monthGoalsTotal();
   document.getElementById("annual-table").innerHTML=
-    `<thead><tr><th>Mes</th><th>Fijos</th><th>Extra</th><th>Total gastos</th><th>Ingreso</th><th>Ahorro</th></tr></thead><tbody>`+
+    `<thead><tr><th>Mes</th><th>Fijos</th><th>Extra</th><th>Objetivos</th><th>Salidas</th><th>Ingreso</th><th>Ahorro libre</th></tr></thead><tbody>`+
     MONTHS.map(mo=>{
-      const f=monthFixedTotal(mo.key), x=monthExtrasTotal(mo.key), t=f+x, inc=monthIncome(mo.key), sav=inc-t;
+      const f=monthFixedTotal(mo.key), x=monthExtrasTotal(mo.key), t=f+x+gMonthly, inc=monthIncome(mo.key), sav=inc-t;
       const isSel=mo.key===mk;
-      return `<tr style="${isSel?'background:var(--primary-soft);':''}"><td>${mo.label}</td><td>${eur(f)}</td><td>${eur(x)}</td><td>${eur(t)}</td><td>${eur(inc)}</td><td style="color:${sav>=0?'var(--green)':'var(--red)'}">${eur(sav)}</td></tr>`;
+      return `<tr style="${isSel?'background:var(--primary-soft);':''}"><td>${mo.label}</td><td>${eur(f)}</td><td>${eur(x)}</td><td>${eur(gMonthly)}</td><td>${eur(t)}</td><td>${eur(inc)}</td><td style="color:${sav>=0?'var(--green)':'var(--red)'}">${eur(sav)}</td></tr>`;
     }).join("")+
-    `<tr><td><strong>Total anual</strong></td><td><strong>${eur(annualFixedTotal())}</strong></td><td><strong>${eur(annualExtrasTotal())}</strong></td><td><strong>${eur(annualTotal())}</strong></td><td><strong>${eur(annualIncomeTotal())}</strong></td><td><strong>${eur(annualIncomeTotal()-annualTotal())}</strong></td></tr></tbody>`;
+    `<tr><td><strong>Total anual</strong></td><td><strong>${eur(annualFixedTotal())}</strong></td><td><strong>${eur(annualExtrasTotal())}</strong></td><td><strong>${eur(annualGoalsTotal())}</strong></td><td><strong>${eur(annualTotal())}</strong></td><td><strong>${eur(annualIncomeTotal())}</strong></td><td><strong>${eur(annualIncomeTotal()-annualTotal())}</strong></td></tr></tbody>`;
 
   document.getElementById("cat-chips").innerHTML=CATEGORIES.map(c=>`<span class="pill" style="background:${CAT_COLORS[c]}22;color:${CAT_COLORS[c]}">${c}</span>`).join("");
 }
@@ -817,11 +870,18 @@ function deleteExtra(id){
 }
 
 /* REPARTO */
+function repMonthTotal(){ return round2(monthExpensesTotal(STATE.selectedMonth)); }
+function useMonthTotalForSplit(){
+  const el=document.getElementById("rep-amount");
+  if(el){ el.value=repMonthTotal(); calcSplit(); }
+}
 function syncCustom(fromSecond){
   if(fromSecond){document.getElementById("rep-custom1").value=100-(+document.getElementById("rep-custom2").value);}
   else{document.getElementById("rep-custom2").value=100-(+document.getElementById("rep-custom1").value);}
 }
 function calcSplit(){
+  const totEl=document.getElementById("rep-month-total");
+  if(totEl){ const mo=(MONTHS.find(m=>m.key===STATE.selectedMonth)||{}).label||""; totEl.innerHTML=`${eur(repMonthTotal())} <span class="muted" style="font-size:12px;font-weight:500;">· ${mo} (gastos + objetivos)</span>`; }
   const amount=+document.getElementById("rep-amount").value||0;
   const mode=document.getElementById("rep-mode").value;
   document.getElementById("custom-fields").style.display=mode==="CUSTOM"?"block":"none";
@@ -842,32 +902,21 @@ function calcSplit(){
 /* HIPOTECA */
 function syncMortgageInputs(){
   const m=STATE.mortgage||{};
-  [["mort-out",m.outstanding],["mort-rate",m.ratePct],["mort-term",m.termMonths],["mort-prepay",m.prepay]].forEach(([id,val])=>{
+  [["mort-out",m.outstanding],["mort-rate",m.ratePct],["mort-term",m.termMonths]].forEach(([id,val])=>{
     const el=document.getElementById(id);
     if(el && document.activeElement!==el) el.value=val;
   });
 }
 function renderMortgage(){
   const out=+document.getElementById("mort-out").value||0, rate=+document.getElementById("mort-rate").value||0, term=+document.getElementById("mort-term").value||0;
-  const prepay=+document.getElementById("mort-prepay").value||0;
   // La hipoteca es la fuente única: persistimos y propagamos al resto de la app.
-  STATE.mortgage={outstanding:out,ratePct:rate,termMonths:term,prepay:prepay};
+  STATE.mortgage={outstanding:out,ratePct:rate,termMonths:term};
   saveState();
   const base=amortization(out,rate,term);
   document.getElementById("mort-summary").innerHTML=
     `<div class="stat-box"><div class="l">Cuota mensual</div><div class="v">${eur(base.pay)}</div></div>
      <div class="stat-box"><div class="l">Intereses totales</div><div class="v">${eur(base.totalInt)}</div></div>
      <div class="stat-box"><div class="l">Capital pendiente</div><div class="v">${eur(out)}</div></div>`;
-  const sim=amortization(out,rate,term,prepay);
-  const intSaved=base.totalInt-sim.totalInt, monthsSaved=base.months-sim.months;
-  document.getElementById("mort-prepay-result").innerHTML=
-    `<div class="two-col">
-      <div class="stat-box"><div class="l">Ahorro en intereses</div><div class="v" style="color:var(--green)">${eur(intSaved)}</div></div>
-      <div class="stat-box"><div class="l">Reducción de plazo</div><div class="v">${monthsSaved} meses<span class="muted" style="font-size:12px;font-weight:500;"> (${(monthsSaved/12).toFixed(1)} años)</span></div></div>
-    </div>`;
-  document.getElementById("mort-table").innerHTML=
-    `<thead><tr><th>Mes</th><th>Cuota</th><th>Interés</th><th>Capital</th><th>Pendiente</th></tr></thead><tbody>`+
-    base.rows.slice(0,12).map(r=>`<tr><td>${r.m}</td><td>${eur(r.pay)}</td><td>${eur(r.interest)}</td><td>${eur(r.principal)}</td><td>${eur(r.bal)}</td></tr>`).join("")+`</tbody>`;
   const note=document.getElementById("mort-link-note");
   if(note) note.innerHTML=`La cuota de <strong>${eur(base.pay)}</strong> es la que figura como gasto de vivienda en el Dashboard y en Gastos, y el capital pendiente (${eur(out)}) resta en tu patrimonio neto. Cambia estos parámetros y todo se recalcula al instante.`;
   // Propagar al resto de pantallas (la hipoteca afecta a patrimonio, gastos, ratios y balance).
@@ -993,21 +1042,22 @@ function renderBalance(){
   const incTotal=annualIncomeTotal(), expTotal=annualTotal(), savTotal=incTotal-expTotal, rate=incTotal?savTotal/incTotal:0;
   document.getElementById("balance-kpis").innerHTML=[
     kpiCard("Ingresos anuales",eur(incTotal),"💰"),
-    kpiCard("Gastos anuales",eur(expTotal),"📉"),
-    kpiCard("Ahorro anual",eur(savTotal),"🐷",savTotal>=0?"Balance positivo":"Balance negativo",savTotal>=0?"up":"down"),
+    kpiCard("Salidas anuales",eur(expTotal),"📉","Gastos + objetivos"),
+    kpiCard("Ahorro libre anual",eur(savTotal),"🐷",savTotal>=0?"Balance positivo":"Balance negativo",savTotal>=0?"up":"down"),
     kpiCard("Tasa de ahorro anual",pct(rate),"％",rate>=0.2?"Objetivo ≥ 20% ✓":"Por debajo del 20%",rate>=0.2?"up":"down"),
   ].join("");
 
   const groups=quarterGroups();
   document.getElementById("balance-quarter-table").innerHTML=
-    `<thead><tr><th>Trimestre</th><th>Ingresos</th><th>Gastos</th><th>Ahorro</th><th>Tasa de ahorro</th></tr></thead><tbody>`+
+    `<thead><tr><th>Trimestre</th><th>Ingresos</th><th>Gastos</th><th>Objetivos</th><th>Salidas</th><th>Ahorro libre</th><th>Tasa</th></tr></thead><tbody>`+
     groups.map(q=>{
       const qi=q.months.reduce((a,mo)=>a+monthIncome(mo.key),0);
-      const qe=q.months.reduce((a,mo)=>a+monthFixedTotal(mo.key)+monthExtrasTotal(mo.key),0);
-      const qs=qi-qe, qr=qi?qs/qi:0;
-      return `<tr><td>${q.label}</td><td>${eur(qi)}</td><td>${eur(qe)}</td><td style="color:${qs>=0?'var(--green)':'var(--red)'}">${eur(qs)}</td><td>${pct(qr)}</td></tr>`;
+      const qsp=q.months.reduce((a,mo)=>a+monthSpending(mo.key),0);
+      const qg=monthGoalsTotal()*q.months.length;
+      const qe=qsp+qg, qs=qi-qe, qr=qi?qs/qi:0;
+      return `<tr><td>${q.label}</td><td>${eur(qi)}</td><td>${eur(qsp)}</td><td>${eur(qg)}</td><td>${eur(qe)}</td><td style="color:${qs>=0?'var(--green)':'var(--red)'}">${eur(qs)}</td><td>${pct(qr)}</td></tr>`;
     }).join("")+
-    `<tr><td><strong>Total año</strong></td><td><strong>${eur(incTotal)}</strong></td><td><strong>${eur(expTotal)}</strong></td><td><strong>${eur(savTotal)}</strong></td><td><strong>${pct(rate)}</strong></td></tr></tbody>`;
+    `<tr><td><strong>Total año</strong></td><td><strong>${eur(incTotal)}</strong></td><td><strong>${eur(annualFixedTotal()+annualExtrasTotal())}</strong></td><td><strong>${eur(annualGoalsTotal())}</strong></td><td><strong>${eur(expTotal)}</strong></td><td><strong>${eur(savTotal)}</strong></td><td><strong>${pct(rate)}</strong></td></tr></tbody>`;
 }
 
 /* ============================================================
@@ -1016,6 +1066,9 @@ function renderBalance(){
 function renderAll(){
   populateMonthSelect();
   syncMortgageInputs();
+  // El importe a repartir sigue el gasto total del mes (salvo que lo estés editando).
+  const repEl=document.getElementById("rep-amount");
+  if(repEl && document.activeElement!==repEl) repEl.value=repMonthTotal();
   renderDashboard();
   renderIngresos();
   renderGastos();
@@ -1054,6 +1107,7 @@ themeBtn.addEventListener("click",()=>setTheme(document.documentElement.getAttri
 
 /* INIT */
 renderAll();
+(function(){ const el=document.getElementById("rep-amount"); if(el){ el.value=repMonthTotal(); calcSplit(); } })();
 </script>
 </body>
 </html>
