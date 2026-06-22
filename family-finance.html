@@ -262,6 +262,14 @@ tbody tr:hover{background:var(--surface-2);}
     </div>
 
     <div class="card" style="margin-top:18px;">
+      <div class="card-head view-head">
+        <span>🎯 Aportaciones a objetivos <span class="muted" style="font-weight:500;">(lo que destinas al ahorro este mes)</span></span>
+        <button class="btn ghost" onclick="goToView('objetivos')">Gestionar objetivos</button>
+      </div>
+      <div class="card-pad" style="overflow-x:auto;"><table id="goals-expense-table"></table></div>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
       <div class="card-head">Resumen anual · mes a mes (12 meses)</div>
       <div class="card-pad" style="overflow-x:auto;"><table id="annual-table"></table></div>
     </div>
@@ -345,6 +353,13 @@ tbody tr:hover{background:var(--surface-2);}
       <span>📊 Presupuestos por categoría · mes seleccionado</span>
       <button class="btn" onclick="openBudgetForm()">➕ Nuevo presupuesto</button>
     </div>
+    <div class="card card-pad" style="margin-bottom:16px;background:var(--primary-soft);border:none;">
+      <div style="font-size:13px;line-height:1.6;color:var(--text);">
+        <strong>¿Qué es esto?</strong> Un presupuesto es un <strong>límite de gasto que te fijas para una categoría</strong> (por ejemplo, máximo 600 €/mes en Alimentación).
+        La app compara ese límite con lo que <strong>realmente has gastado</strong> en esa categoría el mes seleccionado (sumando conceptos fijos y gastos extra de esa categoría) y te avisa si te pasas.
+        <br>Sirve para <strong>controlar categorías variables</strong> (comida, ocio, transporte…). Si una categoría aún no tiene gastos registrados, su columna "Real" saldrá a 0.
+      </div>
+    </div>
     <div class="card card-pad form-panel" id="budget-form-wrap" style="display:none;"></div>
     <div class="card"><div class="card-pad" style="overflow-x:auto;"><table id="budget-table"></table></div></div>
   </section>
@@ -415,6 +430,7 @@ function defaultState(){
       {id:"residuos",name:"Tasa de residuos",cat:"Impuestos",monthly:round2(180/12),housing:true},
     ],
     actuals:{},
+    goalActuals:{},
     extras:[],
     goals:[
       {id:"emergencia",name:"Fondo de emergencia",type:"Emergencia",target:18000,current:12000,monthly:500},
@@ -440,6 +456,7 @@ function loadState(){
   const st=Object.assign({},d,s);
   // Migración: la hipoteca pasa a gestionarse desde su propia pestaña (fuente única).
   if(!st.mortgage) st.mortgage=d.mortgage;
+  if(!st.goalActuals) st.goalActuals={};
   if(Array.isArray(st.expenses)) st.expenses=st.expenses.filter(e=>e.id!=="hipoteca");
   if(Array.isArray(st.accounts)) st.accounts=st.accounts.filter(a=>!(a.liability&&/hipoteca/i.test(a.name||"")));
   if(st.actuals) Object.values(st.actuals).forEach(ov=>{ if(ov) delete ov.hipoteca; });
@@ -508,10 +525,25 @@ function monthFixedTotal(monthKey){ return allExpenses().reduce((a,e)=>a+actualA
 function monthExtrasTotal(monthKey){ return extrasForMonth(monthKey).reduce((a,x)=>a+x.amount,0); }
 // Gasto "puro" del mes (fijos + extra), sin contar aportaciones a objetivos.
 function monthSpending(monthKey){ return monthFixedTotal(monthKey)+monthExtrasTotal(monthKey); }
-// Aportación mensual a objetivos aún no completados (cuenta como salida de dinero).
-function monthGoalsTotal(){ return STATE.goals.reduce((a,g)=> a + (((g.target||0)-(g.current||0))>0 ? (g.monthly||0) : 0), 0); }
+// Aportación PREVISTA a un objetivo (0 si ya está completado).
+function goalPlanned(g){ return ((g.target||0)-(g.current||0))>0 ? (g.monthly||0) : 0; }
+// Aportación REAL a un objetivo en un mes: lo que de verdad has destinado (editable).
+// Si no se ha tocado, por defecto = la prevista.
+function goalActual(goalId,monthKey){
+  const ov=STATE.goalActuals[monthKey];
+  if(ov && Object.prototype.hasOwnProperty.call(ov,goalId)) return ov[goalId];
+  const g=STATE.goals.find(x=>x.id===goalId);
+  return g?goalPlanned(g):0;
+}
+function setGoalActual(goalId,monthKey,value){
+  if(!STATE.goalActuals[monthKey]) STATE.goalActuals[monthKey]={};
+  STATE.goalActuals[monthKey][goalId]=value;
+  saveState();
+}
+// Aportación total a objetivos de un mes (cuenta como salida de dinero).
+function monthGoalsTotal(monthKey){ return STATE.goals.reduce((a,g)=> a + goalActual(g.id,monthKey), 0); }
 // Salida total del mes = gasto + aportación a objetivos (el "gasto mensual" unificado).
-function monthExpensesTotal(monthKey){ return monthSpending(monthKey)+monthGoalsTotal(); }
+function monthExpensesTotal(monthKey){ return monthSpending(monthKey)+monthGoalsTotal(monthKey); }
 function monthHousingTotal(monthKey){
   let t=allExpenses().filter(e=>e.housing).reduce((a,e)=>a+actualAmount(e.id,monthKey),0);
   t+=extrasForMonth(monthKey).filter(x=>x.cat==="Vivienda").reduce((a,x)=>a+x.amount,0);
@@ -525,7 +557,7 @@ function monthCategoryTotals(monthKey){
 }
 function annualFixedTotal(){ return MONTHS.reduce((a,mo)=>a+monthFixedTotal(mo.key),0); }
 function annualExtrasTotal(){ return MONTHS.reduce((a,mo)=>a+monthExtrasTotal(mo.key),0); }
-function annualGoalsTotal(){ return monthGoalsTotal()*MONTHS.length; }
+function annualGoalsTotal(){ return MONTHS.reduce((a,mo)=>a+monthGoalsTotal(mo.key),0); }
 function annualTotal(){ return annualFixedTotal()+annualExtrasTotal()+annualGoalsTotal(); }
 
 function setSelectedMonth(key){ STATE.selectedMonth=key; saveState(); renderAll(); }
@@ -673,7 +705,7 @@ function drawBalance(){
   const months = balanceScope==="trimestre" ? qm : [MONTHS.find(x=>x.key===mk)||MONTHS[MONTHS.length-1]];
   const inc=months.reduce((a,mo)=>a+monthIncome(mo.key),0);
   const spend=months.reduce((a,mo)=>a+monthSpending(mo.key),0);
-  const goals=monthGoalsTotal()*months.length;
+  const goals=months.reduce((a,mo)=>a+monthGoalsTotal(mo.key),0);
   const margen=inc-spend-goals;
   const periodo = balanceScope==="trimestre" ? ("Trimestre Q"+qm[0].q+" "+qm[0].year) : ((MONTHS.find(x=>x.key===mk)||{}).label||"");
   const lbl=document.getElementById("balance-scope-label"); if(lbl) lbl.textContent=periodo;
@@ -729,7 +761,7 @@ function simulateSalary(){
 /* GASTOS */
 function renderGastos(){
   const mk=STATE.selectedMonth;
-  const fixedTotal=monthFixedTotal(mk), extrasTotal=monthExtrasTotal(mk), goalsTotal=monthGoalsTotal();
+  const fixedTotal=monthFixedTotal(mk), extrasTotal=monthExtrasTotal(mk), goalsTotal=monthGoalsTotal(mk);
   const total=fixedTotal+extrasTotal+goalsTotal;
   const plannedTotal=allExpenses().reduce((a,e)=>a+e.monthly,0);
   const moShort=(MONTHS.find(m=>m.key===mk)||{}).short||"";
@@ -781,13 +813,25 @@ function renderGastos(){
     (extras.length?`<tr><td><strong>Total extra</strong></td><td></td><td><strong>${eur(extrasTotal)}</strong></td><td></td></tr>`:"")+
     `</tbody>`;
 
-  const gMonthly=monthGoalsTotal();
+  document.getElementById("goals-expense-table").innerHTML=
+    `<thead><tr><th>Objetivo</th><th>Previsto/mes</th><th>Destinado (${moShort})</th><th>Ahorrado / meta</th><th></th></tr></thead><tbody>`+
+    (STATE.goals.length? STATE.goals.map(g=>{
+      const planned=goalPlanned(g), real=goalActual(g.id,mk);
+      const done=((g.target||0)-(g.current||0))<=0;
+      return `<tr><td>${escapeHtml(g.name)} <span class="pill" style="background:#7c3aed22;color:#7c3aed">${escapeHtml(g.type)}</span></td>
+        <td>${eur(planned)}</td>
+        <td>${done?`<span class="muted">${eur(0)} · completado</span>`:`<input class="inline-amount" type="number" step="0.01" value="${real}" onchange="updateGoalActual('${g.id}',this.value)">`}</td>
+        <td class="muted">${eur(g.current)} / ${eur(g.target)}</td>
+        <td class="row-actions"><button class="icon-btn" title="Editar en Objetivos" onclick="openGoalFormFromGastos('${g.id}')">✏️</button></td></tr>`;
+    }).join("") : `<tr><td colspan="5" class="muted" style="text-align:center;padding:18px;">Aún no has creado objetivos.</td></tr>`)+
+    `<tr><td><strong>Total destinado a objetivos</strong></td><td><strong>${eur(STATE.goals.reduce((a,g)=>a+goalPlanned(g),0))}</strong></td><td><strong>${eur(goalsTotal)}</strong></td><td></td><td></td></tr></tbody>`;
+
   document.getElementById("annual-table").innerHTML=
     `<thead><tr><th>Mes</th><th>Fijos</th><th>Extra</th><th>Objetivos</th><th>Salidas</th><th>Ingreso</th><th>Ahorro libre</th></tr></thead><tbody>`+
     MONTHS.map(mo=>{
-      const f=monthFixedTotal(mo.key), x=monthExtrasTotal(mo.key), t=f+x+gMonthly, inc=monthIncome(mo.key), sav=inc-t;
+      const f=monthFixedTotal(mo.key), x=monthExtrasTotal(mo.key), g=monthGoalsTotal(mo.key), t=f+x+g, inc=monthIncome(mo.key), sav=inc-t;
       const isSel=mo.key===mk;
-      return `<tr style="${isSel?'background:var(--primary-soft);':''}"><td>${mo.label}</td><td>${eur(f)}</td><td>${eur(x)}</td><td>${eur(gMonthly)}</td><td>${eur(t)}</td><td>${eur(inc)}</td><td style="color:${sav>=0?'var(--green)':'var(--red)'}">${eur(sav)}</td></tr>`;
+      return `<tr style="${isSel?'background:var(--primary-soft);':''}"><td>${mo.label}</td><td>${eur(f)}</td><td>${eur(x)}</td><td>${eur(g)}</td><td>${eur(t)}</td><td>${eur(inc)}</td><td style="color:${sav>=0?'var(--green)':'var(--red)'}">${eur(sav)}</td></tr>`;
     }).join("")+
     `<tr><td><strong>Total anual</strong></td><td><strong>${eur(annualFixedTotal())}</strong></td><td><strong>${eur(annualExtrasTotal())}</strong></td><td><strong>${eur(annualGoalsTotal())}</strong></td><td><strong>${eur(annualTotal())}</strong></td><td><strong>${eur(annualIncomeTotal())}</strong></td><td><strong>${eur(annualIncomeTotal()-annualTotal())}</strong></td></tr></tbody>`;
 
@@ -798,6 +842,12 @@ function updateActual(id,value){
   setActual(id,STATE.selectedMonth,isNaN(v)?0:round2(v));
   renderGastos(); renderDashboard(); renderPresupuestos(); renderBalance();
 }
+function updateGoalActual(id,value){
+  const v=parseFloat(value);
+  setGoalActual(id,STATE.selectedMonth,isNaN(v)?0:round2(v));
+  renderGastos(); renderDashboard(); renderObjetivos(); renderBalance();
+}
+function openGoalFormFromGastos(id){ goToView('objetivos'); openGoalForm(id); }
 function openExpenseForm(id){
   const e=id?STATE.expenses.find(x=>x.id===id):null;
   const wrap=document.getElementById("expense-form-wrap");
@@ -929,7 +979,7 @@ function renderMortgage(){
 /* OBJETIVOS */
 function renderObjetivos(){
   const today=new Date();
-  const gTotal=monthGoalsTotal();
+  const gTotal=monthGoalsTotal(STATE.selectedMonth);
   const exp=monthExpensesTotal(STATE.selectedMonth);
   document.getElementById("goals-full").innerHTML=
     `<div class="stat-box" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
@@ -983,6 +1033,7 @@ function saveGoalForm(id){
 function deleteGoal(id){
   if(!confirm("¿Eliminar este objetivo?")) return;
   STATE.goals=STATE.goals.filter(x=>x.id!==id);
+  Object.values(STATE.goalActuals).forEach(ov=>{ if(ov) delete ov[id]; });
   saveState(); renderAll();
 }
 
@@ -1060,7 +1111,7 @@ function renderBalance(){
     groups.map(q=>{
       const qi=q.months.reduce((a,mo)=>a+monthIncome(mo.key),0);
       const qsp=q.months.reduce((a,mo)=>a+monthSpending(mo.key),0);
-      const qg=monthGoalsTotal()*q.months.length;
+      const qg=q.months.reduce((a,mo)=>a+monthGoalsTotal(mo.key),0);
       const qe=qsp+qg, qs=qi-qe, qr=qi?qs/qi:0;
       return `<tr><td>${q.label}</td><td>${eur(qi)}</td><td>${eur(qsp)}</td><td>${eur(qg)}</td><td>${eur(qe)}</td><td style="color:${qs>=0?'var(--green)':'var(--red)'}">${eur(qs)}</td><td>${pct(qr)}</td></tr>`;
     }).join("")+
