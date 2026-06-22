@@ -2,8 +2,15 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>Family Finance — Gestión financiera familiar</title>
+<meta name="description" content="Gestión financiera familiar: ingresos, gastos editables mes a mes, objetivos, presupuestos, hipoteca y balance trimestral/anual."/>
+<meta name="theme-color" content="#00b894" media="(prefers-color-scheme: light)"/>
+<meta name="theme-color" content="#0b1120" media="(prefers-color-scheme: dark)"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Family Finance"/>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2300b894'/%3E%3Ctext x='50' y='72' font-size='62' text-anchor='middle' fill='white' font-family='sans-serif'%3E%E2%82%AC%3C/text%3E%3C/svg%3E"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -24,7 +31,7 @@ html[data-theme="dark"]{
   --shadow:0 1px 3px rgba(0,0,0,.4);
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s;}
-.container{max-width:1240px;margin:0 auto;padding:0 20px;}
+.container{max-width:1240px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left));padding-right:max(20px,env(safe-area-inset-right));}
 
 /* Header */
 .hdr{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;}
