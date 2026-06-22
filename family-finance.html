@@ -929,7 +929,14 @@ function renderMortgage(){
 /* OBJETIVOS */
 function renderObjetivos(){
   const today=new Date();
-  document.getElementById("goals-full").innerHTML=STATE.goals.map(g=>{
+  const gTotal=monthGoalsTotal();
+  const exp=monthExpensesTotal(STATE.selectedMonth);
+  document.getElementById("goals-full").innerHTML=
+    `<div class="stat-box" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+       <div><div class="l">Aportación mensual total a objetivos</div><div class="v">${eur(gTotal)}/mes</div></div>
+       <div class="muted" style="font-size:12.5px;max-width:340px;text-align:right;">✓ Ya contabilizado dentro de las <strong>salidas del mes</strong> (${eur(exp)}) en Dashboard, Gastos y Balance. Añade o edita un objetivo y el total subirá o bajará al instante.</div>
+     </div>`+
+    STATE.goals.map(g=>{
     const p=Math.min(1,g.current/(g.target||1)), rem=g.target-g.current;
     const months=rem>0&&g.monthly>0?Math.ceil(rem/g.monthly):0;
     const d=new Date(today); d.setMonth(d.getMonth()+months);
