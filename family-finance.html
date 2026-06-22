@@ -299,11 +299,12 @@ tbody tr:hover{background:var(--surface-2);}
         <div style="font-weight:600;margin-bottom:12px;">Parámetros</div>
         <div class="field"><label>Capital pendiente (€)</label><input type="number" id="mort-out" value="228000" oninput="renderMortgage()"></div>
         <div class="field"><label>Tipo de interés nominal anual (%)</label><input type="number" step="0.01" id="mort-rate" value="3.0" oninput="renderMortgage()"></div>
-        <div class="field"><label>Plazo restante (meses)</label><input type="number" id="mort-term" value="324" oninput="renderMortgage()"></div>
+        <div class="field"><label>Plazo restante (meses)</label><input type="number" id="mort-term" value="163" oninput="renderMortgage()"></div>
       </div>
       <div class="card card-pad">
         <div style="font-weight:600;margin-bottom:12px;">Resumen</div>
         <div class="three-col" id="mort-summary"></div>
+        <div class="kpi-hint" id="mort-link-note" style="margin-top:10px;line-height:1.5;"></div>
         <div class="section-title" style="font-size:14px;margin:20px 0 10px;">Simulador de amortización anticipada</div>
         <div class="field"><label>Importe a amortizar (€)</label><input type="number" id="mort-prepay" value="20000" oninput="renderMortgage()"></div>
         <div id="mort-prepay-result"></div>
@@ -386,10 +387,9 @@ function defaultState(){
       {name:"Cuenta de ahorro",balance:22000,liability:false},
       {name:"Cartera de inversión",balance:15000,liability:false},
       {name:"Vivienda (Vidreres)",balance:380000,liability:false},
-      {name:"Hipoteca pendiente",balance:-228000,liability:true},
     ],
+    mortgage:{outstanding:228000,ratePct:3.0,termMonths:163,prepay:20000},
     expenses:[
-      {id:"hipoteca",name:"Hipoteca",cat:"Vivienda",monthly:1700,housing:true},
       {id:"ibi",name:"IBI",cat:"Impuestos",monthly:round2(1000/12),housing:true},
       {id:"seguro-hogar",name:"Seguro del hogar",cat:"Seguros",monthly:round2(600/12),housing:true},
       {id:"seguro-vida",name:"Seguro de vida",cat:"Seguros",monthly:round2(600/12),housing:false},
@@ -424,7 +424,13 @@ function loadState(){
   try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) s=JSON.parse(raw); }catch(e){}
   const d=defaultState();
   if(!s) return d;
-  return Object.assign({},d,s);
+  const st=Object.assign({},d,s);
+  // Migración: la hipoteca pasa a gestionarse desde su propia pestaña (fuente única).
+  if(!st.mortgage) st.mortgage=d.mortgage;
+  if(Array.isArray(st.expenses)) st.expenses=st.expenses.filter(e=>e.id!=="hipoteca");
+  if(Array.isArray(st.accounts)) st.accounts=st.accounts.filter(a=>!(a.liability&&/hipoteca/i.test(a.name||"")));
+  if(st.actuals) Object.values(st.actuals).forEach(ov=>{ if(ov) delete ov.hipoteca; });
+  return st;
 }
 function saveState(){ try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(STATE)); }catch(e){} }
 function resetAllData(){
@@ -467,10 +473,16 @@ function monthIncome(monthKey){
 }
 function annualIncomeTotal(){ return MONTHS.reduce((a,mo)=>a+monthIncome(mo.key),0); }
 
+const MORTGAGE_ID="__mortgage";
+function mortgageCuota(){ const m=STATE.mortgage||{}; return round2(monthlyPayment(m.outstanding||0,m.ratePct||0,m.termMonths||0)); }
+function mortgageExpense(){ return {id:MORTGAGE_ID,name:"Hipoteca (cuota)",cat:"Vivienda",monthly:mortgageCuota(),housing:true,derived:true}; }
+function allExpenses(){ return [mortgageExpense(),...STATE.expenses]; }
+function findExpense(id){ return allExpenses().find(x=>x.id===id); }
 function actualAmount(expenseId,monthKey){
+  const e=findExpense(expenseId);
+  if(e&&e.derived) return e.monthly;
   const ov=STATE.actuals[monthKey];
   if(ov && Object.prototype.hasOwnProperty.call(ov,expenseId)) return ov[expenseId];
-  const e=STATE.expenses.find(x=>x.id===expenseId);
   return e?e.monthly:0;
 }
 function setActual(expenseId,monthKey,value){
@@ -479,17 +491,17 @@ function setActual(expenseId,monthKey,value){
   saveState();
 }
 function extrasForMonth(monthKey){ return STATE.extras.filter(x=>x.month===monthKey); }
-function monthFixedTotal(monthKey){ return STATE.expenses.reduce((a,e)=>a+actualAmount(e.id,monthKey),0); }
+function monthFixedTotal(monthKey){ return allExpenses().reduce((a,e)=>a+actualAmount(e.id,monthKey),0); }
 function monthExtrasTotal(monthKey){ return extrasForMonth(monthKey).reduce((a,x)=>a+x.amount,0); }
 function monthExpensesTotal(monthKey){ return monthFixedTotal(monthKey)+monthExtrasTotal(monthKey); }
 function monthHousingTotal(monthKey){
-  let t=STATE.expenses.filter(e=>e.housing).reduce((a,e)=>a+actualAmount(e.id,monthKey),0);
+  let t=allExpenses().filter(e=>e.housing).reduce((a,e)=>a+actualAmount(e.id,monthKey),0);
   t+=extrasForMonth(monthKey).filter(x=>x.cat==="Vivienda").reduce((a,x)=>a+x.amount,0);
   return t;
 }
 function monthCategoryTotals(monthKey){
   const out={};
-  STATE.expenses.forEach(e=>{ out[e.cat]=(out[e.cat]||0)+actualAmount(e.id,monthKey); });
+  allExpenses().forEach(e=>{ out[e.cat]=(out[e.cat]||0)+actualAmount(e.id,monthKey); });
   extrasForMonth(monthKey).forEach(x=>{ out[x.cat]=(out[x.cat]||0)+x.amount; });
   return out;
 }
@@ -500,7 +512,7 @@ function annualTotal(){ return annualFixedTotal()+annualExtrasTotal(); }
 function setSelectedMonth(key){ STATE.selectedMonth=key; saveState(); renderAll(); }
 
 function totalAssets(){ return STATE.accounts.filter(a=>!a.liability).reduce((a,x)=>a+x.balance,0); }
-function totalLiabilities(){ return Math.abs(STATE.accounts.filter(a=>a.liability).reduce((a,x)=>a+x.balance,0)); }
+function totalLiabilities(){ return Math.abs(STATE.accounts.filter(a=>a.liability).reduce((a,x)=>a+x.balance,0))+(STATE.mortgage?STATE.mortgage.outstanding:0); }
 function netWorthNow(){ return totalAssets()-totalLiabilities(); }
 function emergencyFundAmount(){ const g=STATE.goals.find(x=>x.type==="Emergencia"); return g?g.current:0; }
 
@@ -667,7 +679,7 @@ function simulateSalary(){
 function renderGastos(){
   const mk=STATE.selectedMonth;
   const fixedTotal=monthFixedTotal(mk), extrasTotal=monthExtrasTotal(mk), total=fixedTotal+extrasTotal;
-  const plannedTotal=STATE.expenses.reduce((a,e)=>a+e.monthly,0);
+  const plannedTotal=allExpenses().reduce((a,e)=>a+e.monthly,0);
   const moShort=(MONTHS.find(m=>m.key===mk)||{}).short||"";
   document.getElementById("gastos-kpis").innerHTML=[
     kpiCard("Previsto (fijos)",eur(plannedTotal),"📋"),
@@ -678,9 +690,17 @@ function renderGastos(){
 
   document.getElementById("expense-table").innerHTML=
     `<thead><tr><th>Concepto</th><th>Categoría</th><th>Previsto/mes</th><th>Real (${moShort})</th><th>Vivienda</th><th></th></tr></thead><tbody>`+
-    STATE.expenses.map(e=>{
+    allExpenses().map(e=>{
       const act=actualAmount(e.id,mk);
       const col=CAT_COLORS[e.cat]||"#94a3b8";
+      if(e.derived){
+        return `<tr><td>${escapeHtml(e.name)} <span class="muted" style="font-size:11px;">· se calcula en Hipoteca</span></td>
+          <td><span class="pill" style="background:${col}22;color:${col}">${escapeHtml(e.cat)}</span></td>
+          <td>${eur(e.monthly)}</td>
+          <td>${eur(act)}</td>
+          <td>${e.housing?'✓':'—'}</td>
+          <td class="row-actions"><button class="icon-btn" title="Editar en la pestaña Hipoteca" onclick="goToView('hipoteca')">🏠</button></td></tr>`;
+      }
       return `<tr><td>${escapeHtml(e.name)}</td>
         <td><span class="pill" style="background:${col}22;color:${col}">${escapeHtml(e.cat)}</span></td>
         <td>${eur(e.monthly)}</td>
@@ -820,9 +840,19 @@ function calcSplit(){
 }
 
 /* HIPOTECA */
+function syncMortgageInputs(){
+  const m=STATE.mortgage||{};
+  [["mort-out",m.outstanding],["mort-rate",m.ratePct],["mort-term",m.termMonths],["mort-prepay",m.prepay]].forEach(([id,val])=>{
+    const el=document.getElementById(id);
+    if(el && document.activeElement!==el) el.value=val;
+  });
+}
 function renderMortgage(){
-  const out=+document.getElementById("mort-out").value, rate=+document.getElementById("mort-rate").value, term=+document.getElementById("mort-term").value;
+  const out=+document.getElementById("mort-out").value||0, rate=+document.getElementById("mort-rate").value||0, term=+document.getElementById("mort-term").value||0;
   const prepay=+document.getElementById("mort-prepay").value||0;
+  // La hipoteca es la fuente única: persistimos y propagamos al resto de la app.
+  STATE.mortgage={outstanding:out,ratePct:rate,termMonths:term,prepay:prepay};
+  saveState();
   const base=amortization(out,rate,term);
   document.getElementById("mort-summary").innerHTML=
     `<div class="stat-box"><div class="l">Cuota mensual</div><div class="v">${eur(base.pay)}</div></div>
@@ -838,6 +868,13 @@ function renderMortgage(){
   document.getElementById("mort-table").innerHTML=
     `<thead><tr><th>Mes</th><th>Cuota</th><th>Interés</th><th>Capital</th><th>Pendiente</th></tr></thead><tbody>`+
     base.rows.slice(0,12).map(r=>`<tr><td>${r.m}</td><td>${eur(r.pay)}</td><td>${eur(r.interest)}</td><td>${eur(r.principal)}</td><td>${eur(r.bal)}</td></tr>`).join("")+`</tbody>`;
+  const note=document.getElementById("mort-link-note");
+  if(note) note.innerHTML=`La cuota de <strong>${eur(base.pay)}</strong> es la que figura como gasto de vivienda en el Dashboard y en Gastos, y el capital pendiente (${eur(out)}) resta en tu patrimonio neto. Cambia estos parámetros y todo se recalcula al instante.`;
+  // Propagar al resto de pantallas (la hipoteca afecta a patrimonio, gastos, ratios y balance).
+  if(typeof renderDashboard==="function") renderDashboard();
+  if(typeof renderGastos==="function") renderGastos();
+  if(typeof renderPresupuestos==="function") renderPresupuestos();
+  if(typeof renderBalance==="function") renderBalance();
 }
 
 /* OBJETIVOS */
@@ -978,6 +1015,7 @@ function renderBalance(){
    ============================================================ */
 function renderAll(){
   populateMonthSelect();
+  syncMortgageInputs();
   renderDashboard();
   renderIngresos();
   renderGastos();
@@ -988,15 +1026,20 @@ function renderAll(){
   renderBalance();
 }
 
+function goToView(view){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===view));
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  const el=document.getElementById("view-"+view);
+  if(el) el.classList.add("active");
+  if(view==="dashboard") drawCharts();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
 document.getElementById("month-select").addEventListener("change",e=>setSelectedMonth(e.target.value));
 
 document.getElementById("tabs").addEventListener("click",e=>{
   const b=e.target.closest(".tab"); if(!b) return;
-  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
-  b.classList.add("active");
-  document.getElementById("view-"+b.dataset.view).classList.add("active");
-  if(b.dataset.view==="dashboard") drawCharts();
+  goToView(b.dataset.view);
 });
 
 const themeBtn=document.getElementById("theme-btn");
