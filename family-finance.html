@@ -122,7 +122,19 @@ tbody tr:hover{background:var(--surface-2);}
 #month-select{appearance:none;-webkit-appearance:none;border:none;cursor:pointer;font-family:inherit;}
 .row-actions{white-space:nowrap;}
 .row-actions .icon-btn{width:30px;height:30px;font-size:13px;margin-left:4px;}
-.inline-amount{width:100px;padding:5px 7px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;}
+.inline-amount{width:92px;padding:4px 7px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;}
+/* tablas compactas (gastos) */
+.table-compact th,.table-compact td{padding:5px 9px;font-size:12.5px;}
+.table-compact .inline-amount{width:84px;padding:3px 6px;font-size:12.5px;}
+.table-compact .row-actions .icon-btn{width:26px;height:26px;font-size:12px;margin-left:3px;}
+.stdot{width:15px;height:15px;border-radius:50%;border:2px solid var(--muted);display:inline-block;vertical-align:middle;margin-right:7px;cursor:pointer;flex-shrink:0;transition:.15s;}
+.stdot.on{background:var(--green);border-color:var(--green);box-shadow:0 0 0 3px var(--green-soft);}
+.chip-confirm{border:none;background:var(--green-soft);color:var(--green);font-weight:700;font-size:11.5px;padding:4px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;}
+.chip-confirm:hover{filter:brightness(.97);}
+.gastos-stack > .card{margin-top:12px;}
+.sim-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px;border-radius:16px;margin-bottom:6px;}
+.sim-banner.pending{background:var(--amber-soft);}
+.sim-banner.real{background:var(--green-soft);}
 .form-panel{border-top:1px dashed var(--border);margin-top:4px;padding-top:14px;}
 .view-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
 .seg-toggle{display:inline-flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:2px;}
@@ -241,37 +253,40 @@ tbody tr:hover{background:var(--surface-2);}
   <!-- ===================== GASTOS ===================== -->
   <section class="view" id="view-gastos">
     <div class="section-title">🧾 Gastos del mes seleccionado</div>
-    <div class="grid kpis" id="gastos-kpis"></div>
+    <div id="sim-banner"></div>
+    <div class="grid kpis" id="gastos-kpis" style="margin-top:12px;"></div>
 
-    <div class="card" style="margin-top:18px;">
-      <div class="card-head view-head">
-        <span>Conceptos de gasto (fijos y recurrentes)</span>
-        <button class="btn" onclick="openExpenseForm()">➕ Nuevo concepto</button>
+    <div class="gastos-stack">
+      <div class="card">
+        <div class="card-head view-head">
+          <span>Gastos fijos y recurrentes</span>
+          <button class="btn" onclick="openExpenseForm()">➕ Nuevo concepto</button>
+        </div>
+        <div class="card-pad form-panel" id="expense-form-wrap" style="display:none;"></div>
+        <div class="card-pad" style="padding-top:8px;overflow-x:auto;"><table class="table-compact" id="expense-table"></table></div>
       </div>
-      <div class="card-pad form-panel" id="expense-form-wrap" style="display:none;"></div>
-      <div class="card-pad" style="overflow-x:auto;"><table id="expense-table"></table></div>
-    </div>
 
-    <div class="card" style="margin-top:18px;">
-      <div class="card-head view-head">
-        <span>Gastos puntuales / extra <span class="muted" style="font-weight:500;">(ej. fontanero, reparaciones…)</span></span>
-        <button class="btn" onclick="openExtraForm()">➕ Añadir gasto extra</button>
+      <div class="card">
+        <div class="card-head view-head">
+          <span>Gastos imprevistos / extra <span class="muted" style="font-weight:500;">(ej. fontanero)</span></span>
+          <button class="btn" onclick="openExtraForm()">➕ Añadir extra</button>
+        </div>
+        <div class="card-pad form-panel" id="extra-form-wrap" style="display:none;"></div>
+        <div class="card-pad" style="padding-top:8px;overflow-x:auto;"><table class="table-compact" id="extra-table"></table></div>
       </div>
-      <div class="card-pad form-panel" id="extra-form-wrap" style="display:none;"></div>
-      <div class="card-pad" style="overflow-x:auto;"><table id="extra-table"></table></div>
-    </div>
 
-    <div class="card" style="margin-top:18px;">
-      <div class="card-head view-head">
-        <span>🎯 Aportaciones a objetivos <span class="muted" style="font-weight:500;">(lo que destinas al ahorro este mes)</span></span>
-        <button class="btn ghost" onclick="goToView('objetivos')">Gestionar objetivos</button>
+      <div class="card">
+        <div class="card-head view-head">
+          <span>🎯 Aportaciones a objetivos <span class="muted" style="font-weight:500;">(ahorro del mes)</span></span>
+          <button class="btn ghost" onclick="goToView('objetivos')">Gestionar objetivos</button>
+        </div>
+        <div class="card-pad" style="padding-top:8px;overflow-x:auto;"><table class="table-compact" id="goals-expense-table"></table></div>
       </div>
-      <div class="card-pad" style="overflow-x:auto;"><table id="goals-expense-table"></table></div>
-    </div>
 
-    <div class="card" style="margin-top:18px;">
-      <div class="card-head">Resumen anual · mes a mes (12 meses)</div>
-      <div class="card-pad" style="overflow-x:auto;"><table id="annual-table"></table></div>
+      <div class="card">
+        <div class="card-head">Resumen anual · mes a mes (12 meses)</div>
+        <div class="card-pad" style="padding-top:8px;overflow-x:auto;"><table class="table-compact" id="annual-table"></table></div>
+      </div>
     </div>
 
     <div class="section-title">Categorías disponibles</div>
@@ -380,11 +395,11 @@ tbody tr:hover{background:var(--surface-2);}
 
 <script>
 /* ============================================================
-   CALENDARIO: 12 meses (jul 2025 - jun 2026)
+   CALENDARIO: 12 meses a partir del mes actual (hacia delante)
    ============================================================ */
 const MONTH_NAMES=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 function buildMonths(){
-  const out=[]; let y=2025,m=6;
+  const out=[]; const now=new Date(); let y=now.getFullYear(),m=now.getMonth();
   for(let i=0;i<12;i++){
     out.push({key:`${y}-${String(m+1).padStart(2,"0")}`,label:MONTH_NAMES[m]+" "+y,short:MONTH_NAMES[m],year:y,monthIdx:m,q:Math.floor(m/3)+1});
     m++; if(m>11){m=0;y++;}
@@ -402,43 +417,43 @@ function round2(n){return Math.round(n*100)/100;}
 /* ============================================================
    ESTADO PERSISTENTE (localStorage)
    ============================================================ */
-const STORAGE_KEY="ff-state-v1";
+const STORAGE_KEY="ff-state-v2";
 function defaultState(){
   return {
-    selectedMonth: MONTHS[MONTHS.length-1].key,
+    selectedMonth: MONTHS[0].key,
     members:[
       {key:"p1",name:"Persona 1",color:"#2563eb",monthly:3200,extras:2},
       {key:"p2",name:"Persona 2",color:"#db2777",monthly:1700,extras:0},
     ],
     accounts:[
-      {name:"Cuenta corriente conjunta",balance:8500,liability:false},
-      {name:"Cuenta de ahorro",balance:22000,liability:false},
-      {name:"Cartera de inversión",balance:15000,liability:false},
+      {name:"Cuenta corriente conjunta",balance:0,liability:false},
+      {name:"Cuenta de ahorro",balance:0,liability:false},
+      {name:"Cartera de inversión",balance:0,liability:false},
       {name:"Vivienda (Vidreres)",balance:380000,liability:false},
     ],
-    mortgage:{outstanding:228000,ratePct:3.0,termMonths:163},
+    mortgage:{outstanding:228000,ratePct:3.0,termMonths:163,active:false},
     expenses:[
-      {id:"ibi",name:"IBI",cat:"Impuestos",monthly:round2(1000/12),housing:true},
-      {id:"seguro-hogar",name:"Seguro del hogar",cat:"Seguros",monthly:round2(600/12),housing:true},
-      {id:"seguro-vida",name:"Seguro de vida",cat:"Seguros",monthly:round2(600/12),housing:false},
-      {id:"electricidad",name:"Electricidad",cat:"Suministros",monthly:120,housing:false},
-      {id:"agua",name:"Agua",cat:"Suministros",monthly:45,housing:false},
-      {id:"internet-movil",name:"Internet y móvil",cat:"Suministros",monthly:50,housing:false},
-      {id:"piscina",name:"Mantenimiento piscina",cat:"Vivienda",monthly:80,housing:true},
-      {id:"jardin",name:"Mantenimiento jardín",cat:"Vivienda",monthly:60,housing:true},
-      {id:"fondo-vivienda",name:"Fondo mantenimiento vivienda",cat:"Vivienda",monthly:150,housing:true},
-      {id:"residuos",name:"Tasa de residuos",cat:"Impuestos",monthly:round2(180/12),housing:true},
+      {id:"ibi",name:"IBI",cat:"Impuestos",monthly:round2(1000/12),housing:true,active:false},
+      {id:"seguro-hogar",name:"Seguro del hogar",cat:"Seguros",monthly:round2(600/12),housing:true,active:false},
+      {id:"seguro-vida",name:"Seguro de vida",cat:"Seguros",monthly:round2(600/12),housing:false,active:false},
+      {id:"electricidad",name:"Electricidad",cat:"Suministros",monthly:120,housing:false,active:false},
+      {id:"agua",name:"Agua",cat:"Suministros",monthly:45,housing:false,active:false},
+      {id:"internet-movil",name:"Internet y móvil",cat:"Suministros",monthly:50,housing:false,active:false},
+      {id:"piscina",name:"Mantenimiento piscina",cat:"Vivienda",monthly:80,housing:true,active:false},
+      {id:"jardin",name:"Mantenimiento jardín",cat:"Vivienda",monthly:60,housing:true,active:false},
+      {id:"fondo-vivienda",name:"Fondo mantenimiento vivienda",cat:"Vivienda",monthly:150,housing:true,active:false},
+      {id:"residuos",name:"Tasa de residuos",cat:"Impuestos",monthly:round2(180/12),housing:true,active:false},
     ],
     actuals:{},
     goalActuals:{},
     extras:[],
     goals:[
-      {id:"emergencia",name:"Fondo de emergencia",type:"Emergencia",target:18000,current:12000,monthly:500},
-      {id:"reforma-cocina",name:"Reforma cocina",type:"Reforma",target:20000,current:4000,monthly:400},
-      {id:"vacaciones-japon",name:"Vacaciones Japón",type:"Viaje",target:8000,current:2500,monthly:300},
-      {id:"amortizacion-hipoteca",name:"Amortización anticipada hipoteca",type:"Hipoteca",target:30000,current:6000,monthly:600},
-      {id:"inversion-mensual",name:"Inversión mensual",type:"Inversión",target:50000,current:15000,monthly:400},
-      {id:"vehiculo",name:"Compra de vehículo",type:"Vehículo",target:25000,current:5000,monthly:350},
+      {id:"emergencia",name:"Fondo de emergencia",type:"Emergencia",target:18000,current:0,monthly:500,active:false},
+      {id:"reforma-cocina",name:"Reforma cocina",type:"Reforma",target:20000,current:0,monthly:400,active:false},
+      {id:"vacaciones-japon",name:"Vacaciones Japón",type:"Viaje",target:8000,current:0,monthly:300,active:false},
+      {id:"amortizacion-hipoteca",name:"Amortización anticipada hipoteca",type:"Hipoteca",target:30000,current:0,monthly:600,active:false},
+      {id:"inversion-mensual",name:"Inversión mensual",type:"Inversión",target:50000,current:0,monthly:400,active:false},
+      {id:"vehiculo",name:"Compra de vehículo",type:"Vehículo",target:25000,current:0,monthly:350,active:false},
     ],
     budgets:[
       {id:"b-alimentacion",cat:"Alimentación",budget:600},
@@ -505,15 +520,18 @@ function annualIncomeTotal(){ return MONTHS.reduce((a,mo)=>a+monthIncome(mo.key)
 
 const MORTGAGE_ID="__mortgage";
 function mortgageCuota(){ const m=STATE.mortgage||{}; return round2(monthlyPayment(m.outstanding||0,m.ratePct||0,m.termMonths||0)); }
-function mortgageExpense(){ return {id:MORTGAGE_ID,name:"Hipoteca (cuota)",cat:"Vivienda",monthly:mortgageCuota(),housing:true,derived:true}; }
+function mortgageExpense(){ return {id:MORTGAGE_ID,name:"Hipoteca (cuota)",cat:"Vivienda",monthly:mortgageCuota(),housing:true,derived:true,active:!!(STATE.mortgage&&STATE.mortgage.active)}; }
 function allExpenses(){ return [mortgageExpense(),...STATE.expenses]; }
 function findExpense(id){ return allExpenses().find(x=>x.id===id); }
+function expenseActive(e){ return !!(e&&e.active); }
+// Importe REAL del concepto en un mes. Si está "pendiente de confirmar" (no activo) cuenta 0.
 function actualAmount(expenseId,monthKey){
   const e=findExpense(expenseId);
-  if(e&&e.derived) return e.monthly;
+  if(!e || !expenseActive(e)) return 0;
+  if(e.derived) return e.monthly;
   const ov=STATE.actuals[monthKey];
   if(ov && Object.prototype.hasOwnProperty.call(ov,expenseId)) return ov[expenseId];
-  return e?e.monthly:0;
+  return e.monthly;
 }
 function setActual(expenseId,monthKey,value){
   if(!STATE.actuals[monthKey]) STATE.actuals[monthKey]={};
@@ -527,13 +545,15 @@ function monthExtrasTotal(monthKey){ return extrasForMonth(monthKey).reduce((a,x
 function monthSpending(monthKey){ return monthFixedTotal(monthKey)+monthExtrasTotal(monthKey); }
 // Aportación PREVISTA a un objetivo (0 si ya está completado).
 function goalPlanned(g){ return ((g.target||0)-(g.current||0))>0 ? (g.monthly||0) : 0; }
+function goalIsActive(g){ return !!(g&&g.active); }
 // Aportación REAL a un objetivo en un mes: lo que de verdad has destinado (editable).
-// Si no se ha tocado, por defecto = la prevista.
+// Si está pendiente de confirmar (no activo) cuenta 0; si no se ha tocado, por defecto = la prevista.
 function goalActual(goalId,monthKey){
+  const g=STATE.goals.find(x=>x.id===goalId);
+  if(!g || !goalIsActive(g)) return 0;
   const ov=STATE.goalActuals[monthKey];
   if(ov && Object.prototype.hasOwnProperty.call(ov,goalId)) return ov[goalId];
-  const g=STATE.goals.find(x=>x.id===goalId);
-  return g?goalPlanned(g):0;
+  return goalPlanned(g);
 }
 function setGoalActual(goalId,monthKey,value){
   if(!STATE.goalActuals[monthKey]) STATE.goalActuals[monthKey]={};
@@ -766,36 +786,44 @@ function renderGastos(){
   const plannedTotal=allExpenses().reduce((a,e)=>a+e.monthly,0);
   const moShort=(MONTHS.find(m=>m.key===mk)||{}).short||"";
   document.getElementById("gastos-kpis").innerHTML=[
-    kpiCard("Gastos fijos (real)",eur(fixedTotal),"🧾",fixedTotal>plannedTotal?"Por encima de lo previsto":"Dentro de lo previsto",fixedTotal>plannedTotal?"down":"up"),
+    kpiCard("Gastos fijos (real)",eur(fixedTotal),"🧾",fixedTotal>plannedTotal?"Por encima de lo previsto":"Confirmados este mes",fixedTotal>plannedTotal?"down":"up"),
     kpiCard("Gastos extra",eur(extrasTotal),"🛠️"),
     kpiCard("Aportación a objetivos",eur(goalsTotal),"🎯"),
     kpiCard("Salidas totales del mes",eur(total),"💳","Gastos + objetivos"),
   ].join("");
 
+  // Banner de simulación / real
+  const pend=pendingCount();
+  const banner=document.getElementById("sim-banner");
+  if(pend>0){
+    banner.className="sim-banner pending";
+    banner.innerHTML=`<div style="font-size:13px;line-height:1.5;"><strong>🧪 Modo simulación.</strong> Hay <strong>${pend}</strong> concepto(s) pendientes de confirmar: el círculo gris ⚪ significa "aún no lo pagas". Confírmalos uno a uno (pulsa el círculo) o todos a la vez cuando empecéis de verdad.</div>
+      <button class="btn" onclick="activateAll()">✅ Activar todo y empezar</button>`;
+  } else {
+    banner.className="sim-banner real";
+    banner.innerHTML=`<div style="font-size:13px;line-height:1.5;"><strong>✅ Contabilizando de forma real.</strong> Todos los conceptos están activos y suman a tus salidas del mes.</div>
+      <button class="btn ghost" onclick="backToSimulation()">Volver a simulación</button>`;
+  }
+
   document.getElementById("expense-table").innerHTML=
-    `<thead><tr><th>Concepto</th><th>Categoría</th><th>Previsto/mes</th><th>Real (${moShort})</th><th>Vivienda</th><th></th></tr></thead><tbody>`+
+    `<thead><tr><th>Concepto</th><th>Cat.</th><th>Previsto</th><th>Real (${moShort})</th><th></th></tr></thead><tbody>`+
     allExpenses().map(e=>{
-      const act=actualAmount(e.id,mk);
+      const act=actualAmount(e.id,mk), on=expenseActive(e);
       const col=CAT_COLORS[e.cat]||"#94a3b8";
-      if(e.derived){
-        return `<tr><td>${escapeHtml(e.name)} <span class="muted" style="font-size:11px;">· se calcula en Hipoteca</span></td>
-          <td><span class="pill" style="background:${col}22;color:${col}">${escapeHtml(e.cat)}</span></td>
-          <td>${eur(e.monthly)}</td>
-          <td>${eur(act)}</td>
-          <td>${e.housing?'✓':'—'}</td>
-          <td class="row-actions"><button class="icon-btn" title="Editar en la pestaña Hipoteca" onclick="goToView('hipoteca')">🏠</button></td></tr>`;
-      }
-      return `<tr><td>${escapeHtml(e.name)}</td>
+      const dot=`<span class="stdot ${on?'on':''}" title="${on?'Activo · pulsa para dejar pendiente':'Pendiente · pulsa para confirmar'}" onclick="toggleExpenseActive('${e.id}')"></span>`;
+      const realCell = on
+        ? (e.derived ? `<strong>${eur(act)}</strong>` : `<input class="inline-amount" type="number" step="0.01" value="${act}" onchange="updateActual('${e.id}',this.value)">`)
+        : `<button class="chip-confirm" onclick="setExpenseActive('${e.id}',true)">Confirmar</button>`;
+      const actions = e.derived
+        ? `<button class="icon-btn" title="Editar en Hipoteca" onclick="goToView('hipoteca')">🏠</button>`
+        : `<button class="icon-btn" title="Editar" onclick="openExpenseForm('${e.id}')">✏️</button><button class="icon-btn" title="Eliminar" onclick="deleteExpense('${e.id}')">🗑️</button>`;
+      return `<tr><td>${dot}${escapeHtml(e.name)}${e.derived?' <span class="muted" style="font-size:11px;">·hipoteca</span>':''}</td>
         <td><span class="pill" style="background:${col}22;color:${col}">${escapeHtml(e.cat)}</span></td>
         <td>${eur(e.monthly)}</td>
-        <td><input class="inline-amount" type="number" step="0.01" value="${act}" onchange="updateActual('${e.id}',this.value)"></td>
-        <td>${e.housing?'✓':'—'}</td>
-        <td class="row-actions">
-          <button class="icon-btn" title="Editar concepto" onclick="openExpenseForm('${e.id}')">✏️</button>
-          <button class="icon-btn" title="Eliminar" onclick="deleteExpense('${e.id}')">🗑️</button>
-        </td></tr>`;
+        <td>${realCell}</td>
+        <td class="row-actions">${actions}</td></tr>`;
     }).join("")+
-    `<tr><td><strong>Total gastos fijos</strong></td><td></td><td><strong>${eur(plannedTotal)}</strong></td><td><strong>${eur(fixedTotal)}</strong></td><td></td><td></td></tr></tbody>`;
+    `<tr><td><strong>Total gastos fijos</strong></td><td></td><td><strong>${eur(plannedTotal)}</strong></td><td><strong>${eur(fixedTotal)}</strong></td><td></td></tr></tbody>`;
 
   const extras=extrasForMonth(mk);
   document.getElementById("extra-table").innerHTML=
@@ -814,17 +842,21 @@ function renderGastos(){
     `</tbody>`;
 
   document.getElementById("goals-expense-table").innerHTML=
-    `<thead><tr><th>Objetivo</th><th>Previsto/mes</th><th>Destinado (${moShort})</th><th>Ahorrado / meta</th><th></th></tr></thead><tbody>`+
+    `<thead><tr><th>Objetivo</th><th>Previsto</th><th>Destinado (${moShort})</th><th>Ahorrado/meta</th><th></th></tr></thead><tbody>`+
     (STATE.goals.length? STATE.goals.map(g=>{
-      const planned=goalPlanned(g), real=goalActual(g.id,mk);
+      const planned=goalPlanned(g), real=goalActual(g.id,mk), on=goalIsActive(g);
       const done=((g.target||0)-(g.current||0))<=0;
-      return `<tr><td>${escapeHtml(g.name)} <span class="pill" style="background:#7c3aed22;color:#7c3aed">${escapeHtml(g.type)}</span></td>
+      const dot=`<span class="stdot ${on?'on':''}" title="${on?'Activo · pulsa para dejar pendiente':'Pendiente · pulsa para confirmar'}" onclick="toggleGoalActive('${g.id}')"></span>`;
+      const destCell = done ? `<span class="muted">completado</span>`
+        : (on ? `<input class="inline-amount" type="number" step="0.01" value="${real}" onchange="updateGoalActual('${g.id}',this.value)">`
+              : `<button class="chip-confirm" onclick="setGoalActiveState('${g.id}',true)">Confirmar</button>`);
+      return `<tr><td>${dot}${escapeHtml(g.name)}</td>
         <td>${eur(planned)}</td>
-        <td>${done?`<span class="muted">${eur(0)} · completado</span>`:`<input class="inline-amount" type="number" step="0.01" value="${real}" onchange="updateGoalActual('${g.id}',this.value)">`}</td>
+        <td>${destCell}</td>
         <td class="muted">${eur(g.current)} / ${eur(g.target)}</td>
         <td class="row-actions"><button class="icon-btn" title="Editar en Objetivos" onclick="openGoalFormFromGastos('${g.id}')">✏️</button></td></tr>`;
     }).join("") : `<tr><td colspan="5" class="muted" style="text-align:center;padding:18px;">Aún no has creado objetivos.</td></tr>`)+
-    `<tr><td><strong>Total destinado a objetivos</strong></td><td><strong>${eur(STATE.goals.reduce((a,g)=>a+goalPlanned(g),0))}</strong></td><td><strong>${eur(goalsTotal)}</strong></td><td></td><td></td></tr></tbody>`;
+    `<tr><td><strong>Total destinado</strong></td><td><strong>${eur(STATE.goals.reduce((a,g)=>a+goalPlanned(g),0))}</strong></td><td><strong>${eur(goalsTotal)}</strong></td><td></td><td></td></tr></tbody>`;
 
   document.getElementById("annual-table").innerHTML=
     `<thead><tr><th>Mes</th><th>Fijos</th><th>Extra</th><th>Objetivos</th><th>Salidas</th><th>Ingreso</th><th>Ahorro libre</th></tr></thead><tbody>`+
@@ -848,6 +880,38 @@ function updateGoalActual(id,value){
   renderGastos(); renderDashboard(); renderObjetivos(); renderBalance();
 }
 function openGoalFormFromGastos(id){ goToView('objetivos'); openGoalForm(id); }
+
+/* ACTIVAR / CONFIRMAR conceptos (simulación -> real) */
+function setExpenseActive(id,val){
+  if(id===MORTGAGE_ID){ if(STATE.mortgage) STATE.mortgage.active=val; }
+  else { const e=STATE.expenses.find(x=>x.id===id); if(e) e.active=val; }
+  saveState(); renderAll();
+}
+function setGoalActiveState(id,val){ const g=STATE.goals.find(x=>x.id===id); if(g){ g.active=val; saveState(); renderAll(); } }
+function toggleExpenseActive(id){
+  const cur = id===MORTGAGE_ID ? !!(STATE.mortgage&&STATE.mortgage.active) : !!((STATE.expenses.find(x=>x.id===id)||{}).active);
+  setExpenseActive(id,!cur);
+}
+function toggleGoalActive(id){ const g=STATE.goals.find(x=>x.id===id); if(g) setGoalActiveState(id,!g.active); }
+function pendingCount(){
+  let n=STATE.expenses.filter(e=>!e.active).length + STATE.goals.filter(g=>!g.active).length;
+  if(STATE.mortgage && !STATE.mortgage.active) n++;
+  return n;
+}
+function activateAll(){
+  if(!confirm("¿Empezar a contar de forma real? Se activarán todos los conceptos y objetivos a partir del mes actual.")) return;
+  STATE.expenses.forEach(e=>e.active=true);
+  STATE.goals.forEach(g=>g.active=true);
+  if(STATE.mortgage) STATE.mortgage.active=true;
+  saveState(); renderAll();
+}
+function backToSimulation(){
+  if(!confirm("¿Volver al modo simulación? Todos los conceptos quedarán pendientes de confirmar y dejarán de contar.")) return;
+  STATE.expenses.forEach(e=>e.active=false);
+  STATE.goals.forEach(g=>g.active=false);
+  if(STATE.mortgage) STATE.mortgage.active=false;
+  saveState(); renderAll();
+}
 function openExpenseForm(id){
   const e=id?STATE.expenses.find(x=>x.id===id):null;
   const wrap=document.getElementById("expense-form-wrap");
@@ -876,7 +940,7 @@ function saveExpenseForm(id){
     Object.assign(e,{name,cat,monthly,housing});
   } else {
     const newId=uniqueId(name,STATE.expenses.map(x=>x.id));
-    STATE.expenses.push({id:newId,name,cat,monthly,housing});
+    STATE.expenses.push({id:newId,name,cat,monthly,housing,active:true});
   }
   saveState(); closeExpenseForm(); renderAll();
 }
@@ -960,7 +1024,8 @@ function syncMortgageInputs(){
 function renderMortgage(){
   const out=+document.getElementById("mort-out").value||0, rate=+document.getElementById("mort-rate").value||0, term=+document.getElementById("mort-term").value||0;
   // La hipoteca es la fuente única: persistimos y propagamos al resto de la app.
-  STATE.mortgage={outstanding:out,ratePct:rate,termMonths:term};
+  const wasActive=!!(STATE.mortgage&&STATE.mortgage.active);
+  STATE.mortgage={outstanding:out,ratePct:rate,termMonths:term,active:wasActive};
   saveState();
   const base=amortization(out,rate,term);
   document.getElementById("mort-summary").innerHTML=
@@ -979,19 +1044,20 @@ function renderMortgage(){
 /* OBJETIVOS */
 function renderObjetivos(){
   const today=new Date();
+  const planned=STATE.goals.reduce((a,g)=>a+goalPlanned(g),0);
   const gTotal=monthGoalsTotal(STATE.selectedMonth);
-  const exp=monthExpensesTotal(STATE.selectedMonth);
   document.getElementById("goals-full").innerHTML=
     `<div class="stat-box" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-       <div><div class="l">Aportación mensual total a objetivos</div><div class="v">${eur(gTotal)}/mes</div></div>
-       <div class="muted" style="font-size:12.5px;max-width:340px;text-align:right;">✓ Ya contabilizado dentro de las <strong>salidas del mes</strong> (${eur(exp)}) en Dashboard, Gastos y Balance. Añade o edita un objetivo y el total subirá o bajará al instante.</div>
+       <div><div class="l">Aportación mensual prevista (plan)</div><div class="v">${eur(planned)}/mes</div></div>
+       <div class="muted" style="font-size:12.5px;max-width:330px;text-align:right;">Confirmado y contabilizado este mes: <strong>${eur(gTotal)}</strong>. El círculo ⚪/🟢 de cada objetivo marca si ya cuenta como salida real. Actívalos en Gastos o aquí.</div>
      </div>`+
     STATE.goals.map(g=>{
-    const p=Math.min(1,g.current/(g.target||1)), rem=g.target-g.current;
+    const p=Math.min(1,g.current/(g.target||1)), rem=g.target-g.current, on=goalIsActive(g);
     const months=rem>0&&g.monthly>0?Math.ceil(rem/g.monthly):0;
     const d=new Date(today); d.setMonth(d.getMonth()+months);
     const eta=rem<=0?"Completado ✓":d.toLocaleDateString("es-ES",{month:"long",year:"numeric"});
-    return `<div class="goal"><div class="row-line"><span><strong>${escapeHtml(g.name)}</strong> <span class="pill" style="background:var(--surface-2);color:var(--sub)">${escapeHtml(g.type)}</span></span>
+    const dot=`<span class="stdot ${on?'on':''}" title="${on?'Activo · pulsa para dejar pendiente':'Pendiente · pulsa para confirmar'}" onclick="toggleGoalActive('${g.id}')"></span>`;
+    return `<div class="goal"><div class="row-line"><span>${dot}<strong>${escapeHtml(g.name)}</strong> <span class="pill" style="background:var(--surface-2);color:var(--sub)">${escapeHtml(g.type)}</span> ${on?'':'<span class="pill" style="background:var(--amber-soft);color:var(--amber)">pendiente</span>'}</span>
       <span class="muted">${eur(g.current)} / ${eur(g.target)}</span></div>
       <div class="bar"><span style="width:${p*100}%"></span></div>
       <div class="goal-meta">Progreso ${pct(p)} · Aportación ${eur(g.monthly)}/mes · Fecha estimada: <strong>${eta}</strong></div>
@@ -1027,7 +1093,7 @@ function saveGoalForm(id){
   const monthly=round2(+document.getElementById("goal-f-monthly").value||0);
   if(!name){ alert("Indica un nombre para el objetivo."); return; }
   if(id){ const g=STATE.goals.find(x=>x.id===id); Object.assign(g,{name,type,target,current,monthly}); }
-  else { STATE.goals.push({id:uniqueId(name,STATE.goals.map(x=>x.id)),name,type,target,current,monthly}); }
+  else { STATE.goals.push({id:uniqueId(name,STATE.goals.map(x=>x.id)),name,type,target,current,monthly,active:true}); }
   saveState(); closeGoalForm(); renderAll();
 }
 function deleteGoal(id){
