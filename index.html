@@ -27,12 +27,13 @@
   --transition:.15s cubic-bezier(.4,0,.2,1);
 }
 .dark{
-  --bg:#0b0f1a;--surface:#111827;--surface2:#1a2236;--border:#1e2d45;
-  --text:#e2e8f0;--sub:#94a3b8;--muted:#4a5568;
-  --navy:#1e4a8a;--blue:#3b82f6;--green:#10b981;--amber:#f59e0b;--red:#f87171;
-  --shadow-sm:0 1px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3);
-  --shadow-md:0 4px 12px rgba(0,0,0,.4),0 2px 4px rgba(0,0,0,.3);
-  --shadow-lg:0 12px 32px rgba(0,0,0,.5),0 4px 8px rgba(0,0,0,.4);
+  --bg:#0d1117;--surface:#161b27;--surface2:#1c2333;--border:#2a3a52;
+  --text:#f0f6fc;--sub:#bdc8d9;--muted:#7a90aa;
+  --navy:#2563a8;--blue:#58a6ff;--green:#3fb950;--amber:#e3b341;--red:#f78166;
+  --gold:#d29922;--purple:#a371f7;--teal:#39c5cf;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.5),0 1px 2px rgba(0,0,0,.4);
+  --shadow-md:0 4px 12px rgba(0,0,0,.5),0 2px 4px rgba(0,0,0,.4);
+  --shadow-lg:0 12px 32px rgba(0,0,0,.6),0 4px 8px rgba(0,0,0,.5);
 }
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;background:var(--bg);color:var(--text);transition:background var(--transition),color var(--transition);-webkit-font-smoothing:antialiased;}
 .hdr{background:var(--surface);border-bottom:1.5px solid var(--border);padding:10px 20px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow-sm);backdrop-filter:blur(8px);transition:background var(--transition),border-color var(--transition);}
@@ -82,7 +83,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .klbl{font-size:10px;color:var(--muted);margin-bottom:3px;display:flex;align-items:center;gap:4px;}
 .kval{font-size:19px;font-weight:700;}
 .ksub{font-size:10px;color:var(--muted);margin-top:2px;}
-.kpi-expand{display:none;padding:10px 13px;border-top:1px solid var(--border);background:#fff;font-size:11px;line-height:1.65;color:var(--sub);}
+.kpi-expand{display:none;padding:10px 13px;border-top:1px solid var(--border);background:var(--surface);font-size:11px;line-height:1.65;color:var(--sub);}
 .kpi-expand.open{display:block;}
 .kpi-expand-arrow{display:inline-block;transition:transform .2s;font-size:10px;color:var(--muted);}
 .kpi.expanded .kpi-expand-arrow{transform:rotate(180deg);}
@@ -336,7 +337,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .ficha-hero{border-radius:16px;overflow:hidden;margin-bottom:12px;position:relative;}
 .ficha-hero-inner{padding:22px 24px 0;position:relative;}
 .ficha-accent-bar{position:absolute;left:0;top:0;bottom:0;width:14px;}
-.ficha-logo-box{width:90px;height:90px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 16px rgba(0,0,0,.18);flex-shrink:0;overflow:hidden;border:2px solid rgba(255,255,255,.25);}
+.ficha-logo-box{width:90px;height:90px;border-radius:14px;background:var(--surface);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 16px rgba(0,0,0,.18);flex-shrink:0;overflow:hidden;border:2px solid rgba(255,255,255,.25);}
 .ficha-logo-box img{width:64px;height:64px;object-fit:contain;}
 .ficha-h1{font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:700;color:#fff;line-height:1.1;margin-bottom:5px;letter-spacing:-.3px;}
 .ficha-ticker-badge{display:inline-flex;align-items:center;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;padding:2px 10px;font-size:11px;font-weight:700;color:rgba(255,255,255,.85);letter-spacing:.08em;margin-left:10px;vertical-align:middle;}
@@ -353,7 +354,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .ficha-keyword{font-weight:700;border-bottom:2px solid;padding-bottom:1px;}
 .ficha-comp-grid{display:grid;grid-template-columns:1fr 300px;gap:10px;margin-bottom:10px;}
 @media(max-width:800px){.ficha-comp-grid{grid-template-columns:1fr;}}
-.ficha-pos-card{border-left:5px solid;border-radius:10px;padding:10px 13px;background:#fff;border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:7px;}
+.ficha-pos-card{border-left:5px solid;border-radius:10px;padding:10px 13px;background:var(--surface);border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:7px;}
 .ficha-pos-rank{font-size:20px;font-weight:800;line-height:1;}
 .ficha-pos-sector{font-size:10px;font-weight:700;color:var(--sub);margin-bottom:2px;}
 .ficha-pos-share{font-size:10px;color:var(--muted);}
@@ -379,7 +380,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .ficha-q-table tr:last-child td{border-bottom:none;}
 .ficha-q-yoy{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;}
 .ficha-chart-wrap{border-radius:12px;overflow:hidden;border:1px solid var(--border);margin-bottom:12px;}
-.ficha-chart-head{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;background:#fff;border-bottom:1px solid var(--border);}
+.ficha-chart-head{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;background:var(--surface);border-bottom:1px solid var(--border);}
 @media(max-width:600px){
   .kgrid{grid-template-columns:repeat(2,1fr);}
   .valgrid{grid-template-columns:repeat(2,1fr);}
@@ -516,6 +517,19 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .dark .tab-bar{border-color:var(--border);}
 .dark .news-co-item{border-color:var(--border);}
 .dark .news-co-item:hover{background:rgba(255,255,255,.04);}
+/* Amber/warning boxes dark */
+.dark .earnings-badge{background:#1a1200 !important;border-color:#7a5200 !important;color:#e3b341 !important;}
+.dark .fh-banner{background:#1a1200 !important;border-color:#7a5200 !important;}
+.dark .isinp{background:#1a1200 !important;border-color:#7a5200 !important;color:#e3b341 !important;}
+.dark #hdr-sim-flag{background:#1a1200 !important;color:#e3b341 !important;border-color:#7a5200 !important;}
+.dark #hdr-sim-exit{background:#1a1200 !important;color:#e3b341 !important;border-color:#7a5200 !important;}
+.dark #btn-restore-hidden{background:#1a1200 !important;color:#e3b341 !important;border-color:#7a5200 !important;}
+/* Tables dark */
+.dark table th{background:var(--surface2) !important;color:var(--sub) !important;border-color:var(--border) !important;}
+.dark table td{border-color:var(--border) !important;}
+.dark table tbody tr:hover{background:rgba(88,166,255,.06) !important;}
+/* KPI expand */
+.dark .kpi-expand{background:var(--surface2);color:var(--sub);}
 .dark ::-webkit-scrollbar{width:6px;height:6px;}
 .dark ::-webkit-scrollbar-track{background:var(--surface2);}
 .dark ::-webkit-scrollbar-thumb{background:#2d3748;border-radius:4px;}
@@ -535,7 +549,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
         <button id="nav-dash" onclick="setView('dash')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--navy);background:var(--navy);cursor:pointer;font-size:11px;font-weight:700;color:#fff;">💼 Cartera</button>
         <button id="nav-watch" onclick="setView('watch')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);">👁️ Seguimiento</button>
         <button id="nav-analysis" onclick="toggleAnalysisMenu(event)" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);">📈 Análisis ▾</button>
-        <div id="co-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:130;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.16);padding:6px;min-width:210px;max-height:70vh;overflow:auto;">
+        <div id="co-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:130;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.16);padding:6px;min-width:210px;max-height:70vh;overflow:auto;">
           <div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:2px 8px 6px;">Elige empresa</div>
           <div class="co-btns" id="co-btns"></div>
         </div>
@@ -547,7 +561,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <div id="hdr-co-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <div style="display:flex;align-items:center;gap:10px;min-width:0;">
         <div id="co-logo-wrap" style="display:none;align-items:center;flex-shrink:0;">
-          <img id="co-logo" src="" alt="" style="width:34px;height:34px;border-radius:9px;object-fit:contain;border:1.5px solid var(--border);padding:3px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08);"/>
+          <img id="co-logo" src="" alt="" style="width:34px;height:34px;border-radius:9px;object-fit:contain;border:1.5px solid var(--border);padding:3px;background:var(--surface2);box-shadow:0 1px 4px rgba(0,0,0,.08);"/>
         </div>
         <div style="min-width:0;">
           <div class="coname" id="co-name" style="display:none;"><span id="co-name-txt">Microsoft Corporation</span></div>
@@ -602,7 +616,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
         </div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:240px;">
-        <input id="fh-key-inp" type="text" placeholder="Pega aquí tu API key de Finnhub..." style="flex:1;font-size:12px;padding:8px 12px;border:1.5px solid #f59e0b;border-radius:8px;background:#fff;outline:none;"/>
+        <input id="fh-key-inp" type="text" placeholder="Pega aquí tu API key de Finnhub..." style="flex:1;font-size:12px;padding:8px 12px;border:1.5px solid #f59e0b;border-radius:8px;background:var(--surface2);outline:none;color:var(--text);"/>
         <button onclick="saveFinnhubKey()" style="padding:8px 16px;background:#1e3a5f;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">✓ Guardar</button>
       </div>
     </div>
@@ -649,14 +663,14 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     </div>
   </div>
 
-  <div style="background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.03);overflow-x:auto;margin-bottom:12px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.03);overflow-x:auto;margin-bottom:12px;">
     <table class="cartera-tbl" id="cartera-table">
       <thead>
         <tr>
           <th style="text-align:left;">Empresa</th>
           <th style="text-align:right;">Precio<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
           <th style="text-align:right;">Sem.</th>
-          <th style="text-align:right;background:#fff8f0;">Obj. precio<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
+          <th style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">Obj. precio<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
           <th style="text-align:right;">Entrada<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
           <th style="text-align:right;">Obj. 5Y<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">promedio · ret. anual</span></th>
           <th style="text-align:center;">PEG</th>
@@ -713,7 +727,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     Las empresas con &lt;6 años de histórico se marcan <span style="font-weight:800;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:0 5px;border-radius:6px;">JOVEN</span> (rúbrica clásica no aplica).
   </div>
 
-  <div style="background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.03);overflow-x:auto;margin-bottom:12px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.03);overflow-x:auto;margin-bottom:12px;">
     <table class="cartera-tbl" id="watch-table">
       <thead>
         <tr>
@@ -2541,7 +2555,7 @@ function rSidebarEmpresa(){
   return`
   <div class="sidebar-panel">
     <div style="background:${co.color};padding:12px 14px;display:flex;align-items:center;gap:10px;">
-      <div style="width:44px;height:44px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;">
+      <div style="width:44px;height:44px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;">
         <img src="${logosSrc?.src||''}" onerror="this.src='${logosSrc?.fb||''}'" style="width:32px;height:32px;object-fit:contain;" alt="${co.ticker}"/>
       </div>
       <div>
@@ -2676,7 +2690,7 @@ function rMiPosicion(vd,fv5){
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div class="ctitle" style="margin-bottom:0;">📌 Mi posición en ${co.ticker}</div>
       <div style="display:flex;gap:6px;">
-        <button onclick="openMiPosicionForm()" style="font-size:10px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:600;">✏️ Editar</button>
+        <button onclick="openMiPosicionForm()" style="font-size:10px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-weight:600;">✏️ Editar</button>
         <button onclick="if(confirm('¿Borrar tu posición?'))clearMiPosicion()" style="font-size:10px;padding:4px 10px;border-radius:8px;border:1px solid #fecaca;background:#fff;cursor:pointer;color:#dc2626;font-weight:600;">🗑️</button>
       </div>
     </div>
@@ -2703,13 +2717,13 @@ function rMiPosicion(vd,fv5){
     <!-- Análisis: vs SP500, target desde coste, recomendación -->
     <div style="display:grid;grid-template-columns:${spComp!==null?'1fr 1fr 1fr':'1fr 1fr'};gap:8px;">
       ${spComp!==null?`
-      <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 11px;">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 11px;">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px;">vs S&amp;P 500 desde tu compra</div>
         <div style="font-size:15px;font-weight:800;color:${spComp>=0?'#16a34a':'#dc2626'};">${spComp>=0?'+':''}${spComp.toFixed(1)}pp</div>
         <div style="font-size:9px;color:var(--muted);">Tú: ${pnlPct>=0?'+':''}${pnlPct.toFixed(1)}% · S&amp;P: ${pos.spReturn>=0?'+':''}${(+pos.spReturn).toFixed(1)}%</div>
       </div>`:''}
       ${fv5?`
-      <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 11px;">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 11px;">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px;">Target 5Y desde tu coste</div>
         <div style="font-size:15px;font-weight:800;color:${upside5Y>=0?'#16a34a':'#dc2626'};">${upside5Y>=0?'+':''}${upside5Y.toFixed(0)}%</div>
         <div style="font-size:9px;color:var(--muted);">vs ${upside5YFromNow>=0?'+':''}${upside5YFromNow.toFixed(0)}% desde precio actual</div>
@@ -2732,7 +2746,7 @@ function rMiPosicion(vd,fv5){
 
   <!-- MODAL: formulario edición posición -->
   <div id="mp-form-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
-    <div style="background:#fff;border-radius:14px;padding:22px;max-width:420px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.2);">
+    <div style="background:var(--surface);border-radius:14px;padding:22px;max-width:420px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.2);">
       <div style="font-size:14px;font-weight:800;color:#1a1814;margin-bottom:14px;">📌 Mi posición en ${co.ticker}</div>
       <div style="display:grid;gap:10px;">
         <div>
@@ -2753,7 +2767,7 @@ function rMiPosicion(vd,fv5){
         </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:16px;">
-        <button onclick="closeMiPosicionForm()" style="flex:1;padding:9px;border:1px solid var(--border);background:#fff;border-radius:8px;cursor:pointer;font-weight:600;">Cancelar</button>
+        <button onclick="closeMiPosicionForm()" style="flex:1;padding:9px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:8px;cursor:pointer;font-weight:600;">Cancelar</button>
         <button onclick="submitMiPosicionForm()" style="flex:1;padding:9px;border:none;background:${co.color};color:#fff;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>
       </div>
     </div>
@@ -3017,7 +3031,7 @@ function rResumen(){
 
     <!-- ══ BANNER EMPRESA ══ -->
     <div style="background:linear-gradient(135deg,${co.color} 0%,${co.color}cc 100%);border-radius:14px;padding:18px 22px;margin-bottom:10px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;box-shadow:0 2px 12px ${co.color}40;">
-      <div style="width:58px;height:58px;border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.18);">
+      <div style="width:58px;height:58px;border-radius:13px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.18);">
         <img src="${logosSrc.src||''}" onerror="this.src='${logosSrc.fb||''}'" style="width:42px;height:42px;object-fit:contain;" alt="${co.ticker}"/>
       </div>
       <div style="flex:1;min-width:160px;">
@@ -5404,7 +5418,7 @@ function renderCartera(){
   <td style="text-align:right;">
     <div id="cweek-${k}" style="font-size:12px;font-weight:800;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
   </td>
-  <td style="text-align:right;background:#fff8f0;">
+  <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">
     <div id="cobjevf-${k}" style="font-size:13px;font-weight:800;color:#1a1814;">${fmt(m.objEVF,k)}</div>
     <div id="cmds-${k}" style="font-size:10px;font-weight:800;color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</div>
   </td>
