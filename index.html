@@ -176,7 +176,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .tip-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9a958e;margin-bottom:2px;}
 .tip-close{position:absolute;top:10px;right:12px;background:none;border:none;cursor:pointer;font-size:16px;color:#9a958e;line-height:1;}
 .tip-close:hover{color:var(--text);}
-.dcf-info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:11px 14px;margin-bottom:12px;font-size:11px;color:#1e40af;line-height:1.65;}
+.dcf-info-box{background:${_dm()?'#0c1832':'#eff6ff'};border:1px solid #bfdbfe;border-radius:10px;padding:11px 14px;margin-bottom:12px;font-size:11px;color:#1e40af;line-height:1.65;}
 .chart-note{font-size:10px;color:var(--muted);margin-top:5px;text-align:center;}
 .ac-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:16px;}
 .ac-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:box-shadow var(--transition),transform var(--transition),border-color var(--transition);}
@@ -219,7 +219,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .sidebar-toggle-arrow{font-size:11px;color:var(--muted);transition:transform .2s;}
 .sidebar-body{padding:12px 14px;}
 /* ── PRICE ZONE (simulación) ── */
-.sim-banner{background:#fef3c7;border:1.5px solid #f59e0b;border-radius:10px;padding:7px 12px;margin-bottom:10px;display:none;font-size:11px;font-weight:700;color:#92400e;text-align:center;}
+.sim-banner{background:${_dm()?'#1a1200':'#fef3c7'};border:1.5px solid #f59e0b;border-radius:10px;padding:7px 12px;margin-bottom:10px;display:none;font-size:11px;font-weight:700;color:#92400e;text-align:center;}
 .sim-banner.visible{display:block;}
 /* ── KPI visual con sparkline ── */
 .kpi2{background:var(--surface2);border-radius:var(--radius-md);padding:10px 12px;cursor:pointer;transition:all var(--transition);border-left:3px solid transparent;}
@@ -290,6 +290,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .verd-pill-sm{font-size:8px;font-weight:700;padding:3px 8px;border-radius:10px;white-space:nowrap;}
 .dash-drive-btn{font-size:9px;padding:3px 7px;border-radius:7px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--sub);text-decoration:none;white-space:nowrap;transition:all .1s;}
 .dash-drive-btn:hover{background:#eff6ff;color:#2563eb;border-color:#bfdbfe;}
+.dark .dash-drive-btn:hover{background:#0c1832;color:#7ab4f5;border-color:#1e3a6e;}
 /* ── VIX BAR ── */
 .vix-bar-mini{height:6px;border-radius:3px;background:linear-gradient(90deg,#16a34a 0%,#16a34a 30%,#d97706 30%,#d97706 55%,#dc2626 55%,#dc2626 100%);position:relative;width:60px;margin:3px auto 0;}
 .vix-needle{position:absolute;top:-4px;width:3px;height:14px;background:var(--surface);border-radius:2px;transform:translateX(-50%);}
@@ -414,8 +415,11 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .cartera-import-badge.no-import{background:#fff7ed;color:#d97706;border-color:#fed7aa;}
 .cartera-action-btn{padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:10px;font-weight:600;color:var(--sub);transition:all .1s;white-space:nowrap;}
 .cartera-action-btn:hover{background:#eff6ff;color:#2563eb;border-color:#bfdbfe;}
+.dark .cartera-action-btn:hover{background:#0c1832;color:#7ab4f5;border-color:#1e3a6e;}
 .cartera-action-btn.red:hover{background:#fef2f2;color:#dc2626;border-color:#fecaca;}
+.dark .cartera-action-btn.red:hover{background:#200a0a;color:#f78166;border-color:#4a1010;}
 .cartera-drive-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:7px;border:1px solid #bfdbfe;background:#eff6ff;cursor:pointer;font-size:10px;font-weight:600;color:#2563eb;text-decoration:none;transition:all .1s;}
+.dark .cartera-drive-btn{background:#0c1832;border-color:#1e3a6e;color:#7ab4f5;}
 .cartera-drive-btn:hover{background:#dbeafe;}
 
 /* Import modal */
@@ -428,7 +432,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .import-inp{width:100%;font-size:12px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;outline:none;background:var(--surface2);margin-bottom:14px;}
 .import-inp:focus{border-color:#1e3a5f;background:#fff;}
 .import-drop{border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;margin-bottom:14px;transition:all .2s;}
-.import-drop.dragover{border-color:#1e3a5f;background:#eff6ff;}
+.import-drop.dragover{border-color:#1e3a5f;background:${_dm()?'#0c1832':'#eff6ff'};}
 .import-drop input[type=file]{display:none;}
 .import-progress{display:none;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:11px;color:#16a34a;font-weight:600;margin-bottom:12px;}
 .import-error{display:none;padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:11px;color:#dc2626;font-weight:600;margin-bottom:12px;}
@@ -551,9 +555,19 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .dark ::-webkit-scrollbar-track{background:var(--surface2);}
 .dark ::-webkit-scrollbar-thumb{background:#2d3f57;border-radius:4px;}
 .dark ::-webkit-scrollbar-thumb:hover{background:#3d5270;}
+/* JOVEN badge */
+.joven-badge{font-size:8px;font-weight:800;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:0 5px;border-radius:6px;}
+.dark .joven-badge{background:#0c1832;color:#7ab4f5;border-color:#1e3a6e;}
+/* Static HTML heading colors */
+.dark .page-title{color:var(--text) !important;}
 /* Dark toggle button */
 #dark-toggle{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);transition:all .15s;}
 #dark-toggle:hover{background:var(--border);color:var(--text);}
+/* Hardcoded heading colors in static HTML */
+.dark [style*="color:#1a1814"]{color:var(--text) !important;}
+.dark [style*="background:#fffbeb"]{background:#1a1200 !important;border-color:#5c3d00 !important;color:#bfa060 !important;}
+.dark [style*="background:#f7f6f3"]{background:var(--surface2) !important;}
+.dark [style*="background:#f9f8f6"]{background:var(--surface2) !important;}
 </style>
 </head>
 <body>
@@ -668,7 +682,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <!-- ═══ CARTERA (tabla rica unificada en el Dashboard) ═══ -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px;flex-wrap:wrap;gap:10px;">
     <div>
-      <div style="font-size:16px;font-weight:800;color:#1a1814;">📋 Mi cartera</div>
+      <div style="font-size:16px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};">📋 Mi cartera</div>
       <div style="font-size:10px;color:var(--muted);">Precios en vivo · valor intrínseco y MdS recalculados al instante · importa o añade empresas</div>
       <div id="cartera-import-status" style="font-size:10px;margin-top:4px;"></div>
     </div>
@@ -731,7 +745,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 <div id="view-watch" style="display:none;max-width:1600px;margin:0 auto;padding:10px 20px 30px;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px;flex-wrap:wrap;gap:10px;">
     <div>
-      <div style="font-size:16px;font-weight:800;color:#1a1814;">👁️ Empresas en seguimiento</div>
+      <div style="font-size:16px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};">👁️ Empresas en seguimiento</div>
       <div style="font-size:10px;color:var(--muted);">Candidatas a invertir · pre-análisis rápido para decidir si merecen análisis profundo</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -742,7 +756,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:8px 12px;font-size:10px;color:#92400e;margin-bottom:12px;">
     <b>Pre-análisis (6 ejes):</b> Calidad/ROIC · Crecimiento · Solidez financiera · Márgenes · Valoración · Red flags →
     veredicto <b style="color:#16a34a;">MERECE PROFUNDIZAR</b> / <b style="color:#d97706;">DUDOSA</b> / <b style="color:#dc2626;">DESCARTAR</b>.
-    Las empresas con &lt;6 años de histórico se marcan <span style="font-weight:800;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:0 5px;border-radius:6px;">JOVEN</span> (rúbrica clásica no aplica).
+    Las empresas con &lt;6 años de histórico se marcan <span class="joven-badge">JOVEN</span> (rúbrica clásica no aplica).
   </div>
 
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.03);overflow-x:auto;margin-bottom:12px;">
@@ -1398,6 +1412,7 @@ let _webProj={};         // key -> {years, rows, isdByYear, src, nA} (consenso d
 let curTab='resumen';let charts={};
 
 // ── HELPERS ──
+const _dm=()=>document.documentElement.classList.contains('dark');
 const N=(v,d=0)=>v==null?'—':Number(v).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
 const P=v=>Number(v).toFixed(1)+'%';
 const cagr=(e,s,y)=>((Math.pow(Math.max(e,0.01)/Math.max(s,0.01),1/y)-1)*100);
@@ -1889,17 +1904,17 @@ function _fillAutoVal(key,isd){
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;font-size:10px;">
       ${[['Crec. ventas',`${isd.sg[0]}% → ${isd.sg[4]}%`],['Mg. EBIT',`${isd.em[0]}%`],['Tax rate',`${isd.tr[0]}%`],['CapEx/Vtas',`${isd.cx[0]}%`],['Dilución',`${isd.di[0]}%`]]
-        .map(([l,v])=>`<span style="background:#f7f6f3;border:1px solid var(--border);border-radius:8px;padding:3px 8px;"><b style="color:var(--sub);">${l}:</b> ${v}</span>`).join('')}
+        .map(([l,v])=>`<span style="background:${_dm()?'#1c2333':'#f7f6f3'};border:1px solid var(--border);border-radius:8px;padding:3px 8px;"><b style="color:var(--sub);">${l}:</b> ${v}</span>`).join('')}
     </div>
     <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:380px;">
-      <thead><tr style="background:#f7f6f3;">
+      <thead><tr style="background:${_dm()?'#1c2333':'#f7f6f3'};">
         <th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:700;border-bottom:2px solid var(--border);">Precio objetivo (prom. 4 múlt.)</th>
         <th style="text-align:center;padding:6px 8px;color:#0891b2;font-weight:800;border-bottom:2px solid var(--border);background:#ecfeff;">🤖 Auto (SEC)</th>
         <th style="text-align:center;padding:6px 8px;color:#1e3a5f;font-weight:800;border-bottom:2px solid var(--border);background:#eef2f7;">📊 Tu hoja</th>
       </tr></thead><tbody>
-        <tr><td style="padding:6px 8px;border-bottom:1px solid #f0ede8;">Valor ${y1}e <span style="font-size:9px;color:var(--muted);">· vs precio</span></td>
-          <td style="text-align:center;padding:6px 8px;border-bottom:1px solid #f0ede8;background:#fafdff;font-weight:700;">${cell(auto[0],up(auto[0]))}</td>
-          <td style="text-align:center;padding:6px 8px;border-bottom:1px solid #f0ede8;font-weight:700;">${cell(sheet[0],up(sheet[0]))}</td></tr>
+        <tr><td style="padding:6px 8px;border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">Valor ${y1}e <span style="font-size:9px;color:var(--muted);">· vs precio</span></td>
+          <td style="text-align:center;padding:6px 8px;border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};background:#fafdff;font-weight:700;">${cell(auto[0],up(auto[0]))}</td>
+          <td style="text-align:center;padding:6px 8px;border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};font-weight:700;">${cell(sheet[0],up(sheet[0]))}</td></tr>
         <tr><td style="padding:6px 8px;">Objetivo ${y5}e <span style="font-size:9px;color:var(--muted);">· CAGR 5Y</span></td>
           <td style="text-align:center;padding:6px 8px;background:#fafdff;font-weight:700;">${cell(auto[4])} <span style="font-size:9px;font-weight:800;color:${pc(cg(auto[4]))};">${cg(auto[4])!=null?(cg(auto[4])>=0?'+':'')+cg(auto[4]).toFixed(0)+'%/año':''}</span></td>
           <td style="text-align:center;padding:6px 8px;font-weight:700;">${cell(sheet[4])} <span style="font-size:9px;font-weight:800;color:${pc(cg(sheet[4]))};">${cg(sheet[4])!=null?(cg(sheet[4])>=0?'+':'')+cg(sheet[4]).toFixed(0)+'%/año':''}</span></td></tr>
@@ -2189,7 +2204,6 @@ function calcVerdict(){
   else if(euforiaEVF||euforiaPER){euforiaPenalty=5;totalScore=Math.max(0,totalScore-5);}
 
   // ─── DECISIÓN alineada a la PUNTUACIÓN total (retorno+MOAT+ROIC+MdS ya están dentro) ───
-  const _dm=document.documentElement.classList.contains('dark');
   let verdict,verdictColor,verdictBg;
   if(totalScore>=65){
     verdict='COMPRAR';verdictColor=_dm?'#3fb950':'#16a34a';verdictBg=_dm?'#0d2117':'#f0fdf4';
@@ -2545,14 +2559,14 @@ function rSidebarEmpresa(){
   const blHtml=f.businessLines.map(bl=>`
     <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #f5f4f1;">
       <div style="background:${co.color}15;border-radius:6px;padding:3px 7px;font-size:12px;font-weight:800;color:${co.color};flex-shrink:0;">${bl.pct}%</div>
-      <div><div style="font-size:11px;font-weight:700;color:#1a1814;margin-bottom:1px;">${bl.name}</div><div style="font-size:10px;color:var(--muted);line-height:1.45;">${bl.desc}</div></div>
+      <div><div style="font-size:11px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};margin-bottom:1px;">${bl.name}</div><div style="font-size:10px;color:var(--muted);line-height:1.45;">${bl.desc}</div></div>
     </div>`).join('');
 
   // Competitors
   const compHtml=f.subsectors.map(s=>`
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:7px 9px;background:#f7f6f3;border-radius:8px;">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:7px 9px;background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:8px;">
       <div style="background:${co.color};color:#fff;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:800;flex-shrink:0;">${s.rank}</div>
-      <div style="flex:1;"><div style="font-size:10px;font-weight:700;color:#1a1814;">${s.sector}</div><div style="font-size:9px;color:var(--muted);">${s.share} · ${s.note}</div></div>
+      <div style="flex:1;"><div style="font-size:10px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${s.sector}</div><div style="font-size:9px;color:var(--muted);">${s.share} · ${s.note}</div></div>
     </div>`).join('')+`
     <div style="background:#1e2a3a;border-radius:8px;padding:10px 12px;margin-top:4px;">
       <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.45);margin-bottom:5px;">⚔️ Rival principal</div>
@@ -2583,7 +2597,7 @@ function rSidebarEmpresa(){
       </div>
     </div>
 
-    ${co.spinoffNote?`<div style="background:#fef3c7;border-bottom:1.5px solid #f59e0b;padding:10px 14px;font-size:10px;font-weight:700;color:#92400e;line-height:1.5;display:flex;gap:7px;align-items:flex-start;">
+    ${co.spinoffNote?`<div style="background:${_dm()?'#1a1200':'#fef3c7'};border-bottom:1.5px solid #f59e0b;padding:10px 14px;font-size:10px;font-weight:700;color:#92400e;line-height:1.5;display:flex;gap:7px;align-items:flex-start;">
       <span style="font-size:14px;flex-shrink:0;">⚠️</span>
       <span>${co.spinoffNote}</span>
     </div>`:''}
@@ -2603,13 +2617,13 @@ function rSidebarEmpresa(){
 
     <div class="sidebar-section" style="padding:10px 14px;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-        <div style="background:#f7f6f3;border-radius:8px;padding:8px 10px;text-align:center;">
+        <div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:8px;padding:8px 10px;text-align:center;">
           <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Último: ${f.lastQ.label}</div>
-          <div style="font-size:11px;font-weight:700;color:#1a1814;">${f.lastQ.salesVal}</div>
+          <div style="font-size:11px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${f.lastQ.salesVal}</div>
           <div style="font-size:10px;font-weight:700;color:${f.lastQ.salesYoY>=0?'#16a34a':'#dc2626'};">${f.lastQ.salesYoY>=0?'+':''}${f.lastQ.salesYoY}% ventas</div>
           <div style="font-size:10px;font-weight:700;color:${f.lastQ.epsYoY>=0?'#16a34a':'#dc2626'};">${f.lastQ.epsYoY>=0?'+':''}${f.lastQ.epsYoY}% EPS</div>
         </div>
-        <div style="background:#f7f6f3;border-radius:8px;padding:8px 10px;text-align:center;">
+        <div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:8px;padding:8px 10px;text-align:center;">
           <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Próx: ${f.nextQ.label}</div>
           <div style="font-size:10px;color:var(--sub);line-height:1.4;">${f.nextQ.salesEst} ventas</div>
           <div style="font-size:10px;color:var(--sub);">EPS ${f.nextQ.epsEst}</div>
@@ -2663,7 +2677,7 @@ function rMiPosicion(vd,fv5){
   // Sin posición todavía → call to action
   if(!pos){
     return`
-    <div class="card" style="margin-bottom:10px;background:linear-gradient(135deg,#f7f6f3 0%,#fff 100%);border:1.5px dashed var(--border);">
+    <div class="card" style="margin-bottom:10px;background:${_dm()?'#1c2333':'linear-gradient(135deg,#f7f6f3 0%,#fff 100%)'};border:1.5px dashed var(--border);">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <div>
           <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">📌 Mi posición</div>
@@ -2690,15 +2704,15 @@ function rMiPosicion(vd,fv5){
   const ms=vd.msBase!=null?vd.msBase:vd.ms;
   let avgAdvice='',avgColor='',avgBg='',avgIcon='';
   if(vd.verdict==='COMPRAR'&&ms>15){
-    avgAdvice='Buen momento para promediar a la baja: MdS amplio + MOAT sólido.';avgColor='#16a34a';avgBg='#f0fdf4';avgIcon='✅';
+    avgAdvice='Buen momento para promediar a la baja: MdS amplio + MOAT sólido.';avgColor=_dm()?'#3fb950':'#16a34a';avgBg=_dm()?'#0d2117':'#f0fdf4';avgIcon='✅';
   } else if(vd.verdict==='COMPRAR'){
-    avgAdvice='Punto razonable para añadir posición, pero MdS moderado.';avgColor='#16a34a';avgBg='#f0fdf4';avgIcon='✅';
+    avgAdvice='Punto razonable para añadir posición, pero MdS moderado.';avgColor=_dm()?'#3fb950':'#16a34a';avgBg=_dm()?'#0d2117':'#f0fdf4';avgIcon='✅';
   } else if(vd.verdict==='MANTENER'&&ms>-5){
-    avgAdvice='No vendas pero NO promedies aquí. Espera mejor punto de entrada.';avgColor='#d97706';avgBg='#fffbeb';avgIcon='⚖️';
+    avgAdvice='No vendas pero NO promedies aquí. Espera mejor punto de entrada.';avgColor=_dm()?'#e3b341':'#d97706';avgBg=_dm()?'#1a1200':'#fffbeb';avgIcon='⚖️';
   } else if(vd.euforiaPenalty>=15){
-    avgAdvice='⚠ Múltiplos en burbuja — considerar reducir posición o tomar beneficios parciales.';avgColor='#dc2626';avgBg='#fef2f2';avgIcon='🚨';
+    avgAdvice='⚠ Múltiplos en burbuja — considerar reducir posición o tomar beneficios parciales.';avgColor=_dm()?'#f78166':'#dc2626';avgBg=_dm()?'#200a0a':'#fef2f2';avgIcon='🚨';
   } else {
-    avgAdvice='No promedies. Si la pérdida es estructural, evaluar tesis. Si es cíclica, paciencia.';avgColor='#dc2626';avgBg='#fef2f2';avgIcon='⚠️';
+    avgAdvice='No promedies. Si la pérdida es estructural, evaluar tesis. Si es cíclica, paciencia.';avgColor=_dm()?'#f78166':'#dc2626';avgBg=_dm()?'#200a0a':'#fef2f2';avgIcon='⚠️';
   }
   // Target a 5Y desde tu coste
   const upside5Y=fv5?((fv5-pos.buyPrice)/pos.buyPrice*100):null;
@@ -2716,14 +2730,14 @@ function rMiPosicion(vd,fv5){
 
     <!-- Bloque principal: P&L grande -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
-      <div style="background:#f7f6f3;border-radius:10px;padding:10px 12px;">
+      <div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:10px;padding:10px 12px;">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Precio compra · Acciones</div>
-        <div style="font-size:14px;font-weight:700;color:#1a1814;">$${N(pos.buyPrice,2)} × ${N(pos.shares)}</div>
+        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">$${N(pos.buyPrice,2)} × ${N(pos.shares)}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:2px;">Coste total: $${N(Math.round(cost))}</div>
       </div>
-      <div style="background:#f7f6f3;border-radius:10px;padding:10px 12px;">
+      <div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:10px;padding:10px 12px;">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Valor hoy · Precio $${N(price,2)}</div>
-        <div style="font-size:14px;font-weight:700;color:#1a1814;">$${N(Math.round(valNow))}</div>
+        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">$${N(Math.round(valNow))}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:2px;">${pos.buyDate?'Comprado: '+pos.buyDate:'Sin fecha'}</div>
       </div>
       <div style="background:${pnl>=0?'#f0fdf4':'#fef2f2'};border:1.5px solid ${pnl>=0?'#bbf7d0':'#fecaca'};border-radius:10px;padding:10px 12px;text-align:center;">
@@ -2754,7 +2768,7 @@ function rMiPosicion(vd,fv5){
     </div>
 
     <!-- Línea contextual -->
-    <div style="margin-top:8px;padding:7px 10px;background:#f9f8f6;border-radius:7px;font-size:10px;color:var(--sub);">
+    <div style="margin-top:8px;padding:7px 10px;background:${_dm()?'#161b27':'#f9f8f6'};border-radius:7px;font-size:10px;color:var(--sub);">
       ${pnl>=0?
         `Llevas un beneficio del ${pnlPct.toFixed(1)}% en ${co.ticker}. ${vd.verdict==='EVITAR'?'El veredicto actual es <strong style="color:#dc2626;">EVITAR</strong> — considera tomar beneficios parciales.':vd.verdict==='COMPRAR'?'El veredicto actual es <strong style="color:#16a34a;">COMPRAR</strong> — la tesis sigue intacta, mantén o promedia.':'El veredicto actual es <strong style="color:#d97706;">MANTENER</strong> — sin razones para vender ni añadir agresivamente.'}`
         :
@@ -2766,7 +2780,7 @@ function rMiPosicion(vd,fv5){
   <!-- MODAL: formulario edición posición -->
   <div id="mp-form-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
     <div style="background:var(--surface);border-radius:14px;padding:22px;max-width:420px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.2);">
-      <div style="font-size:14px;font-weight:800;color:#1a1814;margin-bottom:14px;">📌 Mi posición en ${co.ticker}</div>
+      <div style="font-size:14px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};margin-bottom:14px;">📌 Mi posición en ${co.ticker}</div>
       <div style="display:grid;gap:10px;">
         <div>
           <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:700;">Precio de compra (USD)</label>
@@ -3090,7 +3104,7 @@ function rResumen(){
           ${fichaData.businessLines.map(b=>`
           <div style="display:grid;grid-template-columns:36px 1fr 80px;align-items:center;gap:8px;">
             <div style="font-size:10px;font-weight:800;color:${co.color};text-align:right;">${b.pct}%</div>
-            <div><div style="font-size:10px;font-weight:700;color:#1a1814;">${b.name}</div><div style="font-size:9px;color:var(--muted);line-height:1.35;">${b.desc}</div></div>
+            <div><div style="font-size:10px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${b.name}</div><div style="font-size:9px;color:var(--muted);line-height:1.35;">${b.desc}</div></div>
             <div style="height:5px;background:#eee;border-radius:3px;overflow:hidden;"><div style="height:100%;width:${b.pct}%;background:${co.color};border-radius:3px;"></div></div>
           </div>`).join('')}
         </div>
@@ -3150,19 +3164,19 @@ function rResumen(){
         ${kpiHtml}
       </div>
       <!-- Benchmarks de sector (colapsable) -->
-      <div style="margin-top:8px;padding:8px 10px;background:#f7f6f3;border-radius:8px;">
+      <div style="margin-top:8px;padding:8px 10px;background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:8px;">
         <div style="font-size:9px;font-weight:700;color:var(--muted);margin-bottom:4px;">📏 Referencias del sector (${co.sector})</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           ${[['CAGR ventas','>'+sectorRef.cagr+'%'],['FCF margen','>'+sectorRef.fcfMg+'%'],
              ['EBITDA margen','>'+sectorRef.ebitdaMg+'%'],['ROIC','>'+sectorRef.roicRef+'%'],
              ['PER ref.','~'+sectorRef.pervRef+'x'],['EV/FCF ref.','~'+sectorRef.evfRef+'x']
-          ].map(([k,v])=>`<span style="font-size:9px;color:var(--sub);"><b style="color:#1a1814;">${k}:</b> ${v}</span>`).join(' · ')}
+          ].map(([k,v])=>`<span style="font-size:9px;color:var(--sub);"><b style="color:${_dm()?'#e2e8f0':'#1a1814'};">${k}:</b> ${v}</span>`).join(' · ')}
         </div>
       </div>
     </div>
 
     <!-- ══ BLOQUE 2b: ESTILO DE INVERSIÓN (Growth / Value / Calidad) ══ -->
-    ${(()=>{const st=classifyStyle();const bar=(lbl,v,c,hint)=>`<div style="margin-bottom:5px;"><div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;"><span>${lbl}</span><span style="color:${c};">${v}/100</span></div><div style="height:6px;background:#ececec;border-radius:10px;overflow:hidden;"><div style="height:100%;width:${v}%;background:${c};border-radius:10px;"></div></div><div style="font-size:8px;color:var(--muted);margin-top:1px;">${hint}</div></div>`;
+    ${(()=>{const st=classifyStyle();const bar=(lbl,v,c,hint)=>`<div style="margin-bottom:5px;"><div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;"><span>${lbl}</span><span style="color:${c};">${v}/100</span></div><div style="height:6px;background:${_dm()?'#2a3a52':'#ececec'};border-radius:10px;overflow:hidden;"><div style="height:100%;width:${v}%;background:${c};border-radius:10px;"></div></div><div style="font-size:8px;color:var(--muted);margin-top:1px;">${hint}</div></div>`;
       return`<div class="card" style="margin-bottom:10px;border-left:4px solid ${st.color};">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
         <div class="ctitle" style="margin-bottom:0;">🎚️ Estilo de inversión <span data-tip="estilo" style="cursor:pointer;color:${st.color};font-weight:700;border:1px solid ${st.color}55;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;">i</span></div>
@@ -3177,7 +3191,7 @@ function rResumen(){
         <div style="font-size:10px;color:var(--sub);line-height:1.5;">${st.desc}</div>
       </div>
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;">
-        ${st.badges.map(b=>`<span style="background:#f7f6f3;border:1px solid var(--border);padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;color:#1a1814;">${b}</span>`).join('')}
+        ${st.badges.map(b=>`<span style="background:${_dm()?'#1c2333':'#f7f6f3'};border:1px solid var(--border);padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${b}</span>`).join('')}
       </div>
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;border-top:1px dashed var(--border);padding-top:7px;">
         <span style="font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;align-self:center;">Indicadores</span>
@@ -3215,7 +3229,7 @@ function rResumen(){
         </div>
         <div>
           <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
-            <div class="verdict-price" style="font-size:26px;font-weight:900;color:#1a1814;">$${N(price,2)}</div>
+            <div class="verdict-price" style="font-size:26px;font-weight:900;color:${_dm()?'#e2e8f0':'#1a1814'};">$${N(price,2)}</div>
             <div style="font-size:11px;font-weight:700;color:${vd.msBase>=0?'#16a34a':'#dc2626'}">${vd.msBase>=0?'+':''}${vd.msBase}% MdS</div>
             <div style="font-size:10px;color:var(--muted);">vs objetivo EV/FCF próx. año $${N(vd.fairBase)}</div>
           </div>
@@ -3243,7 +3257,7 @@ function rResumen(){
             ${[['🟢','ATRACTIVO',attractPrice,'+20% MdS'],['🔵','JUSTO',fairPrice,'tu múltiplo'],['🔴','CARO',expPrice,'−15% MdS']].map(([e,l,p,m])=>`
             <div style="text-align:center;padding:5px 4px;background:rgba(255,255,255,.7);border-radius:7px;">
               <div style="font-size:9px;font-weight:700;color:var(--muted);">${l}</div>
-              <div style="font-size:13px;font-weight:800;color:#1a1814;">$${N(p)}</div>
+              <div style="font-size:13px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};">$${N(p)}</div>
               <div style="font-size:8px;color:var(--muted);">${impMult(p)}x · ${m}</div>
             </div>`).join('')}
           </div>
@@ -3293,7 +3307,7 @@ function rResumen(){
         </div>
         <div>
           <div class="target5y-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px;">
-            ${co.pY.map((y,i)=>{const v=rowAvg[i];const up=(v-price)/price*100;const c=up>25?'#16a34a':up>10?'#2563eb':up>0?'#60a5fa':up>-15?'#d97706':'#dc2626';return`<div style="background:#f7f6f3;border-radius:8px;padding:7px 3px;text-align:center;border-top:3px solid ${c};"><div style="font-size:8px;color:var(--muted);">${y}</div><div style="font-size:12px;font-weight:800;color:#1a1814;margin:2px 0;">$${N(v)}</div><div style="font-size:9px;font-weight:800;color:${c};">${up>=0?'+':''}${up.toFixed(0)}%</div></div>`;}).join('')}
+            ${co.pY.map((y,i)=>{const v=rowAvg[i];const up=(v-price)/price*100;const c=up>25?'#16a34a':up>10?'#2563eb':up>0?'#60a5fa':up>-15?'#d97706':'#dc2626';return`<div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:8px;padding:7px 3px;text-align:center;border-top:3px solid ${c};"><div style="font-size:8px;color:var(--muted);">${y}</div><div style="font-size:12px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};margin:2px 0;">$${N(v)}</div><div style="font-size:9px;font-weight:800;color:${c};">${up>=0?'+':''}${up.toFixed(0)}%</div></div>`;}).join('')}
           </div>
           <div style="font-size:9px;color:var(--muted);margin-top:5px;">EV/FCF ${Math.round(medEvFcf*0.82)}x · PER ${Math.round((co.med5PER||co.medPER)*0.82)}x · <a href="#" onclick="showTab('valoracion');return false;" style="color:${co.color};font-weight:700;text-decoration:none;">Ver escenarios →</a></div>
         </div>
@@ -3302,7 +3316,7 @@ function rResumen(){
 
     <!-- ══ BLOQUE 6: GRÁFICO COTIZACIÓN ══ -->
     <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
-      <div style="padding:7px 14px;background:#f9f8f6;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div style="padding:7px 14px;background:${_dm()?'#161b27':'#f9f8f6'};border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
         <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">📈 ${co.name} · Semanal · TradingView</span>
       </div>
       <div class="tv-wrap"><iframe
@@ -3484,7 +3498,7 @@ function rValoracion(){
     </div>
     ${co.spinoffNote?`<div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:7px 11px;font-size:10px;color:#92400e;margin-bottom:8px;border-radius:4px;">⚠ <strong>Atención a las medianas:</strong> los datos pre-${co.years[8]} incluyen el negocio escindido. <strong>Mediana 5Y</strong> es más representativa pero contiene años de pérdidas (FY23-24). Trata Med 10Y con cautela.</div>`:''}
     <div class="val-hist" style="display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start;">
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="width:100%;min-width:520px;border-collapse:collapse;font-size:12.5px;"><thead><tr style="background:#f7f6f3;"><th style="text-align:left;padding:7px 8px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);">Múltiplo</th>${co.years.map(y=>`<th style="text-align:center;padding:5px 4px;font-weight:600;color:var(--muted);border-bottom:2px solid var(--border);">${y}</th>`).join('')}<th style="text-align:center;padding:5px 6px;font-weight:800;color:#b45309;border-bottom:2px solid var(--border);background:#fff3e0;" title="Múltiplo forward ${_fwdYr}e: EV = precio actual × acciones proyectadas + deuda neta proyectada de ese año, ÷ la métrica proyectada (fuente activa: Excel o Web). Cambia con el precio y las proyecciones.">${_fwdYr}e<br><span style="font-size:7px;font-weight:600;color:#b45309;">estim.</span></th><th style="text-align:center;padding:5px 6px;font-weight:800;color:#1e3a5f;border-bottom:2px solid var(--border);background:#fef3c7;">Med 5Y</th><th style="text-align:center;padding:5px 6px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);background:#eff6ff;">Med 10Y</th></tr></thead><tbody>${[{label:'PER',k:'per',data:co.hPER,med10:co.medPER,med5:(co.med5PER||co.medPER),color:'#7c3aed',fwd:+(price/Math.max(isM[0].eps,0.01)).toFixed(1)},{label:'EV/FCF',k:'evfcf',data:co.hEvF,med10:co.medEvFcf,med5:(co.med5EvFcf||co.medEvFcf),color:'#b45309',fwd:+((price*isM[0].sh+isM[0].nd)/Math.max(isM[0].fcf,1)).toFixed(1)},{label:'EV/EBITDA',k:'eveb',data:co.hEvEbitda,med10:co.medEvEbitda,med5:(co.med5EvEbitda||co.medEvEbitda),color:'#2563eb',fwd:+((price*isM[0].sh+isM[0].nd)/Math.max(isM[0].eb,1)).toFixed(1)},{label:'EV/EBIT',k:'evei',data:co.hEvEbit,med10:me,med5:(co.med5EvEbit||me),color:'#16a34a',fwd:+((price*isM[0].sh+isM[0].nd)/Math.max(isM[0].ebit,1)).toFixed(1)}].map(row=>{const cells=row.data.map((v,i)=>{const val=(v??null),clr=val!=null?(val<=row.med5?'#16a34a':'#dc2626'):'var(--muted)';return`<td style="text-align:center;padding:6px 5px;font-weight:500;color:${clr};border-bottom:1px solid #f0ede8;">${val!=null?Math.round(val)+'x':'—'}</td>`;}).join('');const fwdClr=row.fwd<=row.med5?'#16a34a':'#dc2626';const fwdCell=`<td id="fwd-${row.k}" data-med5="${row.med5}" style="text-align:center;padding:6px 5px;font-weight:800;color:${fwdClr};background:#fff8f0;border-bottom:1px solid #f0ede8;">${Math.round(row.fwd)}x</td>`;return`<tr><td style="padding:6px 8px;font-weight:700;color:${row.color};border-bottom:1px solid #f0ede8;border-left:3px solid ${row.color};">${row.label}</td>${cells}${fwdCell}<td style="text-align:center;padding:5px 6px;font-weight:800;color:#1e3a5f;background:#fef3c7;border-bottom:1px solid #f0ede8;">${Math.round(row.med5)}x</td><td style="text-align:center;padding:5px 6px;font-weight:700;color:var(--muted);background:#eff6ff;border-bottom:1px solid #f0ede8;">${Math.round(row.med10)}x</td></tr>`;}).join('')}</tbody></table></div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="width:100%;min-width:520px;border-collapse:collapse;font-size:12.5px;"><thead><tr style="background:${_dm()?'#1c2333':'#f7f6f3'};"><th style="text-align:left;padding:7px 8px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);">Múltiplo</th>${co.years.map(y=>`<th style="text-align:center;padding:5px 4px;font-weight:600;color:var(--muted);border-bottom:2px solid var(--border);">${y}</th>`).join('')}<th style="text-align:center;padding:5px 6px;font-weight:800;color:#b45309;border-bottom:2px solid var(--border);background:#fff3e0;" title="Múltiplo forward ${_fwdYr}e: EV = precio actual × acciones proyectadas + deuda neta proyectada de ese año, ÷ la métrica proyectada (fuente activa: Excel o Web). Cambia con el precio y las proyecciones.">${_fwdYr}e<br><span style="font-size:7px;font-weight:600;color:#b45309;">estim.</span></th><th style="text-align:center;padding:5px 6px;font-weight:800;color:#1e3a5f;border-bottom:2px solid var(--border);background:${_dm()?'#1a1200':'#fef3c7'};">Med 5Y</th><th style="text-align:center;padding:5px 6px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);background:${_dm()?'#0c1832':'#eff6ff'};">Med 10Y</th></tr></thead><tbody>${[{label:'PER',k:'per',data:co.hPER,med10:co.medPER,med5:(co.med5PER||co.medPER),color:'#7c3aed',fwd:+(price/Math.max(isM[0].eps,0.01)).toFixed(1)},{label:'EV/FCF',k:'evfcf',data:co.hEvF,med10:co.medEvFcf,med5:(co.med5EvFcf||co.medEvFcf),color:'#b45309',fwd:+((price*isM[0].sh+isM[0].nd)/Math.max(isM[0].fcf,1)).toFixed(1)},{label:'EV/EBITDA',k:'eveb',data:co.hEvEbitda,med10:co.medEvEbitda,med5:(co.med5EvEbitda||co.medEvEbitda),color:'#2563eb',fwd:+((price*isM[0].sh+isM[0].nd)/Math.max(isM[0].eb,1)).toFixed(1)},{label:'EV/EBIT',k:'evei',data:co.hEvEbit,med10:me,med5:(co.med5EvEbit||me),color:'#16a34a',fwd:+((price*isM[0].sh+isM[0].nd)/Math.max(isM[0].ebit,1)).toFixed(1)}].map(row=>{const cells=row.data.map((v,i)=>{const val=(v??null),clr=val!=null?(val<=row.med5?'#16a34a':'#dc2626'):'var(--muted)';return`<td style="text-align:center;padding:6px 5px;font-weight:500;color:${clr};border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">${val!=null?Math.round(val)+'x':'—'}</td>`;}).join('');const fwdClr=row.fwd<=row.med5?'#16a34a':'#dc2626';const fwdCell=`<td id="fwd-${row.k}" data-med5="${row.med5}" style="text-align:center;padding:6px 5px;font-weight:800;color:${fwdClr};background:${_dm()?'#1a1000':'#fff8f0'};border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">${Math.round(row.fwd)}x</td>`;return`<tr><td style="padding:6px 8px;font-weight:700;color:${row.color};border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};border-left:3px solid ${row.color};">${row.label}</td>${cells}${fwdCell}<td style="text-align:center;padding:5px 6px;font-weight:800;color:#1e3a5f;background:${_dm()?'#1a1200':'#fef3c7'};border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">${Math.round(row.med5)}x</td><td style="text-align:center;padding:5px 6px;font-weight:700;color:var(--muted);background:${_dm()?'#0c1832':'#eff6ff'};border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">${Math.round(row.med10)}x</td></tr>`;}).join('')}</tbody></table></div>
       <div><div style="position:relative;height:130px;background:#fafaf9;border-radius:10px;padding:6px;"><canvas id="c-mult-hist"></canvas></div><div style="font-size:9px;color:var(--muted);text-align:center;margin-top:3px;">Verde ≤ mediana · Rojo > mediana</div></div>
     </div>
   </div>
@@ -3519,10 +3533,10 @@ function rValoracion(){
     <div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;font-size:11px;">
       <thead>
-        <tr style="background:#f7f6f3;">
+        <tr style="background:${_dm()?'#1c2333':'#f7f6f3'};">
           <th style="text-align:left;padding:6px 10px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);" rowspan="2">Modelo</th>
-          ${co.pY.map((y,i)=>`<th colspan="2" style="text-align:center;padding:5px 4px;font-weight:600;border-bottom:1px solid var(--border);${i===4?'background:#eff6ff;color:#1e3a5f;':'color:#2563eb;'}">${y}E</th>`).join('')}
-          <th style="text-align:center;padding:5px 8px;font-weight:800;color:#1e3a5f;border-bottom:2px solid var(--border);background:#eff6ff;" rowspan="2">CAGR<br>5Y</th>
+          ${co.pY.map((y,i)=>`<th colspan="2" style="text-align:center;padding:5px 4px;font-weight:600;border-bottom:1px solid var(--border);${i===4?`background:${_dm()?'#0c1832':'#eff6ff'};color:${_dm()?'#7ab4f5':'#1e3a5f'};`:'color:#2563eb;'}">${y}E</th>`).join('')}
+          <th style="text-align:center;padding:5px 8px;font-weight:800;color:#1e3a5f;border-bottom:2px solid var(--border);background:${_dm()?'#0c1832':'#eff6ff'};" rowspan="2">CAGR<br>5Y</th>
         </tr>
         <tr style="background:#fafaf9;">
           ${co.pY.map(()=>`<td style="text-align:center;font-size:8px;color:var(--muted);padding:2px 3px;border-bottom:2px solid var(--border);">Precio</td><td style="text-align:center;font-size:8px;color:var(--muted);padding:2px 3px;border-bottom:2px solid var(--border);">Pot.</td>`).join('')}
@@ -3530,16 +3544,16 @@ function rValoracion(){
       </thead>
       <tbody>
         ${[{id:'ptr-per',label:'PER',data:rowPER,cagrV:cagr5.per,cagrId:'cagr-per',c:'#7c3aed',evfRow:false},{id:'ptr-evf',label:'EV/FCF ★',data:rowEVF,cagrV:cagr5.evf,cagrId:'cagr-evf',c:'#b45309',evfRow:true},{id:'ptr-eveb',label:'EV/EBITDA',data:rowEVEB,cagrV:cagr5.eveb,cagrId:'cagr-eveb',c:'#2563eb',evfRow:false},{id:'ptr-evei',label:'EV/EBIT',data:rowEVEI,cagrV:cagr5.evei,cagrId:'cagr-evei',c:'#16a34a',evfRow:false},{id:'ptr-avg',label:'Promedio',data:rowAvg,cagrV:cagr5.avg,cagrId:'cagr-avg',c:'#1e3a5f',bold:true}].map(row=>{
-          return`<tr style="border-bottom:1px solid #f0ede8;${row.bold?'background:#eff6ff;':row.evfRow?'background:#fffbf0;':''}">
+          return`<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};${row.bold?'background:${_dm()?'#0c1832':'#eff6ff'};':row.evfRow?'background:#fffbf0;':''}">
             <td style="padding:6px 10px;font-weight:${row.bold||row.evfRow?'800':'600'};color:${row.c};border-left:3px solid ${row.c};white-space:nowrap;">${row.label}</td>
-            ${row.data.map((v,i)=>{const up=(v-price)/price*100;return`<td id="${row.id}-${i}" style="text-align:right;padding:5px 4px;${row.evfRow?'background:#fff8f0;':''}border-right:none;"><div class="ptv" style="font-size:11px;font-weight:${row.bold||row.evfRow?'800':'600'};color:${potColor(up)};">$${N(v)}</div></td><td style="text-align:left;padding:5px 2px 5px 1px;${row.evfRow?'background:#fff8f0;':''}border-right:1px solid #f0ede8;"><div class="ptp" style="font-size:10px;font-weight:700;color:${potColor(up)};">${up>=0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}
-            <td style="text-align:center;padding:6px 8px;background:#eff6ff;"><span id="${row.cagrId}-5y" style="font-size:14px;font-weight:800;color:${cagrColor(row.cagrV)};">${row.cagrV>=0?'+':''}${row.cagrV.toFixed(0)}%</span></td>
+            ${row.data.map((v,i)=>{const up=(v-price)/price*100;return`<td id="${row.id}-${i}" style="text-align:right;padding:5px 4px;${row.evfRow?'background:${_dm()?'#1a1000':'#fff8f0'};':''}border-right:none;"><div class="ptv" style="font-size:11px;font-weight:${row.bold||row.evfRow?'800':'600'};color:${potColor(up)};">$${N(v)}</div></td><td style="text-align:left;padding:5px 2px 5px 1px;${row.evfRow?'background:${_dm()?'#1a1000':'#fff8f0'};':''}border-right:1px solid #f0ede8;"><div class="ptp" style="font-size:10px;font-weight:700;color:${potColor(up)};">${up>=0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}
+            <td style="text-align:center;padding:6px 8px;background:${_dm()?'#0c1832':'#eff6ff'};"><span id="${row.cagrId}-5y" style="font-size:14px;font-weight:800;color:${cagrColor(row.cagrV)};">${row.cagrV>=0?'+':''}${row.cagrV.toFixed(0)}%</span></td>
           </tr>`;
         }).join('')}
-        <tr style="background:#f9f8f6;border-top:1px solid var(--border);">
+        <tr style="background:${_dm()?'#161b27':'#f9f8f6'};border-top:1px solid var(--border);">
           <td style="padding:4px 10px;font-size:9px;color:var(--muted);font-style:italic;">MdS / Potencial EV/FCF<br><span style="font-size:8px;">(objetivo−precio)/precio · mismo criterio que el veredicto</span></td>
           ${rowEVF.map((v,i)=>{const p=(v-price)/price*100;return`<td colspan="2" style="text-align:center;padding:4px 3px;"><span id="ptr-mds-${i}" style="font-weight:700;font-size:10px;color:${potColor(p)};">${p>=0?'+':''}${p.toFixed(0)}%</span></td>`;}).join('')}
-          <td style="background:#eff6ff;"></td>
+          <td style="background:${_dm()?'#0c1832':'#eff6ff'};"></td>
         </tr>
       </tbody>
     </table></div>
@@ -3559,7 +3573,7 @@ function rValoracion(){
           <select onchange="hor=+this.value;recalc();" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:11px;font-weight:600;background:#fff;">${[1,2,3,4,5].map(y=>`<option value="${y}" ${y===hor?'selected':''}>${y}a</option>`).join('')}</select>
         </div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f7f6f3;border-radius:9px;flex-wrap:wrap;gap:6px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:9px;flex-wrap:wrap;gap:6px;">
         <div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;margin-bottom:2px;">Comprar a no más de (EV/FCF, ${hor}a)</div><div id="ret-price" style="font-size:22px;font-weight:800;color:#1e3a5f;">$${N(priceForRet)}</div></div>
         <div style="text-align:right;"><div style="font-size:9px;color:var(--muted);margin-bottom:2px;">vs precio actual</div><div id="ret-diff" style="font-size:18px;font-weight:800;color:${cu(diffRet)};">${diffRet>=0?'+':''}${diffRet.toFixed(0)}%</div></div>
       </div>
@@ -3569,18 +3583,18 @@ function rValoracion(){
   
   <!-- IS MODEL — ALWAYS OPEN, COLLAPSIBLE -->
   <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f9f8f6;cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none';this.querySelector('.is-arrow').style.transform=b.style.display!=='none'?'rotate(180deg)':'';">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${_dm()?'#161b27':'#f9f8f6'};cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none';this.querySelector('.is-arrow').style.transform=b.style.display!=='none'?'rotate(180deg)':'';">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span style="font-size:11px;font-weight:700;color:#1e3a5f;">🧮 Proyecciones IS / FCF</span>
-        <div onclick="event.stopPropagation();" style="display:inline-flex;align-items:center;background:#e9ecf0;border-radius:9px;padding:2px;gap:2px;">
+        <div onclick="event.stopPropagation();" style="display:inline-flex;align-items:center;background:${_dm()?'#1c2333':'#e9ecf0'};border-radius:9px;padding:2px;gap:2px;">
           <span style="font-size:8px;color:#64748b;font-weight:700;padding:0 4px;">Valorar con:</span>
-          <button onclick="event.stopPropagation();setProjSource('sheet')" title="Valorar con las proyecciones de tu hoja (Excel/TIKR)" style="font-size:9px;padding:3px 9px;border-radius:7px;border:none;cursor:pointer;font-weight:${_projSource==='sheet'?'800':'700'};background:${_projSource==='sheet'?'#fff':'transparent'};color:${_projSource==='sheet'?'#1e3a5f':'#94a3b8'};box-shadow:${_projSource==='sheet'?'0 1px 3px rgba(0,0,0,.14)':'none'};">📊 Excel</button>
-          <button onclick="event.stopPropagation();setProjSource('auto')" title="Valorar con las proyecciones web actualizadas (editables)" style="font-size:9px;padding:3px 9px;border-radius:7px;border:none;cursor:pointer;font-weight:${_projSource==='auto'?'800':'700'};background:${_projSource==='auto'?'#fff':'transparent'};color:${_projSource==='auto'?'#0891b2':'#94a3b8'};box-shadow:${_projSource==='auto'?'0 1px 3px rgba(0,0,0,.14)':'none'};">🤖 Web</button>
+          <button onclick="event.stopPropagation();setProjSource('sheet')" title="Valorar con las proyecciones de tu hoja (Excel/TIKR)" style="font-size:9px;padding:3px 9px;border-radius:7px;border:none;cursor:pointer;font-weight:${_projSource==='sheet'?'800':'700'};background:${_projSource==='sheet'?(_dm()?'#1c2a42':'#fff'):'transparent'};color:${_projSource==='sheet'?(_dm()?'#7ab4f5':'#1e3a5f'):'#94a3b8'};box-shadow:${_projSource==='sheet'?'0 1px 3px rgba(0,0,0,.14)':'none'};">📊 Excel</button>
+          <button onclick="event.stopPropagation();setProjSource('auto')" title="Valorar con las proyecciones web actualizadas (editables)" style="font-size:9px;padding:3px 9px;border-radius:7px;border:none;cursor:pointer;font-weight:${_projSource==='auto'?'800':'700'};background:${_projSource==='auto'?(_dm()?'#0c2233':'#fff'):'transparent'};color:${_projSource==='auto'?(_dm()?'#39c5cf':'#0891b2'):'#94a3b8'};box-shadow:${_projSource==='auto'?'0 1px 3px rgba(0,0,0,.14)':'none'};">🤖 Web</button>
         </div>
         ${_isEdited?'<span style="font-size:8px;font-weight:700;color:#d97706;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:1px 6px;">editado</span>':''}
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        ${(_isEdited||_projSource==='auto')?`<button onclick="event.stopPropagation();setProjSource('sheet')" title="Volver a las proyecciones de tu hoja" style="font-size:9px;padding:2px 8px;border-radius:10px;border:1px solid var(--border);cursor:pointer;background:#fff;font-weight:600;color:var(--muted);">↺ Reset a hoja</button>`:''}
+        ${(_isEdited||_projSource==='auto')?`<button onclick="event.stopPropagation();setProjSource('sheet')" title="Volver a las proyecciones de tu hoja" style="font-size:9px;padding:2px 8px;border-radius:10px;border:1px solid var(--border);cursor:pointer;background:${_dm()?'#1c2333':'#fff'};font-weight:600;color:var(--muted);">↺ Reset a hoja</button>`:''}
         <span class="is-arrow" style="font-size:12px;color:var(--muted);transition:transform .2s;transform:rotate(180deg);">▾</span>
       </div>
     </div>
@@ -3588,7 +3602,7 @@ function rValoracion(){
       <div style="font-size:9px;color:var(--muted);margin-bottom:7px;line-height:1.5;">
         Cada celda muestra las 2 opciones: <b style="color:#1e3a5f;">📊 Excel</b> (tu hoja) y <b style="color:#0891b2;">🤖 Web</b> (${_wp&&_wp.src==='fmp'?`consenso de analistas FMP${_wp.nA?' · '+_wp.nA+' analistas':''}`:_wp&&_wp.src==='sec'?'modelo sobre datos SEC (sin consenso FMP)':getFMPKey()?'consenso FMP':'modelo SEC'}). El botón de arriba elige con cuál se <b>VALORA</b> (precios objetivo + veredicto). ${_wp&&_wp.src==='fmp'?'<b style="color:#0891b2;">Los años web salen de FMP → ya en 2027e+ (2026 es definitivo).</b>':''}
         ${!_wp?'<span style="color:#0891b2;"> (cargando consenso…)</span>':''}${_wp&&_wp.error?'<span style="color:#dc2626;"> '+_wp.error+'</span>':''}
-        <button onclick="event.stopPropagation();promptFMPKey()" style="font-size:9px;padding:1px 7px;border-radius:8px;border:1px solid ${getFMPKey()?'#bbf7d0':'#a5f3fc'};background:${getFMPKey()?'#f0fdf4':'#ecfeff'};color:#0891b2;cursor:pointer;font-weight:700;margin-left:4px;">${getFMPKey()?'🔑 FMP conectado ✓':'🔑 Conectar FMP (consenso analistas)'}</button>
+        <button onclick="event.stopPropagation();promptFMPKey()" style="font-size:9px;padding:1px 7px;border-radius:8px;border:1px solid ${getFMPKey()?'#bbf7d0':'#a5f3fc'};background:${getFMPKey()?(_dm()?'#0d2117':'#f0fdf4'):(_dm()?'#0c1e2a':'#ecfeff')};color:#0891b2;cursor:pointer;font-weight:700;margin-left:4px;">${getFMPKey()?'🔑 FMP conectado ✓':'🔑 Conectar FMP (consenso analistas)'}</button>
       </div>
       <div style="overflow-x:auto;"><table class="is-tbl" style="font-size:10px;"><thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${_activeYears.map(y=>`<th style="text-align:right;color:#2563eb;">${y}E</th>`).join('')}</tr></thead><tbody>
         ${[{lbl:'% Crec. Ventas',nm:'isSG',ok:'sg',st:'0.5'},{lbl:'Mg. EBIT %',nm:'isEM',ok:'em',st:'0.1'},{lbl:'Tax Rate %',nm:'isTR',ok:'tr',st:'0.5'},{lbl:'Dil. Acc. %',nm:'isDI',ok:'di',st:'0.1'},{lbl:'CapEx/Vtas %',nm:'isCX',ok:'cx',st:'0.1'},{lbl:'WC/Vtas %',nm:'isWC',ok:'wc',st:'1',last:true}].map(r=>{const arr={isSG,isEM,isTR,isDI,isCX,isWC}[r.nm];return `<tr style="background:#fffbeb;${r.last?'border-bottom:2px solid var(--border);':''}"><td style="color:#d97706;font-weight:700;">${r.lbl}</td>${_activeYears.map((y,i)=>{
@@ -3602,7 +3616,7 @@ function rValoracion(){
             <div style="display:flex;align-items:center;justify-content:center;gap:2px;${_projSource==='sheet'?'':'opacity:.65;'}">${sLine}<span style="font-size:8px;color:#94a3b8;">%</span></div>
             <div style="display:flex;align-items:center;justify-content:center;gap:2px;margin-top:2px;${_projSource==='auto'?'':'opacity:.65;'}">${wLine}<span style="font-size:8px;color:#94a3b8;">%</span></div>
           </td>`;}).join('')}</tr>`;}).join('')}
-        ${[{l:"Ventas",k:"s",c:"#2563eb",f:v=>"$"+N(Math.round(v))},{l:"EBIT",k:"ebit",c:"#b45309",f:v=>"$"+N(Math.round(v))},{l:"FCF",k:"fcf",c:"#16a34a",f:v=>"$"+N(Math.round(v))},{l:"EPS",k:"eps",c:"#d97706",f:v=>"$"+N(v,2)}].map(r=>`<tr style="background:#f9f8f6;"><td style="color:${r.c};font-weight:700;">${r.l}</td>${isM.map(m=>`<td class="isres" style="color:${r.c}">${r.f(m[r.k])}</td>`).join('')}</tr>`).join('')}
+        ${[{l:"Ventas",k:"s",c:"#2563eb",f:v=>"$"+N(Math.round(v))},{l:"EBIT",k:"ebit",c:"#b45309",f:v=>"$"+N(Math.round(v))},{l:"FCF",k:"fcf",c:"#16a34a",f:v=>"$"+N(Math.round(v))},{l:"EPS",k:"eps",c:"#d97706",f:v=>"$"+N(v,2)}].map(r=>`<tr style="background:${_dm()?'#161b27':'#f9f8f6'};"><td style="color:${r.c};font-weight:700;">${r.l}</td>${isM.map(m=>`<td class="isres" style="color:${r.c}">${r.f(m[r.k])}</td>`).join('')}</tr>`).join('')}
       </tbody></table></div>
     </div>
   </div>
@@ -3634,7 +3648,7 @@ function rProyecciones(){
     <div class="ctitle">Precio objetivo ${co.pY[0]}–${co.pY[4]} por escenario</div>
     <div style="position:relative;height:240px;margin-bottom:8px;"><canvas id="c-pt"></canvas></div>
     <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;">
-      <thead><tr style="background:#f7f6f3;"><th style="text-align:left;padding:6px 10px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);">Escenario</th><th style="text-align:center;padding:5px 6px;color:var(--muted);font-weight:600;border-bottom:2px solid var(--border);">Múltiplo EV/FCF</th>${co.pY.map(y=>`<th style="text-align:center;padding:5px 6px;color:#2563eb;font-weight:600;border-bottom:2px solid var(--border);">${y}E</th>`).join('')}<th style="text-align:center;padding:5px 6px;font-weight:800;color:#1e3a5f;border-bottom:2px solid var(--border);background:#eff6ff;">CAGR 5Y</th></tr></thead>
+      <thead><tr style="background:${_dm()?'#1c2333':'#f7f6f3'};"><th style="text-align:left;padding:6px 10px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);">Escenario</th><th style="text-align:center;padding:5px 6px;color:var(--muted);font-weight:600;border-bottom:2px solid var(--border);">Múltiplo EV/FCF</th>${co.pY.map(y=>`<th style="text-align:center;padding:5px 6px;color:#2563eb;font-weight:600;border-bottom:2px solid var(--border);">${y}E</th>`).join('')}<th style="text-align:center;padding:5px 6px;font-weight:800;color:#1e3a5f;border-bottom:2px solid var(--border);background:${_dm()?'#0c1832':'#eff6ff'};">CAGR 5Y</th></tr></thead>
       <tbody>${scenarios.map(sc=>{
         const targets=co.pF.map(fcf=>Math.round((fcf*sc.evf-co.netDebt[9])/co.shares));
         // Use IS model FCF instead for more accurate projection
@@ -3654,7 +3668,7 @@ function rMoat(){
   const m=calcMoat();
   return`<div class="card" style="background:${m.color}07;border-color:${m.color}35;margin-bottom:14px;"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;"><div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;">Puntuación MOAT Global</div><div style="display:flex;align-items:baseline;gap:10px;"><div style="font-size:56px;font-weight:800;color:${m.color};line-height:1">${m.overall}</div><div><div style="font-size:12px;color:var(--muted)">/100</div><div style="font-size:16px;font-weight:700;color:${m.color}">${m.label}</div></div></div></div><div style="min-width:220px;flex:1;max-width:300px;"><div class="moat-bar-wrap"><div class="moat-fill" style="width:${m.overall}%;background:linear-gradient(90deg,#d97706,${m.color});"></div></div><p style="font-size:12px;color:var(--sub);line-height:1.65;margin-top:8px;">Puntuación compuesta de <strong>10 criterios cuantitativos ponderados</strong>.</p></div></div></div>
   <div class="card"><div class="ctitle">Criterios detallados</div>${m.items.map(it=>{const bc=it.s>=85?'#16a34a':it.s>=65?'#0891b2':it.s>=50?'#d97706':'#dc2626',bg2=it.s>=85?'#f0fdf4':it.s>=65?'#f0fdfa':it.s>=50?'#fffbeb':'#fef2f2',bd2=it.s>=85?'#bbf7d0':it.s>=65?'#99f6e4':it.s>=50?'#fde68a':'#fecaca';return`<div class="crit" style="background:${bg2};border-color:${bd2};"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><div style="flex:1;"><div class="crit-name">${it.n} <span style="font-size:10px;color:var(--muted);font-weight:400;">Peso: ${it.w}%</span></div><div class="crit-why">${it.why}</div></div><div style="text-align:center;min-width:46px;"><div style="font-size:26px;font-weight:800;color:${bc};line-height:1">${it.s}</div><div style="font-size:10px;color:var(--muted)">/100</div></div></div><div class="crit-row"><div class="crit-prog"><div class="crit-fill" style="width:${it.s}%;background:${bc};"></div></div><span class="score-badge" style="color:${bc}">${it.s}/100</span></div></div>`;}).join('')}</div>
-  <div style="padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;font-size:12px;color:#1e40af;">85+ = Excepcional · 70-84 = Sólido · 55-69 = Moderado · &lt;55 = Débil.</div>`;
+  <div style="padding:12px 16px;background:${_dm()?'#0c1832':'#eff6ff'};border:1px solid #bfdbfe;border-radius:12px;font-size:12px;color:#1e40af;">85+ = Excepcional · 70-84 = Sólido · 55-69 = Moderado · &lt;55 = Débil.</div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3735,11 +3749,11 @@ function rDCF(){
     </div>
     <div class="card">
       <div class="ctitle">Sensibilidad DCF — Crec. FCF × Tasa descuento</div>
-      <div style="overflow-x:auto;"><table class="sens-tbl"><thead><tr><th style="text-align:left;">FCF↓ Desc→</th>${[7,8,9,10,11,12,13].map(d=>`<th style="text-align:center;background:${d===dr?'#2563eb18':'#f7f6f3'};color:${d===dr?'#2563eb':'var(--muted)'};font-weight:${d===dr?'700':'400'}">${d}%</th>`).join('')}</tr></thead><tbody>${[8,10,12,15,18,20,25].map(g=>`<tr><td style="background:${g===gr?'#b4530918':'#f7f6f3'};color:${g===gr?'#b45309':'var(--muted)'};font-weight:${g===gr?'700':'400'};padding:5px 8px;">${g}%</td>${[7,8,9,10,11,12,13].map(d=>{if(d<=tg+1)return`<td class="sens-td" style="background:#f7f6f3;color:var(--muted)">—</td>`;let pv=0;for(let i=1;i<=10;i++)pv+=(co.fcf[9]*Math.pow(1+g/100,i))/Math.pow(1+d/100,i);const tv=(co.fcf[9]*Math.pow(1+g/100,10)*(1+tg/100))/(d/100-tg/100);const val=(pv+tv/Math.pow(1+d/100,10)-co.netDebt[9])/co.shares,up=(val-price)/price*100,isA=g===gr&&d===dr;return`<td class="sens-td" style="background:${isA?'#d9770618':cbg(up)};color:${isA?'#d97706':cu(up)};border:${isA?'2px solid #d9770650':'none'};font-weight:${isA?'700':'400'}"><div>$${N(val)}</div><div style="font-size:9px">${up>0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}</tr>`).join('')}</tbody></table></div>
+      <div style="overflow-x:auto;"><table class="sens-tbl"><thead><tr><th style="text-align:left;">FCF↓ Desc→</th>${[7,8,9,10,11,12,13].map(d=>`<th style="text-align:center;background:${d===dr?'#2563eb18':'#f7f6f3'};color:${d===dr?'#2563eb':'var(--muted)'};font-weight:${d===dr?'700':'400'}">${d}%</th>`).join('')}</tr></thead><tbody>${[8,10,12,15,18,20,25].map(g=>`<tr><td style="background:${g===gr?'#b4530918':'#f7f6f3'};color:${g===gr?'#b45309':'var(--muted)'};font-weight:${g===gr?'700':'400'};padding:5px 8px;">${g}%</td>${[7,8,9,10,11,12,13].map(d=>{if(d<=tg+1)return`<td class="sens-td" style="background:${_dm()?'#1c2333':'#f7f6f3'};color:var(--muted)">—</td>`;let pv=0;for(let i=1;i<=10;i++)pv+=(co.fcf[9]*Math.pow(1+g/100,i))/Math.pow(1+d/100,i);const tv=(co.fcf[9]*Math.pow(1+g/100,10)*(1+tg/100))/(d/100-tg/100);const val=(pv+tv/Math.pow(1+d/100,10)-co.netDebt[9])/co.shares,up=(val-price)/price*100,isA=g===gr&&d===dr;return`<td class="sens-td" style="background:${isA?'#d9770618':cbg(up)};color:${isA?'#d97706':cu(up)};border:${isA?'2px solid #d9770650':'none'};font-weight:${isA?'700':'400'}"><div>$${N(val)}</div><div style="font-size:9px">${up>0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}</tr>`).join('')}</tbody></table></div>
     </div>
     <div class="card">
       <div class="ctitle">Sensibilidad g terminal — Crec. FCF × g perpetuo</div>
-      <div style="overflow-x:auto;"><table class="sens-tbl"><thead><tr><th style="text-align:left;">FCF↓ g→</th>${[1,1.5,2,2.5,3,3.5,4].map(g=>`<th style="text-align:center;background:${g===tg?'#7c3aed18':'#f7f6f3'};color:${g===tg?'#7c3aed':'var(--muted)'};font-weight:${g===tg?'700':'400'}">${g}%</th>`).join('')}</tr></thead><tbody>${[8,10,12,15,18,20].map(g=>`<tr><td style="background:${g===gr?'#2563eb18':'#f7f6f3'};color:${g===gr?'#2563eb':'var(--muted)'};font-weight:${g===gr?'700':'400'};padding:5px 8px;">${g}%</td>${[1,1.5,2,2.5,3,3.5,4].map(tg2=>{if(dr<=tg2+0.5)return`<td class="sens-td" style="background:#f7f6f3;color:var(--muted)">—</td>`;let pv=0;for(let i=1;i<=10;i++)pv+=(co.fcf[9]*Math.pow(1+g/100,i))/Math.pow(1+dr/100,i);const tv2=(co.fcf[9]*Math.pow(1+g/100,10)*(1+tg2/100))/(dr/100-tg2/100);const val=(pv+tv2/Math.pow(1+dr/100,10)-co.netDebt[9])/co.shares,up=(val-price)/price*100,isA=g===gr&&tg2===tg;return`<td class="sens-td" style="background:${isA?'#7c3aed18':cbg(up)};color:${isA?'#7c3aed':cu(up)};border:${isA?'2px solid #7c3aed50':'none'};font-weight:${isA?'700':'400'}"><div>$${N(val)}</div><div style="font-size:9px">${up>0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}</tr>`).join('')}</tbody></table></div>
+      <div style="overflow-x:auto;"><table class="sens-tbl"><thead><tr><th style="text-align:left;">FCF↓ g→</th>${[1,1.5,2,2.5,3,3.5,4].map(g=>`<th style="text-align:center;background:${g===tg?'#7c3aed18':'#f7f6f3'};color:${g===tg?'#7c3aed':'var(--muted)'};font-weight:${g===tg?'700':'400'}">${g}%</th>`).join('')}</tr></thead><tbody>${[8,10,12,15,18,20].map(g=>`<tr><td style="background:${g===gr?'#2563eb18':'#f7f6f3'};color:${g===gr?'#2563eb':'var(--muted)'};font-weight:${g===gr?'700':'400'};padding:5px 8px;">${g}%</td>${[1,1.5,2,2.5,3,3.5,4].map(tg2=>{if(dr<=tg2+0.5)return`<td class="sens-td" style="background:${_dm()?'#1c2333':'#f7f6f3'};color:var(--muted)">—</td>`;let pv=0;for(let i=1;i<=10;i++)pv+=(co.fcf[9]*Math.pow(1+g/100,i))/Math.pow(1+dr/100,i);const tv2=(co.fcf[9]*Math.pow(1+g/100,10)*(1+tg2/100))/(dr/100-tg2/100);const val=(pv+tv2/Math.pow(1+dr/100,10)-co.netDebt[9])/co.shares,up=(val-price)/price*100,isA=g===gr&&tg2===tg;return`<td class="sens-td" style="background:${isA?'#7c3aed18':cbg(up)};color:${isA?'#7c3aed':cu(up)};border:${isA?'2px solid #7c3aed50':'none'};font-weight:${isA?'700':'400'}"><div>$${N(val)}</div><div style="font-size:9px">${up>0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}</tr>`).join('')}</tbody></table></div>
     </div>
   </div>
   </div>`;
@@ -3762,7 +3776,7 @@ function openMetricChart(el){
     modal=document.createElement('div'); modal.id='metric-modal';
     modal.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;align-items:center;justify-content:center;padding:16px;';
     modal.addEventListener('click',e=>{if(e.target===modal)closeMetricChart();});
-    modal.innerHTML='<div style="background:#fff;border-radius:14px;padding:18px;max-width:700px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;"><div id="metric-modal-title" style="font-size:14px;font-weight:800;color:#1a1814;"></div><button onclick="closeMetricChart()" style="border:none;background:#f0ede8;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px;flex-shrink:0;">✕</button></div><div style="position:relative;height:320px;"><canvas id="metric-modal-canvas"></canvas></div><div id="metric-modal-note" style="font-size:10px;color:var(--muted);margin-top:8px;"></div></div>';
+    modal.innerHTML='<div style="background:#fff;border-radius:14px;padding:18px;max-width:700px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;"><div id="metric-modal-title" style="font-size:14px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};"></div><button onclick="closeMetricChart()" style="border:none;background:#f0ede8;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px;flex-shrink:0;">✕</button></div><div style="position:relative;height:320px;"><canvas id="metric-modal-canvas"></canvas></div><div id="metric-modal-note" style="font-size:10px;color:var(--muted);margin-top:8px;"></div></div>';
     document.body.appendChild(modal);
   }
   document.getElementById('metric-modal-title').textContent=label+' · '+co.name;
@@ -3838,30 +3852,30 @@ function rAnalisis(){
        </div>
        <div style="min-width:0;">
          <div style="font-size:9px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Fortalezas del foso</div>
-         ${strong.map(d=>`<div style="font-size:10px;color:var(--sub);line-height:1.5;margin-bottom:2px;">🟢 <b style="color:#1a1814;">${d.n}</b> <span style="color:${dc(d.s)};font-weight:700;">${d.s}</span> — ${d.why}</div>`).join('')}
+         ${strong.map(d=>`<div style="font-size:10px;color:var(--sub);line-height:1.5;margin-bottom:2px;">🟢 <b style="color:${_dm()?'#e2e8f0':'#1a1814'};">${d.n}</b> <span style="color:${dc(d.s)};font-weight:700;">${d.s}</span> — ${d.why}</div>`).join('')}
          <div style="font-size:9px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.04em;margin:7px 0 3px;">Puntos más débiles</div>
-         ${weak.map(d=>`<div style="font-size:10px;color:var(--sub);line-height:1.5;margin-bottom:2px;">${d.s>=55?'🟡':'🔴'} <b style="color:#1a1814;">${d.n}</b> <span style="color:${dc(d.s)};font-weight:700;">${d.s}</span> — ${d.why}</div>`).join('')}
+         ${weak.map(d=>`<div style="font-size:10px;color:var(--sub);line-height:1.5;margin-bottom:2px;">${d.s>=55?'🟡':'🔴'} <b style="color:${_dm()?'#e2e8f0':'#1a1814'};">${d.n}</b> <span style="color:${dc(d.s)};font-weight:700;">${d.s}</span> — ${d.why}</div>`).join('')}
        </div>
      </div>
    </div>`;})()}
    ${blocks.map(b=>`<div class="card" style="margin-bottom:10px;">
      <div class="ctitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">${b.title}<span style="font-size:9px;font-weight:600;color:var(--muted);background:#f0ede8;padding:2px 7px;border-radius:8px;white-space:nowrap;">hoja ${b.sheet}</span></div>
-     ${b.items.map(it=>{const m=stM[it.status];const cu=/Margen|ROIC|Tendencia/.test(it.label)?'%':/EPS|Beneficio/.test(it.label)?'$':'M';const clk=it.series?`data-cs="${it.series.map(v=>v==null?'':v).join(',')}" data-cu="${cu}" data-cl="${it.label}" data-color="${it.color||m.c}" onclick="openMetricChart(this)" style="cursor:pointer;`:`style="`;return`<div ${clk}display:grid;grid-template-columns:auto 1fr auto;gap:10px;padding:9px 0;border-bottom:1px solid #f0ede8;align-items:start;">
+     ${b.items.map(it=>{const m=stM[it.status];const cu=/Margen|ROIC|Tendencia/.test(it.label)?'%':/EPS|Beneficio/.test(it.label)?'$':'M';const clk=it.series?`data-cs="${it.series.map(v=>v==null?'':v).join(',')}" data-cu="${cu}" data-cl="${it.label}" data-color="${it.color||m.c}" onclick="openMetricChart(this)" style="cursor:pointer;`:`style="`;return`<div ${clk}display:grid;grid-template-columns:auto 1fr auto;gap:10px;padding:9px 0;border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};align-items:start;">
        <span style="font-size:17px;">${it.icon}</span>
        <div style="min-width:0;">
          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-           <span style="font-size:12px;font-weight:800;color:#1a1814;">${it.label}</span>
+           <span style="font-size:12px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};">${it.label}</span>
            <span style="font-size:12px;font-weight:800;color:${it.color||m.c};">${it.value}</span>
            <span style="font-size:9px;font-weight:700;background:${m.bg};color:${m.c};border:1px solid ${m.bd};padding:1px 7px;border-radius:8px;">${m.l}</span>
          </div>
-         <div style="font-size:10px;color:var(--sub);margin-top:3px;line-height:1.5;"><b style="color:#1a1814;">Qué es:</b> ${it.why}</div>
+         <div style="font-size:10px;color:var(--sub);margin-top:3px;line-height:1.5;"><b style="color:${_dm()?'#e2e8f0':'#1a1814'};">Qué es:</b> ${it.why}</div>
          <div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.5;">👁 <b>Vigilar:</b> ${it.watch}${it.bench?` · <span style="color:#16a34a;font-weight:600;">Ref: ${it.bench}</span>`:''}</div>
        </div>
        <div style="text-align:right;min-width:42px;">${it.series?spark(it.series,it.color||m.c):''}${it.series?`<div style="font-size:7px;color:var(--muted);margin-top:2px;">${yr[yr.length-1]} · 🔍</div>`:''}</div>
      </div>`;}).join('')}
    </div>`).join('')}
    <div class="card"><div class="ctitle">Histórico completo ${co.years[0]}–${co.years[9]}</div>
-   <div style="overflow-x:auto;"><table class="htbl"><thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.years.map(y=>`<th style="text-align:right;">${y}</th>`).join('')}</tr></thead><tbody>${[{l:"Ventas ($M)",d:co.sales,c:"#2563eb",f:v=>"$"+N(v)},{l:"EBITDA ($M)",d:co.ebitda,c:"#b45309",f:v=>"$"+N(v)},{l:"EBIT ($M)",d:co.ebit,c:"#d97706",f:v=>"$"+N(v)},{l:"FCF ($M)",d:co.fcf,c:"#16a34a",f:v=>"$"+N(v)},{l:"EPS ($)",d:co.eps,c:"#d97706",f:v=>"$"+N(v,2)},{l:"FCF/Acc ($)",d:co.fcfps,c:"#16a34a",f:v=>"$"+N(v,2)},{l:"Mg. EBITDA",d:co.ebitdaM,c:"#b45309",f:v=>P(v)},{l:"Mg. FCF",d:co.fcfM,c:"#16a34a",f:v=>P(v)},{l:"ROIC (%)",d:co.roic,c:"#b45309",f:v=>P(v)},{l:"Deuda Neta",d:co.netDebt,c:"#dc2626",f:v=>"$"+N(v)}].map(row=>`<tr style="border-bottom:1px solid #f0ede8;"><td style="color:${row.c};font-weight:700;padding:5px 8px;">${row.l}</td>${row.d.map((v,i)=>`<td style="text-align:right;padding:5px 8px;color:${i===row.d.length-1?row.c:'var(--sub)'};font-weight:${i===row.d.length-1?'700':'400'}">${row.f(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+   <div style="overflow-x:auto;"><table class="htbl"><thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.years.map(y=>`<th style="text-align:right;">${y}</th>`).join('')}</tr></thead><tbody>${[{l:"Ventas ($M)",d:co.sales,c:"#2563eb",f:v=>"$"+N(v)},{l:"EBITDA ($M)",d:co.ebitda,c:"#b45309",f:v=>"$"+N(v)},{l:"EBIT ($M)",d:co.ebit,c:"#d97706",f:v=>"$"+N(v)},{l:"FCF ($M)",d:co.fcf,c:"#16a34a",f:v=>"$"+N(v)},{l:"EPS ($)",d:co.eps,c:"#d97706",f:v=>"$"+N(v,2)},{l:"FCF/Acc ($)",d:co.fcfps,c:"#16a34a",f:v=>"$"+N(v,2)},{l:"Mg. EBITDA",d:co.ebitdaM,c:"#b45309",f:v=>P(v)},{l:"Mg. FCF",d:co.fcfM,c:"#16a34a",f:v=>P(v)},{l:"ROIC (%)",d:co.roic,c:"#b45309",f:v=>P(v)},{l:"Deuda Neta",d:co.netDebt,c:"#dc2626",f:v=>"$"+N(v)}].map(row=>`<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};"><td style="color:${row.c};font-weight:700;padding:5px 8px;">${row.l}</td>${row.d.map((v,i)=>`<td style="text-align:right;padding:5px 8px;color:${i===row.d.length-1?row.c:'var(--sub)'};font-weight:${i===row.d.length-1?'700':'400'}">${row.f(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
 }
 
 function rAlertas(){
@@ -3888,7 +3902,7 @@ function rAlertas(){
   ${als.map(a=>{const c=a.t==="pos"?"#16a34a":a.t==="neg"?"#dc2626":"#d97706",bg2=a.t==="pos"?"#f0fdf4":a.t==="neg"?"#fef2f2":"#fffbeb",bd2=a.t==="pos"?"#bbf7d0":a.t==="neg"?"#fecaca":"#fde68a";return`<div class="alrow" style="background:${bg2};border:1px solid ${bd2};"><span style="font-size:16px;flex-shrink:0;">${a.icon}</span><span style="flex:1;color:var(--sub)">${a.txt}</span><span class="albadge" style="background:${c}18;color:${c};">${a.t==="pos"?"✓ OK":a.t==="neg"?"⚠ Alerta":"→ Vigilar"}</span></div>`;}).join('')}
   </div>
   <div class="card"><div class="ctitle">Histórico completo ${co.years[0]}–${co.years[9]}</div>
-  <div style="overflow-x:auto;"><table class="htbl"><thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.years.map(y=>`<th style="text-align:right;">${y}</th>`).join('')}</tr></thead><tbody>${[{l:"Ventas ($M)",d:co.sales,c:"#2563eb",f:v=>"$"+N(v)},{l:"EBITDA ($M)",d:co.ebitda,c:"#b45309",f:v=>"$"+N(v)},{l:"EBIT ($M)",d:co.ebit,c:"#d97706",f:v=>"$"+N(v)},{l:"FCF ($M)",d:co.fcf,c:"#16a34a",f:v=>"$"+N(v)},{l:"EPS ($)",d:co.eps,c:"#d97706",f:v=>"$"+N(v,2)},{l:"FCF/Acc ($)",d:co.fcfps,c:"#16a34a",f:v=>"$"+N(v,2)},{l:"Mg. EBITDA",d:co.ebitdaM,c:"#b45309",f:v=>P(v)},{l:"Mg. FCF",d:co.fcfM,c:"#16a34a",f:v=>P(v)},{l:"ROIC (%)",d:co.roic,c:"#b45309",f:v=>P(v)},{l:"Deuda Neta",d:co.netDebt,c:"#dc2626",f:v=>"$"+N(v)}].map(row=>`<tr style="border-bottom:1px solid #f0ede8;"><td style="color:${row.c};font-weight:700;padding:5px 8px;">${row.l}</td>${row.d.map((v,i)=>`<td style="text-align:right;padding:5px 8px;color:${i===row.d.length-1?row.c:'var(--sub)'};font-weight:${i===row.d.length-1?'700':'400'}">${row.f(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+  <div style="overflow-x:auto;"><table class="htbl"><thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.years.map(y=>`<th style="text-align:right;">${y}</th>`).join('')}</tr></thead><tbody>${[{l:"Ventas ($M)",d:co.sales,c:"#2563eb",f:v=>"$"+N(v)},{l:"EBITDA ($M)",d:co.ebitda,c:"#b45309",f:v=>"$"+N(v)},{l:"EBIT ($M)",d:co.ebit,c:"#d97706",f:v=>"$"+N(v)},{l:"FCF ($M)",d:co.fcf,c:"#16a34a",f:v=>"$"+N(v)},{l:"EPS ($)",d:co.eps,c:"#d97706",f:v=>"$"+N(v,2)},{l:"FCF/Acc ($)",d:co.fcfps,c:"#16a34a",f:v=>"$"+N(v,2)},{l:"Mg. EBITDA",d:co.ebitdaM,c:"#b45309",f:v=>P(v)},{l:"Mg. FCF",d:co.fcfM,c:"#16a34a",f:v=>P(v)},{l:"ROIC (%)",d:co.roic,c:"#b45309",f:v=>P(v)},{l:"Deuda Neta",d:co.netDebt,c:"#dc2626",f:v=>"$"+N(v)}].map(row=>`<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};"><td style="color:${row.c};font-weight:700;padding:5px 8px;">${row.l}</td>${row.d.map((v,i)=>`<td style="text-align:right;padding:5px 8px;color:${i===row.d.length-1?row.c:'var(--sub)'};font-weight:${i===row.d.length-1?'700':'400'}">${row.f(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3898,7 +3912,7 @@ function rTesis(){
   const vd=calcVerdict(),rev=calcReverseDCF(),quality=calcFCFQuality(),stress=calcStressDCF();
   return`<div class="card"><div class="ctitle">Tesis de Inversión — Generada por IA (Claude)</div>
   <p style="font-size:12px;color:var(--sub);margin-bottom:11px;line-height:1.65;">Claude analiza todos los datos financieros incluyendo Reverse DCF, Calidad FCF y Stress Test para generar una tesis estructurada.</p>
-  <div class="params-row">${[{l:"Empresa",v:co.name},{l:"Precio",v:"$"+N(price)},{l:"Veredicto",v:vd.verdict+" ("+vd.totalScore+"/100)"},{l:"MOAT",v:vd.moat.overall+"/100"},{l:"Implícito",v:rev.impliedG+"% vs hist "+rev.historicalFCFCagr+"%"},{l:"FCF Quality",v:quality.label},{l:"Stress DCF",v:"$"+N(stress.stressedDCF)+" ("+stress.impact+"%impact)"}].map(p=>`<span class="ptag">${p.l}: <strong style="color:#1a1814">${p.v}</strong></span>`).join('')}</div>
+  <div class="params-row">${[{l:"Empresa",v:co.name},{l:"Precio",v:"$"+N(price)},{l:"Veredicto",v:vd.verdict+" ("+vd.totalScore+"/100)"},{l:"MOAT",v:vd.moat.overall+"/100"},{l:"Implícito",v:rev.impliedG+"% vs hist "+rev.historicalFCFCagr+"%"},{l:"FCF Quality",v:quality.label},{l:"Stress DCF",v:"$"+N(stress.stressedDCF)+" ("+stress.impact+"%impact)"}].map(p=>`<span class="ptag">${p.l}: <strong style="color:${_dm()?'#e2e8f0':'#1a1814'}">${p.v}</strong></span>`).join('')}</div>
   <button class="aibtn" id="t-btn" onclick="genTesis()">✍️ Generar Tesis de Inversión</button>
   <div id="t-out" class="aiout" style="display:none;"></div>
   <div style="margin-top:9px;padding:9px 13px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:11px;color:#92400e;">⚠️ Esta tesis es generada por IA con carácter exclusivamente informativo. No constituye asesoramiento financiero.</div></div>`;
@@ -4505,13 +4519,13 @@ function renderWatchlist(){
     const logoUrl=logoUrlFor(e.id);
     const verdict=pre?pre.verdict:'—', vcolor=pre?pre.color:'#9a958e', score=pre?pre.score:null;
     const sector=e.sector||(co&&co.sector)||'';
-    return `<tr style="border-bottom:1px solid #f0ede8;">
+    return `<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">
       <td style="padding:9px 10px;">
         <div style="display:flex;align-items:center;gap:9px;">
           ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/>`:''}
           <div class="cartera-logo-fallback" style="background:#1e3a5f;display:${logoUrl?'none':'flex'};">${e.id.substring(0,2)}</div>
           <div>
-            <div class="cartera-co-name">${e.name}${isYoung?' <span style="font-size:8px;font-weight:800;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:0 5px;border-radius:6px;vertical-align:middle;">JOVEN</span>':''}</div>
+            <div class="cartera-co-name">${e.name}${isYoung?' <span style="font-size:8px;font-weight:800;background:${_dm()?'#0c1832':'#eff6ff'};color:#2563eb;border:1px solid #bfdbfe;padding:0 5px;border-radius:6px;vertical-align:middle;">JOVEN</span>':''}</div>
             <div class="cartera-ticker">${e.ticker}</div>
           </div>
         </div>
@@ -4547,7 +4561,7 @@ function showPreAnalysis(id){
   const pre=watchPre(e);
   if(!pre){alert('Sin pre-análisis disponible todavía (trayendo datos…).');return;}
   const lc={green:'🟢',amber:'🟡',red:'🔴',gray:'⚪'};
-  const rows=pre.axes.map(a=>`<div style="display:flex;gap:9px;padding:7px 0;border-bottom:1px solid #f0ede8;align-items:flex-start;"><span style="font-size:13px;">${lc[a.light]}</span><div><div style="font-weight:700;font-size:12px;color:#1a1814;">${a.label}</div><div style="font-size:11px;color:var(--sub);">${a.note}</div></div></div>`).join('');
+  const rows=pre.axes.map(a=>`<div style="display:flex;gap:9px;padding:7px 0;border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};align-items:flex-start;"><span style="font-size:13px;">${lc[a.light]}</span><div><div style="font-weight:700;font-size:12px;color:${_dm()?'#e2e8f0':'#1a1814'};">${a.label}</div><div style="font-size:11px;color:var(--sub);">${a.note}</div></div></div>`).join('');
   const pros=(pre.pros||[]).map(t=>`<li style="color:#15803d;margin:2px 0;">✅ ${t}</li>`).join('');
   const cons=(pre.cons||[]).map(t=>`<li style="color:#b91c1c;margin:2px 0;">⚠️ ${t}</li>`).join('');
   const ov=document.createElement('div');
@@ -4555,7 +4569,7 @@ function showPreAnalysis(id){
   ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
   ov.innerHTML=`<div style="background:#fff;border-radius:16px;max-width:540px;width:100%;max-height:86vh;overflow:auto;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
-      <div style="font-size:17px;font-weight:800;color:#1a1814;">🔎 Pre-análisis · ${e.name||id}${pre.young?' <span style="font-size:9px;font-weight:800;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:1px 6px;border-radius:6px;">JOVEN</span>':''}</div>
+      <div style="font-size:17px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};">🔎 Pre-análisis · ${e.name||id}${pre.young?' <span style="font-size:9px;font-weight:800;background:${_dm()?'#0c1832':'#eff6ff'};color:#2563eb;border:1px solid #bfdbfe;padding:1px 6px;border-radius:6px;">JOVEN</span>':''}</div>
       <button data-close style="border:none;background:#f0ede8;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:14px;">✕</button>
     </div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
@@ -5369,11 +5383,11 @@ function renderStyleCompare(){
   const sorted=[...rows].sort((a,b)=>b.st.growthScore-a.st.growthScore);
   const cc=(v,a,b)=>v>=a?'#16a34a':v>=b?'#d97706':'#dc2626';
   const tbl=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10.5px;min-width:560px;">
-    <thead><tr style="background:#f7f6f3;color:var(--muted);">
+    <thead><tr style="background:${_dm()?'#1c2333':'#f7f6f3'};color:var(--muted);">
       ${['Empresa','Estilo','Crec.','ROIC','Mg FCF','EV/FCF vs media','PEG','Rule 40','FCF yield'].map((h,i)=>`<th style="padding:6px 7px;text-align:${i<2?'left':'center'};font-weight:700;border-bottom:2px solid var(--border);">${h}</th>`).join('')}
     </tr></thead><tbody>
-    ${sorted.map(r=>{const st=r.st;const logo=logoUrlFor(r.s.key);return `<tr style="border-bottom:1px solid #f0ede8;cursor:pointer;" onclick="setView('analysis');setTimeout(()=>switchCo('${r.s.key}'),50)">
-      <td style="padding:5px 7px;"><div style="display:flex;align-items:center;gap:6px;">${logo?`<img src="${logo}" onerror="this.style.display='none'" style="width:18px;height:18px;border-radius:4px;object-fit:contain;"/>`:''}<span style="font-weight:700;color:#1a1814;">${r.s.key}</span></div></td>
+    ${sorted.map(r=>{const st=r.st;const logo=logoUrlFor(r.s.key);return `<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};cursor:pointer;" onclick="setView('analysis');setTimeout(()=>switchCo('${r.s.key}'),50)">
+      <td style="padding:5px 7px;"><div style="display:flex;align-items:center;gap:6px;">${logo?`<img src="${logo}" onerror="this.style.display='none'" style="width:18px;height:18px;border-radius:4px;object-fit:contain;"/>`:''}<span style="font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${r.s.key}</span></div></td>
       <td style="padding:5px 7px;"><span style="background:${st.color}15;color:${st.color};border:1px solid ${st.color}40;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:800;white-space:nowrap;">${st.icon} ${st.style}</span></td>
       <td style="text-align:center;font-weight:700;color:${cc(st.growth,12,6)};">${st.growth}%</td>
       <td style="text-align:center;font-weight:700;color:${cc(st.roic,20,12)};">${st.roic.toFixed(0)}%</td>
@@ -5438,7 +5452,7 @@ function renderCartera(){
     <div id="cweek-${k}" style="font-size:12px;font-weight:800;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
   </td>
   <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">
-    <div id="cobjevf-${k}" style="font-size:13px;font-weight:800;color:#1a1814;">${fmt(m.objEVF,k)}</div>
+    <div id="cobjevf-${k}" style="font-size:13px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};">${fmt(m.objEVF,k)}</div>
     <div id="cmds-${k}" style="font-size:10px;font-weight:800;color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</div>
   </td>
   <td style="text-align:right;">
@@ -5487,11 +5501,11 @@ function renderCarteraMultGrid(){
     {id:'evf',label:'EV / FCF',color:'#b45309',val:m.evf},
     {id:'eveb',label:'EV / EBITDA',color:'#2563eb',val:m.eveb},
     {id:'evei',label:'EV / EBIT',color:'#16a34a',val:m.evei},
-  ].map(x=>`<div style="background:#f9f8f6;border-radius:10px;padding:10px 12px;border-top:3px solid ${x.color};">
+  ].map(x=>`<div style="background:${_dm()?'#161b27':'#f9f8f6'};border-radius:10px;padding:10px 12px;border-top:3px solid ${x.color};">
   <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${x.color};margin-bottom:6px;">${x.label}</div>
   <div style="display:flex;align-items:center;gap:8px;">
     <input type="number" value="${x.val.toFixed(1)}" min="1" max="200" step="0.5"
-      style="width:62px;font-size:20px;font-weight:800;color:#1a1814;border:1.5px solid #e4e0d8;border-radius:7px;text-align:center;padding:4px 0;outline:none;background:#fff;"
+      style="width:62px;font-size:20px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};border:1.5px solid #e4e0d8;border-radius:7px;text-align:center;padding:4px 0;outline:none;background:#fff;"
       oninput="_carteraMultiples.${x.id}=+this.value;renderCartera()"/>
     <input type="range" min="5" max="80" step="0.5" value="${x.val}"
       style="flex:1;accent-color:${x.color};"
