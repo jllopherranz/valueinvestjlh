@@ -530,9 +530,27 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .dark table tbody tr:hover{background:rgba(88,166,255,.06) !important;}
 /* KPI expand */
 .dark .kpi-expand{background:var(--surface2);color:var(--sub);}
+/* Pastel/light backgrounds → dark equivalents */
+.dark .price-live-badge{background:#0d2117 !important;color:#3fb950 !important;border-color:#1a3a28 !important;}
+.dark .dcf-info-box{background:#0c1832 !important;border-color:#1e3a6e !important;color:#7ab4f5 !important;}
+.dark .sim-banner{background:#1a1200 !important;border-color:#5c3d00 !important;color:#e3b341 !important;}
+.dark .import-progress{background:#0d2117 !important;border-color:#1a3a28 !important;color:#3fb950 !important;}
+.dark .import-error{background:#200a0a !important;border-color:#4a1010 !important;color:#f78166 !important;}
+.dark .cartera-import-badge{background:#0d2117 !important;color:#3fb950 !important;border-color:#1a3a28 !important;}
+.dark .cartera-import-badge.no-import{background:#1a1200 !important;color:#e3b341 !important;border-color:#5c3d00 !important;}
+.dark .cartera-drive-btn{background:#0c1832 !important;border-color:#1e3a6e !important;color:#7ab4f5 !important;}
+.dark .cartera-drive-btn:hover{background:#12234a !important;}
+.dark .cartera-action-btn:hover{background:#0c1832 !important;color:var(--blue) !important;border-color:#1e3a6e !important;}
+.dark .cartera-action-btn.red:hover{background:#200a0a !important;color:var(--red) !important;border-color:#4a1010 !important;}
+.dark .dash-drive-btn:hover{background:#0c1832 !important;color:var(--blue) !important;}
+.dark .import-drop.dragover{background:#0c1832 !important;border-color:var(--blue) !important;}
+/* Verdict/score multiax ring — keep color but soften bg */
+.dark .verdict-multiax{border-color:var(--border) !important;}
+/* Scrollbar */
 .dark ::-webkit-scrollbar{width:6px;height:6px;}
 .dark ::-webkit-scrollbar-track{background:var(--surface2);}
-.dark ::-webkit-scrollbar-thumb{background:#2d3748;border-radius:4px;}
+.dark ::-webkit-scrollbar-thumb{background:#2d3f57;border-radius:4px;}
+.dark ::-webkit-scrollbar-thumb:hover{background:#3d5270;}
 /* Dark toggle button */
 #dark-toggle{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);transition:all .15s;}
 #dark-toggle:hover{background:var(--border);color:var(--text);}
@@ -2171,13 +2189,14 @@ function calcVerdict(){
   else if(euforiaEVF||euforiaPER){euforiaPenalty=5;totalScore=Math.max(0,totalScore-5);}
 
   // ─── DECISIÓN alineada a la PUNTUACIÓN total (retorno+MOAT+ROIC+MdS ya están dentro) ───
+  const _dm=document.documentElement.classList.contains('dark');
   let verdict,verdictColor,verdictBg;
   if(totalScore>=65){
-    verdict='COMPRAR';verdictColor='#16a34a';verdictBg='#f0fdf4';
+    verdict='COMPRAR';verdictColor=_dm?'#3fb950':'#16a34a';verdictBg=_dm?'#0d2117':'#f0fdf4';
   }else if(totalScore>=45){
-    verdict='MANTENER';verdictColor='#d97706';verdictBg='#fffbeb';
+    verdict='MANTENER';verdictColor=_dm?'#e3b341':'#d97706';verdictBg=_dm?'#1a1200':'#fffbeb';
   }else{
-    verdict='EVITAR';verdictColor='#dc2626';verdictBg='#fef2f2';
+    verdict='EVITAR';verdictColor=_dm?'#f78166':'#dc2626';verdictBg=_dm?'#200a0a':'#fef2f2';
   }
 
   const reasoning=`Score ${totalScore}/100 — Retorno 5Y(${retScore}/35) + MOAT(${moatScore}/30) + ROIC(${roicScore}/20) + MdS(${mdsScore}/15)${euforiaPenalty>0?` − Euforia(-${euforiaPenalty})`:''}. Retorno esperado ~${cagr5e>=0?'+':''}${cagr5e.toFixed(0)}%/año · Precio justo 1Y $${N(Math.round(fairBase))} (MdS ${msBase>=0?'+':''}${msBase.toFixed(0)}%)`;
