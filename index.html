@@ -682,7 +682,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <!-- ═══ CARTERA (tabla rica unificada en el Dashboard) ═══ -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px;flex-wrap:wrap;gap:10px;">
     <div>
-      <div style="font-size:16px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};">📋 Mi cartera</div>
+      <div style="font-size:16px;font-weight:800;color:var(--text);">📋 Mi cartera</div>
       <div style="font-size:10px;color:var(--muted);">Precios en vivo · valor intrínseco y MdS recalculados al instante · importa o añade empresas</div>
       <div id="cartera-import-status" style="font-size:10px;margin-top:4px;"></div>
     </div>
@@ -745,7 +745,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 <div id="view-watch" style="display:none;max-width:1600px;margin:0 auto;padding:10px 20px 30px;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px;flex-wrap:wrap;gap:10px;">
     <div>
-      <div style="font-size:16px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};">👁️ Empresas en seguimiento</div>
+      <div style="font-size:16px;font-weight:800;color:var(--text);">👁️ Empresas en seguimiento</div>
       <div style="font-size:10px;color:var(--muted);">Candidatas a invertir · pre-análisis rápido para decidir si merecen análisis profundo</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -3544,9 +3544,12 @@ function rValoracion(){
       </thead>
       <tbody>
         ${[{id:'ptr-per',label:'PER',data:rowPER,cagrV:cagr5.per,cagrId:'cagr-per',c:'#7c3aed',evfRow:false},{id:'ptr-evf',label:'EV/FCF ★',data:rowEVF,cagrV:cagr5.evf,cagrId:'cagr-evf',c:'#b45309',evfRow:true},{id:'ptr-eveb',label:'EV/EBITDA',data:rowEVEB,cagrV:cagr5.eveb,cagrId:'cagr-eveb',c:'#2563eb',evfRow:false},{id:'ptr-evei',label:'EV/EBIT',data:rowEVEI,cagrV:cagr5.evei,cagrId:'cagr-evei',c:'#16a34a',evfRow:false},{id:'ptr-avg',label:'Promedio',data:rowAvg,cagrV:cagr5.avg,cagrId:'cagr-avg',c:'#1e3a5f',bold:true}].map(row=>{
-          return`<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};${row.bold?'background:${_dm()?'#0c1832':'#eff6ff'};':row.evfRow?'background:#fffbf0;':''}">
+          const boldBg=_dm()?'background:#0c1832;':'background:#eff6ff;';
+          const evfBg=_dm()?'background:#1a1000;':'background:#fff8f0;';
+          const evfBgR=row.evfRow?evfBg:'';
+          return`<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};${row.bold?boldBg:row.evfRow?'background:#fffbf0;':''}">
             <td style="padding:6px 10px;font-weight:${row.bold||row.evfRow?'800':'600'};color:${row.c};border-left:3px solid ${row.c};white-space:nowrap;">${row.label}</td>
-            ${row.data.map((v,i)=>{const up=(v-price)/price*100;return`<td id="${row.id}-${i}" style="text-align:right;padding:5px 4px;${row.evfRow?'background:${_dm()?'#1a1000':'#fff8f0'};':''}border-right:none;"><div class="ptv" style="font-size:11px;font-weight:${row.bold||row.evfRow?'800':'600'};color:${potColor(up)};">$${N(v)}</div></td><td style="text-align:left;padding:5px 2px 5px 1px;${row.evfRow?'background:${_dm()?'#1a1000':'#fff8f0'};':''}border-right:1px solid #f0ede8;"><div class="ptp" style="font-size:10px;font-weight:700;color:${potColor(up)};">${up>=0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}
+            ${row.data.map((v,i)=>{const up=(v-price)/price*100;return`<td id="${row.id}-${i}" style="text-align:right;padding:5px 4px;${evfBgR}border-right:none;"><div class="ptv" style="font-size:11px;font-weight:${row.bold||row.evfRow?'800':'600'};color:${potColor(up)};">$${N(v)}</div></td><td style="text-align:left;padding:5px 2px 5px 1px;${evfBgR}border-right:1px solid ${_dm()?'#2a3a52':'#f0ede8'};"><div class="ptp" style="font-size:10px;font-weight:700;color:${potColor(up)};">${up>=0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}
             <td style="text-align:center;padding:6px 8px;background:${_dm()?'#0c1832':'#eff6ff'};"><span id="${row.cagrId}-5y" style="font-size:14px;font-weight:800;color:${cagrColor(row.cagrV)};">${row.cagrV>=0?'+':''}${row.cagrV.toFixed(0)}%</span></td>
           </tr>`;
         }).join('')}
@@ -3776,7 +3779,7 @@ function openMetricChart(el){
     modal=document.createElement('div'); modal.id='metric-modal';
     modal.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;align-items:center;justify-content:center;padding:16px;';
     modal.addEventListener('click',e=>{if(e.target===modal)closeMetricChart();});
-    modal.innerHTML='<div style="background:#fff;border-radius:14px;padding:18px;max-width:700px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;"><div id="metric-modal-title" style="font-size:14px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};"></div><button onclick="closeMetricChart()" style="border:none;background:#f0ede8;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px;flex-shrink:0;">✕</button></div><div style="position:relative;height:320px;"><canvas id="metric-modal-canvas"></canvas></div><div id="metric-modal-note" style="font-size:10px;color:var(--muted);margin-top:8px;"></div></div>';
+    modal.innerHTML=`<div style="background:${_dm()?'#161b27':'#fff'};border-radius:14px;padding:18px;max-width:700px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;"><div id="metric-modal-title" style="font-size:14px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};"></div><button onclick="closeMetricChart()" style="border:none;background:${_dm()?'#2a3a52':'#f0ede8'};border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px;flex-shrink:0;">✕</button></div><div style="position:relative;height:320px;"><canvas id="metric-modal-canvas"></canvas></div><div id="metric-modal-note" style="font-size:10px;color:var(--muted);margin-top:8px;"></div></div>`;
     document.body.appendChild(modal);
   }
   document.getElementById('metric-modal-title').textContent=label+' · '+co.name;
@@ -4525,7 +4528,7 @@ function renderWatchlist(){
           ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/>`:''}
           <div class="cartera-logo-fallback" style="background:#1e3a5f;display:${logoUrl?'none':'flex'};">${e.id.substring(0,2)}</div>
           <div>
-            <div class="cartera-co-name">${e.name}${isYoung?' <span style="font-size:8px;font-weight:800;background:${_dm()?'#0c1832':'#eff6ff'};color:#2563eb;border:1px solid #bfdbfe;padding:0 5px;border-radius:6px;vertical-align:middle;">JOVEN</span>':''}</div>
+            <div class="cartera-co-name">${e.name}${isYoung?` <span class="joven-badge" style="vertical-align:middle;">JOVEN</span>`:''}</div>
             <div class="cartera-ticker">${e.ticker}</div>
           </div>
         </div>
@@ -4569,7 +4572,7 @@ function showPreAnalysis(id){
   ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
   ov.innerHTML=`<div style="background:#fff;border-radius:16px;max-width:540px;width:100%;max-height:86vh;overflow:auto;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
-      <div style="font-size:17px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};">🔎 Pre-análisis · ${e.name||id}${pre.young?' <span style="font-size:9px;font-weight:800;background:${_dm()?'#0c1832':'#eff6ff'};color:#2563eb;border:1px solid #bfdbfe;padding:1px 6px;border-radius:6px;">JOVEN</span>':''}</div>
+      <div style="font-size:17px;font-weight:800;color:${_dm()?'#e2e8f0':'#1a1814'};">🔎 Pre-análisis · ${e.name||id}${pre.young?` <span class="joven-badge">JOVEN</span>`:''}</div>
       <button data-close style="border:none;background:#f0ede8;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:14px;">✕</button>
     </div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
