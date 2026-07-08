@@ -271,15 +271,22 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .fh-banner-inp{font-size:12px;padding:5px 10px;border:1.5px solid var(--border);border-radius:7px;flex:1;min-width:200px;max-width:350px;outline:none;}
 .fh-banner-inp:focus{border-color:#f59e0b;}
 /* ── DASHBOARD TILES ── */
-.mkt-bar{background:linear-gradient(135deg,#0f2444 0%,#1a3a5c 60%,#0f3460 100%);border-radius:var(--radius-lg);padding:0 6px;display:flex;gap:0;overflow-x:auto;align-items:stretch;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.06);scrollbar-width:none;}
-.mkt-bar::-webkit-scrollbar{display:none;}
-.dark .mkt-bar{background:linear-gradient(135deg,#0a1628 0%,#0f1e3c 60%,#0a1e40 100%);}
-.mkt-item{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:100px;padding:14px 18px;border-right:1px solid rgba(255,255,255,.08);transition:background .15s;}
-.mkt-item:hover{background:rgba(255,255,255,.04);}
-.mkt-item:last-child{border-right:none;}
-.mkt-name{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4);margin-bottom:5px;text-align:center;}
-.mkt-val{font-size:17px;font-weight:600;color:#fff;line-height:1;text-align:center;letter-spacing:-.5px;}
-.mkt-chg{font-size:10px;font-weight:700;margin-top:4px;text-align:center;}
+/* ── TICKER BAR ── */
+.mkt-bar{background:#0c1520;overflow:hidden;margin:-10px -20px 14px;height:42px;border-bottom:1px solid rgba(255,255,255,.07);box-shadow:0 2px 16px rgba(0,0,0,.35);position:relative;}
+.mkt-bar::before,.mkt-bar::after{content:'';position:absolute;top:0;bottom:0;width:40px;z-index:2;pointer-events:none;}
+.mkt-bar::before{left:0;background:linear-gradient(90deg,#0c1520,transparent);}
+.mkt-bar::after{right:0;background:linear-gradient(270deg,#0c1520,transparent);}
+.dark .mkt-bar{background:#080d18;border-color:rgba(255,255,255,.05);}
+.dark .mkt-bar::before{background:linear-gradient(90deg,#080d18,transparent);}
+.dark .mkt-bar::after{background:linear-gradient(270deg,#080d18,transparent);}
+.mkt-outer{display:inline-flex;align-items:stretch;height:100%;width:max-content;}
+.mkt-outer.ticking{animation:ticker-scroll 45s linear infinite;}
+.mkt-outer.ticking:hover{animation-play-state:paused;}
+@keyframes ticker-scroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+.mkt-item{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;padding:0 22px;border-right:1px solid rgba(255,255,255,.07);white-space:nowrap;cursor:default;min-width:110px;}
+.mkt-name{font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.38);margin-bottom:3px;}
+.mkt-val{font-size:14px;font-weight:600;color:#fff;line-height:1;letter-spacing:-.3px;}
+.mkt-chg{font-size:9px;font-weight:600;margin-top:2px;}
 .mkt-sep{display:none;}
 /* ── COMPANY TABLE dashboard ── */
 .dash-co-tbl{width:100%;border-collapse:collapse;}
@@ -659,23 +666,24 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 
   <!-- Ticker mercado -->
   <div class="mkt-bar" id="dash-mkt-bar">
-    <div class="mkt-item"><div class="mkt-name">S&P 500</div><div class="mkt-val" id="dm-sp500">—</div><div class="mkt-chg" id="dc-sp500">—</div></div>
-    <div class="mkt-item"><div class="mkt-name">Nasdaq 100</div><div class="mkt-val" id="dm-ndx">—</div><div class="mkt-chg" id="dc-ndx">—</div></div>
-    <div class="mkt-item">
-      <div class="mkt-name">VIX <span id="vix-lbl" style="font-size:7px;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,.15);color:#fff;"></span></div>
-      <div class="mkt-val" id="dm-vix">—</div>
-      <div class="vix-bar-mini"><div class="vix-needle" id="vix-needle" style="left:15%;"></div></div>
+    <div class="mkt-outer" id="mkt-outer">
+      <div class="mkt-item"><div class="mkt-name">S&P 500</div><div class="mkt-val" id="dm-sp500">—</div><div class="mkt-chg" id="dc-sp500">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">Nasdaq 100</div><div class="mkt-val" id="dm-ndx">—</div><div class="mkt-chg" id="dc-ndx">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">Dow Jones</div><div class="mkt-val" id="dm-dow">—</div><div class="mkt-chg" id="dc-dow">—</div></div>
+      <div class="mkt-item">
+        <div class="mkt-name">VIX <span id="vix-lbl" style="font-size:7px;padding:1px 3px;border-radius:3px;background:rgba(255,255,255,.15);color:#fff;"></span></div>
+        <div class="mkt-val" id="dm-vix">—</div>
+      </div>
+      <div class="mkt-item">
+        <div class="mkt-name">Sentimiento <span id="fg-lbl" style="font-size:7px;padding:1px 3px;border-radius:3px;background:rgba(255,255,255,.15);color:#fff;"></span></div>
+        <div class="mkt-val" id="dm-fg">—</div>
+      </div>
+      <div class="mkt-item"><div class="mkt-name">Bitcoin</div><div class="mkt-val" id="dm-btc">—</div><div class="mkt-chg" id="dc-btc">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">Oro</div><div class="mkt-val" id="dm-gold">—</div><div class="mkt-chg" id="dc-gold">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">EUR/USD</div><div class="mkt-val" id="dm-eur">—</div><div class="mkt-chg" id="dc-eur">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">T-Note 10Y</div><div class="mkt-val" id="dm-tnote">—</div><div class="mkt-chg" id="dc-tnote">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">Tipos Fed</div><div class="mkt-val" style="font-size:12px;">4.25–4.50%</div><div class="mkt-chg" style="color:rgba(255,255,255,.4);font-size:9px;">FOMC</div></div>
     </div>
-    <div class="mkt-item">
-      <div class="mkt-name">Sentimiento <span id="fg-lbl" style="font-size:7px;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,.15);color:#fff;"></span></div>
-      <div class="mkt-val" id="dm-fg">—</div>
-      <div class="fg-bar-mini"><div class="fg-needle" id="fg-needle" style="left:50%;"></div></div>
-    </div>
-    <div class="mkt-item"><div class="mkt-name">Bitcoin</div><div class="mkt-val" id="dm-btc">—</div><div class="mkt-chg" id="dc-btc">—</div></div>
-    <div class="mkt-item"><div class="mkt-name">Oro</div><div class="mkt-val" id="dm-gold">—</div><div class="mkt-chg" id="dc-gold">—</div></div>
-    <div class="mkt-item"><div class="mkt-name">EUR/USD</div><div class="mkt-val" id="dm-eur">—</div><div class="mkt-chg" id="dc-eur">—</div></div>
-    <div class="mkt-item"><div class="mkt-name">T-Note 10Y</div><div class="mkt-val" id="dm-tnote">—</div><div class="mkt-chg" id="dc-tnote">—</div></div>
-    <div class="mkt-item"><div class="mkt-name">Tipos Fed</div><div class="mkt-val" style="font-size:13px;">4.25–4.50%</div><div class="mkt-chg" style="color:rgba(255,255,255,.5);font-size:9px;">Sin cambios</div></div>
   </div>
 
   <!-- ═══ CARTERA (tabla rica unificada en el Dashboard) ═══ -->
@@ -4848,7 +4856,7 @@ async function fetchDashPrices(){
   }
 
   const mktMap=[
-    {id:'sp500',ticker:'^GSPC'},{id:'ndx',ticker:'^NDX'},
+    {id:'sp500',ticker:'^GSPC'},{id:'ndx',ticker:'^NDX'},{id:'dow',ticker:'^DJI'},
     {id:'vix',ticker:'^VIX'},{id:'btc',ticker:'BTC-USD'},
     {id:'gold',ticker:'GC=F'},{id:'eur',ticker:'EURUSD=X'},
     {id:'tnote',ticker:'^TNX'},{id:'oil',ticker:'CL=F'},
@@ -4886,8 +4894,28 @@ async function fetchDashPrices(){
 
   const now=new Date();
   if(ts) ts.textContent=now.getHours()+':'+(String(now.getMinutes()).padStart(2,'0'));
+  _startTicker();
 }
 
+function _startTicker(){
+  const outer=document.getElementById('mkt-outer');
+  if(!outer||outer.dataset.ticking) return;
+  outer.dataset.ticking='1';
+  // Duplicar los items dentro del mismo contenedor para loop sin costura
+  const items=[...outer.children];
+  items.forEach(item=>{
+    const clone=item.cloneNode(true);
+    // Quitar IDs del clon para no duplicar referencias DOM
+    clone.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+    clone.removeAttribute('id');
+    outer.appendChild(clone);
+  });
+  // Velocidad proporcional al ancho (píxeles/segundo ≈ 80)
+  const w=outer.scrollWidth/2;
+  const speed=Math.max(25,Math.round(w/80));
+  outer.style.animationDuration=speed+'s';
+  outer.classList.add('ticking');
+}
 
 async function fetchWeeklyChange(key,fhTicker,apiKey,currentPrice){
   try{
