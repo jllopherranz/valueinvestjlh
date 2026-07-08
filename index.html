@@ -2212,12 +2212,13 @@ function calcVerdict(){
 
   // ─── DECISIÓN alineada a la PUNTUACIÓN total (retorno+MOAT+ROIC+MdS ya están dentro) ───
   let verdict,verdictColor,verdictBg;
+  const dark=_dm();
   if(totalScore>=65){
-    verdict='COMPRAR';verdictColor=_dm?'#3fb950':'#16a34a';verdictBg=_dm?'#0d2117':'#f0fdf4';
+    verdict='COMPRAR';verdictColor=dark?'#3fb950':'#16a34a';verdictBg=dark?'#0d2117':'#f0fdf4';
   }else if(totalScore>=45){
-    verdict='MANTENER';verdictColor=_dm?'#e3b341':'#d97706';verdictBg=_dm?'#1a1200':'#fffbeb';
+    verdict='MANTENER';verdictColor=dark?'#e3b341':'#d97706';verdictBg=dark?'#1a1200':'#fffbeb';
   }else{
-    verdict='EVITAR';verdictColor=_dm?'#f78166':'#dc2626';verdictBg=_dm?'#200a0a':'#fef2f2';
+    verdict='EVITAR';verdictColor=dark?'#f78166':'#dc2626';verdictBg=dark?'#200a0a':'#fef2f2';
   }
 
   const reasoning=`Score ${totalScore}/100 — Retorno 5Y(${retScore}/35) + MOAT(${moatScore}/30) + ROIC(${roicScore}/20) + MdS(${mdsScore}/15)${euforiaPenalty>0?` − Euforia(-${euforiaPenalty})`:''}. Retorno esperado ~${cagr5e>=0?'+':''}${cagr5e.toFixed(0)}%/año · Precio justo 1Y $${N(Math.round(fairBase))} (MdS ${msBase>=0?'+':''}${msBase.toFixed(0)}%)`;
