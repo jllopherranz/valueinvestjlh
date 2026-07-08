@@ -272,21 +272,18 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .fh-banner-inp:focus{border-color:#f59e0b;}
 /* ── DASHBOARD TILES ── */
 /* ── TICKER BAR ── */
-.mkt-bar{background:#0c1520;overflow:hidden;margin:-10px -20px 14px;height:42px;border-bottom:1px solid rgba(255,255,255,.07);box-shadow:0 2px 16px rgba(0,0,0,.35);position:relative;}
-.mkt-bar::before,.mkt-bar::after{content:'';position:absolute;top:0;bottom:0;width:40px;z-index:2;pointer-events:none;}
-.mkt-bar::before{left:0;background:linear-gradient(90deg,#0c1520,transparent);}
-.mkt-bar::after{right:0;background:linear-gradient(270deg,#0c1520,transparent);}
-.dark .mkt-bar{background:#080d18;border-color:rgba(255,255,255,.05);}
-.dark .mkt-bar::before{background:linear-gradient(90deg,#080d18,transparent);}
-.dark .mkt-bar::after{background:linear-gradient(270deg,#080d18,transparent);}
+.mkt-bar{background:var(--surface2);overflow:hidden;margin:8px -20px -10px;height:38px;border-top:1px solid var(--border);position:relative;}
+.mkt-bar::before,.mkt-bar::after{content:'';position:absolute;top:0;bottom:0;width:48px;z-index:2;pointer-events:none;}
+.mkt-bar::before{left:0;background:linear-gradient(90deg,var(--surface2),transparent);}
+.mkt-bar::after{right:0;background:linear-gradient(270deg,var(--surface2),transparent);}
 .mkt-outer{display:inline-flex;align-items:stretch;height:100%;width:max-content;}
-.mkt-outer.ticking{animation:ticker-scroll 45s linear infinite;}
+.mkt-outer.ticking{animation:ticker-scroll 50s linear infinite;}
 .mkt-outer.ticking:hover{animation-play-state:paused;}
 @keyframes ticker-scroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
-.mkt-item{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;padding:0 22px;border-right:1px solid rgba(255,255,255,.07);white-space:nowrap;cursor:default;min-width:110px;}
-.mkt-name{font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.38);margin-bottom:3px;}
-.mkt-val{font-size:14px;font-weight:600;color:#fff;line-height:1;letter-spacing:-.3px;}
-.mkt-chg{font-size:9px;font-weight:600;margin-top:2px;}
+.mkt-item{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;padding:0 20px;border-right:1px solid var(--border);white-space:nowrap;cursor:default;min-width:100px;}
+.mkt-name{font-size:7.5px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:2px;}
+.mkt-val{font-size:13px;font-weight:600;color:var(--text);line-height:1;letter-spacing:-.2px;}
+.mkt-chg{font-size:9px;font-weight:600;margin-top:1px;}
 .mkt-sep{display:none;}
 /* ── COMPANY TABLE dashboard ── */
 .dash-co-tbl{width:100%;border-collapse:collapse;}
@@ -628,6 +625,27 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     </div>
   </div>
   <div class="tabs" id="tabs"></div>
+  <!-- Ticker mercado — integrado en el header -->
+  <div class="mkt-bar" id="dash-mkt-bar">
+    <div class="mkt-outer" id="mkt-outer">
+      <div class="mkt-item"><div class="mkt-name">S&P 500</div><div class="mkt-val" id="dm-sp500">—</div><div class="mkt-chg" id="dc-sp500">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">Nasdaq 100</div><div class="mkt-val" id="dm-ndx">—</div><div class="mkt-chg" id="dc-ndx">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">Dow Jones</div><div class="mkt-val" id="dm-dow">—</div><div class="mkt-chg" id="dc-dow">—</div></div>
+      <div class="mkt-item">
+        <div class="mkt-name">VIX <span id="vix-lbl" style="font-size:7px;padding:1px 3px;border-radius:3px;background:rgba(128,128,128,.2);"></span></div>
+        <div class="mkt-val" id="dm-vix">—</div>
+      </div>
+      <div class="mkt-item">
+        <div class="mkt-name">Sentimiento <span id="fg-lbl" style="font-size:7px;padding:1px 3px;border-radius:3px;background:rgba(128,128,128,.2);"></span></div>
+        <div class="mkt-val" id="dm-fg">—</div>
+      </div>
+      <div class="mkt-item"><div class="mkt-name">Bitcoin</div><div class="mkt-val" id="dm-btc">—</div><div class="mkt-chg" id="dc-btc">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">Oro</div><div class="mkt-val" id="dm-gold">—</div><div class="mkt-chg" id="dc-gold">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">EUR/USD</div><div class="mkt-val" id="dm-eur">—</div><div class="mkt-chg" id="dc-eur">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">T-Note 10Y</div><div class="mkt-val" id="dm-tnote">—</div><div class="mkt-chg" id="dc-tnote">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">Tipos Fed</div><div class="mkt-val" style="font-size:12px;">4.25–4.50%</div><div class="mkt-chg" style="font-size:9px;opacity:.5;">FOMC</div></div>
+    </div>
+  </div>
 </div>
 
 <div class="cnt" id="cnt"></div>
@@ -664,27 +682,6 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 <!-- ══ DASHBOARD VIEW ══ -->
 <div id="view-dash" style="display:none;max-width:1600px;margin:0 auto;padding:10px 20px 30px;">
 
-  <!-- Ticker mercado -->
-  <div class="mkt-bar" id="dash-mkt-bar">
-    <div class="mkt-outer" id="mkt-outer">
-      <div class="mkt-item"><div class="mkt-name">S&P 500</div><div class="mkt-val" id="dm-sp500">—</div><div class="mkt-chg" id="dc-sp500">—</div></div>
-      <div class="mkt-item"><div class="mkt-name">Nasdaq 100</div><div class="mkt-val" id="dm-ndx">—</div><div class="mkt-chg" id="dc-ndx">—</div></div>
-      <div class="mkt-item"><div class="mkt-name">Dow Jones</div><div class="mkt-val" id="dm-dow">—</div><div class="mkt-chg" id="dc-dow">—</div></div>
-      <div class="mkt-item">
-        <div class="mkt-name">VIX <span id="vix-lbl" style="font-size:7px;padding:1px 3px;border-radius:3px;background:rgba(255,255,255,.15);color:#fff;"></span></div>
-        <div class="mkt-val" id="dm-vix">—</div>
-      </div>
-      <div class="mkt-item">
-        <div class="mkt-name">Sentimiento <span id="fg-lbl" style="font-size:7px;padding:1px 3px;border-radius:3px;background:rgba(255,255,255,.15);color:#fff;"></span></div>
-        <div class="mkt-val" id="dm-fg">—</div>
-      </div>
-      <div class="mkt-item"><div class="mkt-name">Bitcoin</div><div class="mkt-val" id="dm-btc">—</div><div class="mkt-chg" id="dc-btc">—</div></div>
-      <div class="mkt-item"><div class="mkt-name">Oro</div><div class="mkt-val" id="dm-gold">—</div><div class="mkt-chg" id="dc-gold">—</div></div>
-      <div class="mkt-item"><div class="mkt-name">EUR/USD</div><div class="mkt-val" id="dm-eur">—</div><div class="mkt-chg" id="dc-eur">—</div></div>
-      <div class="mkt-item"><div class="mkt-name">T-Note 10Y</div><div class="mkt-val" id="dm-tnote">—</div><div class="mkt-chg" id="dc-tnote">—</div></div>
-      <div class="mkt-item"><div class="mkt-name">Tipos Fed</div><div class="mkt-val" style="font-size:12px;">4.25–4.50%</div><div class="mkt-chg" style="color:rgba(255,255,255,.4);font-size:9px;">FOMC</div></div>
-    </div>
-  </div>
 
   <!-- ═══ CARTERA (tabla rica unificada en el Dashboard) ═══ -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px;flex-wrap:wrap;gap:10px;">
@@ -4951,7 +4948,7 @@ function updateDashMktTile(id,price,pct,change){
   pEl.textContent=fmt(price);
   if(cEl){
     cEl.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';
-    cEl.style.color=pct>=0?'rgba(74,222,128,1)':'rgba(248,113,113,1)';
+    cEl.style.color=pct>=0?'var(--green)':'var(--red)';
   }
   if(id==='vix'){
     const vixReal=price; // VXX no es exactamente VIX pero es buen proxy
@@ -5200,7 +5197,7 @@ function updateDashMktTile(id,price,pct,change){
   pEl.textContent=fmt(price);
   if(cEl){
     cEl.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';
-    cEl.style.color=pct>=0?'rgba(74,222,128,1)':'rgba(248,113,113,1)';
+    cEl.style.color=pct>=0?'var(--green)':'var(--red)';
   }
   if(id==='vix'){
     const vixReal=price; // VXX no es exactamente VIX pero es buen proxy
