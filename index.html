@@ -5299,11 +5299,48 @@ function renderStyleCompare(){
   el.innerHTML=`<div class="card">
     <div onclick="toggleGvCompare()" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;cursor:pointer;user-select:none;${gvOpen?'margin-bottom:10px;':''}">
       <div class="dash-sec-title" style="margin:0;">🎚️ Growth vs Value — comparador de la cartera <span id="gv-chevron" style="font-size:9px;color:var(--muted);">${gvOpen?'▲ ocultar':'▼ mostrar'}</span></div>
-      <span onclick="event.stopPropagation();showTip('estilo',this)" style="cursor:pointer;font-size:9px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;">¿Cómo se clasifica? ⓘ</span>
+      <span style="display:flex;gap:6px;flex-wrap:wrap;">
+        <span onclick="event.stopPropagation();showGvHelp()" style="cursor:pointer;font-size:9px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;">¿Qué significan las métricas? ⓘ</span>
+        <span onclick="event.stopPropagation();showTip('estilo',this)" style="cursor:pointer;font-size:9px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;">¿Cómo se clasifica? ⓘ</span>
+      </span>
     </div>
     <div id="gv-body" style="display:${gvOpen?'block':'none'};">${quad}${tbl}</div>
   </div>`;
 }
+// ── Popup ayuda: explica las métricas del comparador Growth vs Value ──
+function showGvHelp(){
+  let m=document.getElementById('gv-help-modal');
+  if(m){ m.style.display='flex'; return; }
+  const rows=[
+    ['Estilo','Clasificación automática de la empresa según crecimiento y valoración: Hyper-growth, Growth, GARP (crecimiento a precio razonable), Calidad/Compounder, Value o Madura/Cíclica.'],
+    ['Crec.','Crecimiento anual de ventas proyectado (de tu Excel). Verde ≥12%, ámbar ≥6%, rojo por debajo. Es el motor principal del retorno a largo plazo.'],
+    ['ROIC','Retorno sobre el capital invertido: cuánto beneficio genera la empresa por cada euro que reinvierte en el negocio. Verde ≥20% (negocio excelente), ámbar ≥12%, rojo por debajo. Es la métrica favorita de los inversores de calidad.'],
+    ['Mg FCF','Margen de flujo de caja libre: qué % de las ventas se convierte en caja disponible para el accionista. Verde ≥20%, ámbar ≥10%. Un margen alto indica un negocio poco intensivo en capital.'],
+    ['EV/FCF vs media','Múltiplo actual (valor de empresa ÷ flujo de caja libre) comparado con su media histórica. El % entre paréntesis: −X% significa que cotiza X% más BARATA que su media (verde, oportunidad); +X% más CARA (rojo).'],
+    ['PEG','PER dividido por el crecimiento. Por debajo de 1: pagas poco por el crecimiento (barato). Entre 1 y 2: razonable. Por encima de 2: caro. Permite comparar empresas con crecimientos muy distintos.'],
+    ['Rule 40','Regla del 40: crecimiento de ventas + margen FCF. Si suma ≥40%, la empresa combina bien crecimiento y rentabilidad (verde). Muy usada para evaluar empresas de software/tecnología.'],
+    ['FCF yield','Rentabilidad de caja: flujo de caja libre ÷ capitalización bursátil. Es como el "interés" que te paga el negocio al precio actual. Verde ≥5% (barata), ámbar ≥3%. Lo inverso del EV/FCF: cuanto más alto, más barata.'],
+  ];
+  m=document.createElement('div');
+  m.id='gv-help-modal';
+  m.style.cssText='display:flex;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px;';
+  m.onclick=e=>{ if(e.target===m) m.style.display='none'; };
+  m.innerHTML=`<div style="background:var(--surface);border-radius:16px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);border:1.5px solid var(--border);">
+    <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);">
+      <div style="font-size:14px;font-weight:700;color:var(--text);">🎚️ Métricas Growth vs Value</div>
+      <button onclick="document.getElementById('gv-help-modal').style.display='none'" style="border:none;background:var(--surface2);color:var(--sub);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;">✕</button>
+    </div>
+    <div style="padding:14px 20px 18px;">
+      ${rows.map(([t,d])=>`<div style="margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--blue);margin-bottom:3px;">${t}</div>
+        <div style="font-size:11.5px;color:var(--sub);line-height:1.6;">${d}</div>
+      </div>`).join('')}
+      <div style="margin-top:14px;padding:10px 12px;background:var(--surface2);border-radius:10px;font-size:10.5px;color:var(--muted);line-height:1.6;">💡 Combinación ideal: crecimiento alto + ROIC alto + múltiplo por debajo de su media histórica. El cuadrante superior derecho (barato + crece) es la zona GARP: donde los inversores de calidad buscan comprar.</div>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
 // ── Popup ayuda: explica las columnas de la tabla de cartera ──
 function showCarteraHelp(){
   let m=document.getElementById('cartera-help-modal');
