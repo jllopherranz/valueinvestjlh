@@ -5283,16 +5283,16 @@ function renderStyleCompare(){
     <thead><tr style="background:${_dm()?'#1c2333':'#f7f6f3'};color:var(--muted);">
       ${['Empresa','Estilo','Crec.','ROIC','Mg FCF','EV/FCF vs media','PEG','Rule 40','FCF yield'].map((h,i)=>`<th style="padding:6px 7px;text-align:${i<2?'left':'center'};font-weight:700;border-bottom:2px solid var(--border);">${h}</th>`).join('')}
     </tr></thead><tbody>
-    ${sorted.map(r=>{const st=r.st;const logo=logoUrlFor(r.s.key);return `<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};cursor:pointer;" onclick="setView('analysis');setTimeout(()=>switchCo('${r.s.key}'),50)">
-      <td style="padding:5px 7px;"><div style="display:flex;align-items:center;gap:6px;">${logo?`<img src="${logo}" onerror="this.style.display='none'" style="width:18px;height:18px;border-radius:4px;object-fit:contain;"/>`:''}<span style="font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${r.s.key}</span></div></td>
-      <td style="padding:5px 7px;"><span style="background:${st.color}15;color:${st.color};border:1px solid ${st.color}40;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:600;white-space:nowrap;">${st.icon} ${st.style}</span></td>
-      <td style="text-align:center;font-weight:700;color:${cc(st.growth,12,6)};">${st.growth}%</td>
-      <td style="text-align:center;font-weight:700;color:${cc(st.roic,20,12)};">${st.roic.toFixed(0)}%</td>
-      <td style="text-align:center;font-weight:700;color:${cc(st.fcfM,20,10)};">${st.fcfM.toFixed(0)}%</td>
-      <td style="text-align:center;font-weight:700;color:${st.cheapPct>=0?'#16a34a':'#dc2626'};">${st.evfcfCur}x <span style="font-size:8px;">(${st.cheapPct>=0?'−':'+'}${Math.abs(st.cheapPct).toFixed(0)}%)</span></td>
-      <td style="text-align:center;font-weight:700;color:${st.peg==null?'#6b7280':cc(2-st.peg,1,0)};">${st.peg!=null?st.peg.toFixed(2):'—'}</td>
-      <td style="text-align:center;font-weight:700;color:${cc(st.ruleOf40,40,30)};">${st.ruleOf40}%</td>
-      <td style="text-align:center;font-weight:700;color:${cc(st.fcfYield,5,3)};">${st.fcfYield}%</td>
+    ${sorted.map(r=>{const st=r.st;const logo=logoUrlFor(r.s.key);return `<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">
+      <td style="padding:5px 7px;cursor:pointer;" onclick="setView('analysis');setTimeout(()=>switchCo('${r.s.key}'),50)" title="Abrir análisis de ${r.s.name}"><div style="display:flex;align-items:center;gap:6px;">${logo?`<img src="${logo}" onerror="this.style.display='none'" style="width:18px;height:18px;border-radius:4px;object-fit:contain;"/>`:''}<span style="font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${r.s.key}</span></div></td>
+      <td style="padding:5px 7px;cursor:help;" onclick="showColInfo('gv','estilo',event)"><span style="background:${st.color}15;color:${st.color};border:1px solid ${st.color}40;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:600;white-space:nowrap;">${st.icon} ${st.style}</span></td>
+      <td style="text-align:center;font-weight:700;cursor:help;color:${cc(st.growth,12,6)};" onclick="showColInfo('gv','crec',event)">${st.growth}%</td>
+      <td style="text-align:center;font-weight:700;cursor:help;color:${cc(st.roic,20,12)};" onclick="showColInfo('gv','roic',event)">${st.roic.toFixed(0)}%</td>
+      <td style="text-align:center;font-weight:700;cursor:help;color:${cc(st.fcfM,20,10)};" onclick="showColInfo('gv','mgfcf',event)">${st.fcfM.toFixed(0)}%</td>
+      <td style="text-align:center;font-weight:700;cursor:help;color:${st.cheapPct>=0?'#16a34a':'#dc2626'};" onclick="showColInfo('gv','evfcf',event)">${st.evfcfCur}x <span style="font-size:8px;">(${st.cheapPct>=0?'−':'+'}${Math.abs(st.cheapPct).toFixed(0)}%)</span></td>
+      <td style="text-align:center;font-weight:700;cursor:help;color:${st.peg==null?'#6b7280':cc(2-st.peg,1,0)};" onclick="showColInfo('gv','peg',event)">${st.peg!=null?st.peg.toFixed(2):'—'}</td>
+      <td style="text-align:center;font-weight:700;cursor:help;color:${cc(st.ruleOf40,40,30)};" onclick="showColInfo('gv','r40',event)">${st.ruleOf40}%</td>
+      <td style="text-align:center;font-weight:700;cursor:help;color:${cc(st.fcfYield,5,3)};" onclick="showColInfo('gv','fcfy',event)">${st.fcfYield}%</td>
     </tr>`;}).join('')}
   </tbody></table></div>`;
   const gvOpen=localStorage.getItem('vi_gv_open')==='1';
@@ -5307,6 +5307,48 @@ function renderStyleCompare(){
     <div id="gv-body" style="display:${gvOpen?'block':'none'};">${quad}${tbl}</div>
   </div>`;
 }
+// ── Popup por columna: explica UNA métrica al tocar la celda ──
+const COL_INFO={
+  cartera:{
+    precio:['💵 Precio','Cotización en vivo (Yahoo Finance) y variación del día. Si no hay conexión, muestra el último precio guardado.'],
+    sem:['📅 Semanal','Variación del precio en la última semana (5 sesiones de mercado).'],
+    obj:['🎯 Objetivo de precio','Valor intrínseco HOY: promedio de los 4 múltiplos objetivo (PER, EV/FCF, EV/EBITDA, EV/EBIT) aplicados a los datos del año en curso de tu Excel.<br><br>El % es el <b>Margen de Seguridad (MdS)</b>: cuánto está el precio por debajo (+, verde) o por encima (−, rojo) del valor intrínseco.'],
+    entrada:['🟢 Precio de entrada','Precio máximo de compra para lograr un <b>15% anual durante 5 años</b>. Si el precio actual está en o por debajo de esta zona, la fila se resalta: es zona de compra.'],
+    obj5:['🔮 Objetivo a 5 años','Precio objetivo a 5 años (promedio de los 4 múltiplos sobre las proyecciones de tu Excel) y el retorno anualizado (CAGR) comprando al precio actual.<br><br>Verde ≥15%/año · ámbar ≥8% · rojo por debajo.'],
+    peg:['⚖️ PEG','PER dividido por el crecimiento esperado.<br><br>&lt;1: pagas poco por el crecimiento (barato)<br>1–2: razonable<br>&gt;2: caro.'],
+  },
+  gv:{
+    estilo:['🏷️ Estilo','Clasificación automática según crecimiento y valoración: Hyper-growth, Growth, GARP (crecimiento a precio razonable), Calidad/Compounder, Value o Madura/Cíclica.'],
+    crec:['📈 Crecimiento','Crecimiento anual de ventas proyectado (de tu Excel). Verde ≥12% · ámbar ≥6% · rojo por debajo. Es el motor principal del retorno a largo plazo.'],
+    roic:['🏭 ROIC','Retorno sobre el capital invertido: cuánto beneficio genera la empresa por cada euro que reinvierte.<br><br>Verde ≥20% (negocio excelente) · ámbar ≥12%. La métrica favorita de los inversores de calidad.'],
+    mgfcf:['💧 Margen FCF','Qué % de las ventas se convierte en caja libre para el accionista.<br><br>Verde ≥20% · ámbar ≥10%. Un margen alto = negocio poco intensivo en capital.'],
+    evfcf:['📊 EV/FCF vs media','Múltiplo actual (valor de empresa ÷ flujo de caja libre) comparado con su media histórica.<br><br>−X% (verde): cotiza X% más BARATA que su media → oportunidad.<br>+X% (rojo): más CARA.'],
+    peg:['⚖️ PEG','PER dividido por el crecimiento.<br><br>&lt;1: barato · 1–2: razonable · &gt;2: caro. Permite comparar empresas con crecimientos muy distintos.'],
+    r40:['4️⃣0️⃣ Rule of 40','Crecimiento de ventas + margen FCF. Si suma ≥40% la empresa combina bien crecimiento y rentabilidad (verde). Muy usada en software/tecnología.'],
+    fcfy:['💰 FCF yield','Flujo de caja libre ÷ capitalización: el "interés" que te paga el negocio al precio actual.<br><br>Verde ≥5% (barata) · ámbar ≥3%. Cuanto más alto, más barata.'],
+  }
+};
+function showColInfo(group,key,ev){
+  if(ev) ev.stopPropagation();
+  const info=(COL_INFO[group]||{})[key]; if(!info) return;
+  let m=document.getElementById('col-info-modal');
+  if(!m){
+    m=document.createElement('div');
+    m.id='col-info-modal';
+    m.style.cssText='display:none;position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:20px;';
+    m.onclick=e=>{ if(e.target===m) m.style.display='none'; };
+    document.body.appendChild(m);
+  }
+  m.innerHTML=`<div style="background:var(--surface);border-radius:14px;max-width:400px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.3);border:1.5px solid var(--border);">
+    <div style="padding:14px 18px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);">${info[0]}</div>
+      <button onclick="document.getElementById('col-info-modal').style.display='none'" style="border:none;background:var(--surface2);color:var(--sub);border-radius:8px;padding:3px 9px;cursor:pointer;font-size:12px;font-weight:700;">✕</button>
+    </div>
+    <div style="padding:12px 18px 16px;font-size:11.5px;color:var(--sub);line-height:1.65;">${info[1]}</div>
+  </div>`;
+  m.style.display='flex';
+}
+
 // ── Popup ayuda: explica las métricas del comparador Growth vs Value ──
 function showGvHelp(){
   let m=document.getElementById('gv-help-modal');
@@ -5409,8 +5451,8 @@ function renderCartera(){
     const dCol=m.dailyPct==null?'#9a958e':m.dailyPct>=0?'#16a34a':'#dc2626';
     const wCol=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';
     const driveUrl=m.imp?.driveUrl||co.drive||localStorage.getItem('vi_drive_'+k)||null;
-    return`<tr id="crow-${k}" style="cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);">
-  <td style="padding:7px 10px;">
+    return`<tr id="crow-${k}">
+  <td style="padding:7px 10px;cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);" title="Abrir análisis de ${co.name}">
     <div style="display:flex;align-items:center;gap:9px;">
       ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.onerror=null;if(!this.dataset.fb){this.dataset.fb=1;this.src='${logoFallback(k)}';}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"/>`:''}
       <div class="cartera-logo-fallback" style="background:${co.color};display:none;">${k.substring(0,2)}</div>
@@ -5420,26 +5462,26 @@ function renderCartera(){
       </div>
     </div>
   </td>
-  <td style="text-align:right;">
+  <td style="text-align:right;cursor:help;" onclick="showColInfo('cartera','precio',event)">
     <div class="cartera-price" id="cprice-${k}">${fmt(m.price,k)}</div>
     <div id="cday-${k}" style="font-size:9px;font-weight:700;color:${dCol};">${m.dailyPct!=null?sp(m.dailyPct,2):''}</div>
   </td>
-  <td style="text-align:right;">
+  <td style="text-align:right;cursor:help;" onclick="showColInfo('cartera','sem',event)">
     <div id="cweek-${k}" style="font-size:12px;font-weight:600;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
   </td>
-  <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">
+  <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));cursor:help;" onclick="showColInfo('cartera','obj',event)">
     <div id="cobjevf-${k}" style="font-size:13px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};">${fmt(m.objEVF,k)}</div>
     <div id="cmds-${k}" style="font-size:10px;font-weight:600;color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</div>
   </td>
-  <td style="text-align:right;">
+  <td style="text-align:right;cursor:help;" onclick="showColInfo('cartera','entrada',event)">
     <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'#1a1814'};">${fmt(m.price15,k)}</div>
     <div id="cmds15-${k}" style="font-size:10px;font-weight:600;color:${mdsCol(m.mds15)};">${m.mds15!=null?sp(m.mds15,0)+' MdS':'—'}</div>
   </td>
-  <td style="text-align:right;">
+  <td style="text-align:right;cursor:help;" onclick="showColInfo('cartera','obj5',event)">
     <div id="cobj5-${k}" style="font-size:12px;font-weight:700;color:#1e3a5f;">${fmt(m.obj5,k)}</div>
     <div id="cret-${k}" style="font-size:10px;font-weight:700;color:${retCol(m.cagr5)};">${m.cagr5!=null?sp(m.cagr5,0)+'/año':''}</div>
   </td>
-  <td style="text-align:center;" id="cpeg-${k}">${pegBar(m.peg,m.per,m.g)}</td>
+  <td style="text-align:center;cursor:help;" id="cpeg-${k}" onclick="showColInfo('cartera','peg',event)">${pegBar(m.peg,m.per,m.g)}</td>
   <td style="text-align:center;" onclick="event.stopPropagation();">
     <div style="display:flex;gap:3px;justify-content:center;align-items:center;">
       ${driveUrl
