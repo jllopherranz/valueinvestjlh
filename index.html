@@ -713,12 +713,12 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <thead>
         <tr>
           <th style="text-align:left;">Empresa</th>
-          <th style="text-align:right;">Precio<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
-          <th style="text-align:right;">Sem.</th>
-          <th style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">Obj. precio<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
-          <th style="text-align:right;">Entrada<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
-          <th style="text-align:right;">Obj. 5Y<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">promedio · ret. anual</span></th>
-          <th style="text-align:center;">PEG</th>
+          <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','precio',event)" title="¿Qué es? Pulsa para ver">Precio ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
+          <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','sem',event)" title="¿Qué es? Pulsa para ver">Sem. ⓘ</th>
+          <th style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));cursor:help;" onclick="showColInfo('cartera','obj',event)" title="¿Qué es? Pulsa para ver">Obj. precio ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
+          <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','entrada',event)" title="¿Qué es? Pulsa para ver">Entrada ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
+          <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','obj5',event)" title="¿Qué es? Pulsa para ver">Obj. 5Y ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">promedio · ret. anual</span></th>
+          <th style="text-align:center;cursor:help;" onclick="showColInfo('cartera','peg',event)" title="¿Qué es? Pulsa para ver">PEG ⓘ</th>
           <th style="text-align:center;"></th>
         </tr>
       </thead>
@@ -5283,18 +5283,18 @@ function renderStyleCompare(){
   const cc=(v,a,b)=>v>=a?'#16a34a':v>=b?'#d97706':'#dc2626';
   const tbl=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10.5px;min-width:560px;">
     <thead><tr style="background:${_dm()?'#1c2333':'#f7f6f3'};color:var(--muted);">
-      ${['Empresa','Estilo','Crec.','ROIC','Mg FCF','EV/FCF vs media','PEG','Rule 40','FCF yield'].map((h,i)=>`<th style="padding:6px 7px;text-align:${i<2?'left':'center'};font-weight:700;border-bottom:2px solid var(--border);">${h}</th>`).join('')}
+      ${[['Empresa',null],['Estilo','estilo'],['Crec.','crec'],['ROIC','roic'],['Mg FCF','mgfcf'],['EV/FCF vs media','evfcf'],['PEG','peg'],['Rule 40','r40'],['FCF yield','fcfy']].map(([h,key],i)=>`<th style="padding:6px 7px;text-align:${i<2?'left':'center'};font-weight:700;border-bottom:2px solid var(--border);${key?'cursor:help;':''}" ${key?`onclick="showColInfo('gv','${key}',event)" title="¿Qué es? Pulsa para ver"`:''}>${h}${key?' ⓘ':''}</th>`).join('')}
     </tr></thead><tbody>
     ${sorted.map(r=>{const st=r.st;const logo=logoUrlFor(r.s.key);return `<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">
       <td style="padding:5px 7px;cursor:pointer;" onclick="setView('analysis');setTimeout(()=>switchCo('${r.s.key}'),50)" title="Abrir análisis de ${r.s.name}"><div style="display:flex;align-items:center;gap:6px;">${logo?`<img src="${logo}" onerror="this.style.display='none'" style="width:18px;height:18px;border-radius:4px;object-fit:contain;"/>`:''}<span style="font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${r.s.key}</span></div></td>
-      <td style="padding:5px 7px;cursor:help;" onclick="showColInfo('gv','estilo',event)"><span style="background:${st.color}15;color:${st.color};border:1px solid ${st.color}40;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:600;white-space:nowrap;">${st.icon} ${st.style}</span></td>
-      <td style="text-align:center;font-weight:700;cursor:help;color:${cc(st.growth,12,6)};" onclick="showColInfo('gv','crec',event)">${st.growth}%</td>
-      <td style="text-align:center;font-weight:700;cursor:help;color:${cc(st.roic,20,12)};" onclick="showColInfo('gv','roic',event)">${st.roic.toFixed(0)}%</td>
-      <td style="text-align:center;font-weight:700;cursor:help;color:${cc(st.fcfM,20,10)};" onclick="showColInfo('gv','mgfcf',event)">${st.fcfM.toFixed(0)}%</td>
-      <td style="text-align:center;font-weight:700;cursor:help;color:${st.cheapPct>=0?'#16a34a':'#dc2626'};" onclick="showColInfo('gv','evfcf',event)">${st.evfcfCur}x <span style="font-size:8px;">(${st.cheapPct>=0?'−':'+'}${Math.abs(st.cheapPct).toFixed(0)}%)</span></td>
-      <td style="text-align:center;font-weight:700;cursor:help;color:${st.peg==null?'#6b7280':cc(2-st.peg,1,0)};" onclick="showColInfo('gv','peg',event)">${st.peg!=null?st.peg.toFixed(2):'—'}</td>
-      <td style="text-align:center;font-weight:700;cursor:help;color:${cc(st.ruleOf40,40,30)};" onclick="showColInfo('gv','r40',event)">${st.ruleOf40}%</td>
-      <td style="text-align:center;font-weight:700;cursor:help;color:${cc(st.fcfYield,5,3)};" onclick="showColInfo('gv','fcfy',event)">${st.fcfYield}%</td>
+      <td style="padding:5px 7px;"><span style="background:${st.color}15;color:${st.color};border:1px solid ${st.color}40;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:600;white-space:nowrap;">${st.icon} ${st.style}</span></td>
+      <td style="text-align:center;font-weight:700;color:${cc(st.growth,12,6)};">${st.growth}%</td>
+      <td style="text-align:center;font-weight:700;color:${cc(st.roic,20,12)};">${st.roic.toFixed(0)}%</td>
+      <td style="text-align:center;font-weight:700;color:${cc(st.fcfM,20,10)};">${st.fcfM.toFixed(0)}%</td>
+      <td style="text-align:center;font-weight:700;color:${st.cheapPct>=0?'#16a34a':'#dc2626'};">${st.evfcfCur}x <span style="font-size:8px;">(${st.cheapPct>=0?'−':'+'}${Math.abs(st.cheapPct).toFixed(0)}%)</span></td>
+      <td style="text-align:center;font-weight:700;color:${st.peg==null?'#6b7280':cc(2-st.peg,1,0)};">${st.peg!=null?st.peg.toFixed(2):'—'}</td>
+      <td style="text-align:center;font-weight:700;color:${cc(st.ruleOf40,40,30)};">${st.ruleOf40}%</td>
+      <td style="text-align:center;font-weight:700;color:${cc(st.fcfYield,5,3)};">${st.fcfYield}%</td>
     </tr>`;}).join('')}
   </tbody></table></div>`;
   const gvOpen=localStorage.getItem('vi_gv_open')==='1';
@@ -5464,26 +5464,26 @@ function renderCartera(){
       </div>
     </div>
   </td>
-  <td style="text-align:right;cursor:help;" onclick="showColInfo('cartera','precio',event)">
+  <td style="text-align:right;">
     <div class="cartera-price" id="cprice-${k}">${fmt(m.price,k)}</div>
     <div id="cday-${k}" style="font-size:9px;font-weight:700;color:${dCol};">${m.dailyPct!=null?sp(m.dailyPct,2):''}</div>
   </td>
-  <td style="text-align:right;cursor:help;" onclick="showColInfo('cartera','sem',event)">
+  <td style="text-align:right;">
     <div id="cweek-${k}" style="font-size:12px;font-weight:600;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
   </td>
-  <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));cursor:help;" onclick="showColInfo('cartera','obj',event)">
+  <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">
     <div id="cobjevf-${k}" style="font-size:13px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};">${fmt(m.objEVF,k)}</div>
     <div id="cmds-${k}" style="font-size:10px;font-weight:600;color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</div>
   </td>
-  <td style="text-align:right;cursor:help;" onclick="showColInfo('cartera','entrada',event)">
+  <td style="text-align:right;">
     <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'#1a1814'};">${fmt(m.price15,k)}</div>
     <div id="cmds15-${k}" style="font-size:10px;font-weight:600;color:${mdsCol(m.mds15)};">${m.mds15!=null?sp(m.mds15,0)+' MdS':'—'}</div>
   </td>
-  <td style="text-align:right;cursor:help;" onclick="showColInfo('cartera','obj5',event)">
+  <td style="text-align:right;">
     <div id="cobj5-${k}" style="font-size:12px;font-weight:700;color:#1e3a5f;">${fmt(m.obj5,k)}</div>
     <div id="cret-${k}" style="font-size:10px;font-weight:700;color:${retCol(m.cagr5)};">${m.cagr5!=null?sp(m.cagr5,0)+'/año':''}</div>
   </td>
-  <td style="text-align:center;cursor:help;" id="cpeg-${k}" onclick="showColInfo('cartera','peg',event)">${pegBar(m.peg,m.per,m.g)}</td>
+  <td style="text-align:center;" id="cpeg-${k}">${pegBar(m.peg,m.per,m.g)}</td>
   <td style="text-align:center;" onclick="event.stopPropagation();">
     <div style="display:flex;gap:3px;justify-content:center;align-items:center;">
       ${driveUrl
