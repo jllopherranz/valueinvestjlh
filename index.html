@@ -2830,7 +2830,9 @@ function computeStyleFor(c,px){
   const gEps5=(c.eps[4]>0&&c.eps[9]>0)?cagr(c.eps[9],c.eps[4],5):gSales5;
   const growth=(gSales5+gFwdSales+gEps5)/3;            // crecimiento representativo (hist + fwd)
   const roic=c.roic[9], fcfM=c.fcfM[9];
-  const evfcfCur=(px*c.shares+c.netDebt[9])/c.fcf[9];
+  // FCF del año EN CURSO: proyección del Excel (pF[0]) si existe; si no, último histórico
+  const fcfCur=(c.pF&&c.pF[0]>0)?c.pF[0]:c.fcf[9];
+  const evfcfCur=(px*c.shares+c.netDebt[9])/fcfCur;
   const med=c.med5EvFcf||c.medEvFcf;
   const cheapPct=med?(med-evfcfCur)/med*100:0;          // + = barato vs su propia historia
   const growthScore=clamp(growth/25*100);               // 25%+ → tope
@@ -2841,7 +2843,7 @@ function computeStyleFor(c,px){
   const per=c.eps[9]>0?px/c.eps[9]:null;
   const peg=(per&&growth>0)?per/growth:null;            // PEG (Lynch): <1 barato, >2 caro
   const ruleOf40=growth+fcfM;                            // crecimiento% + margen FCF%
-  const fcfYield=c.fcf[9]/(px*c.shares)*100;             // rentabilidad de caja al precio actual
+  const fcfYield=fcfCur/(px*c.shares)*100;               // rentabilidad de caja al precio actual (FCF año en curso)
   const dilution=(c.isD&&c.isD.di&&c.isD.di.length)?c.isD.di[0]:null; // <0 = recompra neta
   const reinvest=(c.isD&&c.isD.cx&&c.isD.cx.length)?c.isD.cx[0]:null;  // CapEx/Ventas %
   let style,icon,color,desc;
