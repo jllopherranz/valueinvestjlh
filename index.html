@@ -695,7 +695,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <!-- ═══ CARTERA (tabla rica unificada en el Dashboard) ═══ -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px;flex-wrap:wrap;gap:10px;">
     <div>
-      <div style="font-size:16px;font-weight:600;color:var(--text);">📋 Mi cartera</div>
+      <div style="font-size:16px;font-weight:600;color:var(--text);">📋 Mi cartera <span onclick="showCarteraHelp()" title="¿Qué significa cada columna?" style="cursor:pointer;font-size:10px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;vertical-align:middle;">¿Qué significan los datos? ⓘ</span></div>
       <div style="font-size:10px;color:var(--muted);">Precios en vivo · valor intrínseco y MdS recalculados al instante · importa o añade empresas</div>
       <div id="cartera-import-status" style="font-size:10px;margin-top:4px;"></div>
     </div>
@@ -5295,13 +5295,55 @@ function renderStyleCompare(){
       <td style="text-align:center;font-weight:700;color:${cc(st.fcfYield,5,3)};">${st.fcfYield}%</td>
     </tr>`;}).join('')}
   </tbody></table></div>`;
+  const gvOpen=localStorage.getItem('vi_gv_open')==='1';
   el.innerHTML=`<div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
-      <div class="dash-sec-title" style="margin:0;">🎚️ Growth vs Value — comparador de la cartera</div>
-      <span onclick="showTip('estilo',this)" style="cursor:pointer;font-size:9px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;">¿Cómo se clasifica? ⓘ</span>
+    <div onclick="toggleGvCompare()" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;cursor:pointer;user-select:none;${gvOpen?'margin-bottom:10px;':''}">
+      <div class="dash-sec-title" style="margin:0;">🎚️ Growth vs Value — comparador de la cartera <span id="gv-chevron" style="font-size:9px;color:var(--muted);">${gvOpen?'▲ ocultar':'▼ mostrar'}</span></div>
+      <span onclick="event.stopPropagation();showTip('estilo',this)" style="cursor:pointer;font-size:9px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;">¿Cómo se clasifica? ⓘ</span>
     </div>
-    ${quad}${tbl}
+    <div id="gv-body" style="display:${gvOpen?'block':'none'};">${quad}${tbl}</div>
   </div>`;
+}
+// ── Popup ayuda: explica las columnas de la tabla de cartera ──
+function showCarteraHelp(){
+  let m=document.getElementById('cartera-help-modal');
+  if(m){ m.style.display='flex'; return; }
+  const rows=[
+    ['Precio','Cotización en vivo (Yahoo Finance) y variación del día. Si no hay conexión, muestra el último precio guardado.'],
+    ['Sem.','Variación del precio en la última semana (5 sesiones).'],
+    ['Obj. precio','Valor intrínseco HOY: promedio de los 4 múltiplos objetivo (PER, EV/FCF, EV/EBITDA, EV/EBIT) aplicados a los datos del año en curso de tu Excel. El % es el Margen de Seguridad (MdS): cuánto está el precio por debajo (+, verde) o por encima (−, rojo) del valor.'],
+    ['Entrada','Precio máximo de compra para lograr un 15% anual durante 5 años. Si el precio actual está en o por debajo de esta zona, la fila se resalta: es zona de compra.'],
+    ['Obj. 5Y','Precio objetivo a 5 años (promedio de los 4 múltiplos sobre las proyecciones de tu Excel) y el retorno anualizado (CAGR) que implica comprando al precio actual. Verde ≥15%/año, ámbar ≥8%, rojo por debajo.'],
+    ['PEG','PER dividido por el crecimiento esperado. Por debajo de 1 suele indicar que pagas poco por el crecimiento; por encima de 2, caro.'],
+    ['Barra lateral','Semáforo visual del potencial anualizado a 5 años: cuanto más larga y verde, mayor retorno esperado.'],
+  ];
+  m=document.createElement('div');
+  m.id='cartera-help-modal';
+  m.style.cssText='display:flex;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px;';
+  m.onclick=e=>{ if(e.target===m) m.style.display='none'; };
+  m.innerHTML=`<div style="background:var(--surface);border-radius:16px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);border:1.5px solid var(--border);">
+    <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);">
+      <div style="font-size:14px;font-weight:700;color:var(--text);">📋 Qué significa cada columna</div>
+      <button onclick="document.getElementById('cartera-help-modal').style.display='none'" style="border:none;background:var(--surface2);color:var(--sub);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;">✕</button>
+    </div>
+    <div style="padding:14px 20px 18px;">
+      ${rows.map(([t,d])=>`<div style="margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--blue);margin-bottom:3px;">${t}</div>
+        <div style="font-size:11.5px;color:var(--sub);line-height:1.6;">${d}</div>
+      </div>`).join('')}
+      <div style="margin-top:14px;padding:10px 12px;background:var(--surface2);border-radius:10px;font-size:10.5px;color:var(--muted);line-height:1.6;">💡 Todos los cálculos usan los datos y múltiplos objetivo de tu Excel de Google Drive. Haz clic en cualquier fila para abrir el análisis completo de esa empresa.</div>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+function toggleGvCompare(){
+  const body=document.getElementById('gv-body'),chev=document.getElementById('gv-chevron');
+  if(!body) return;
+  const open=body.style.display==='none';
+  body.style.display=open?'block':'none';
+  if(chev) chev.textContent=open?'▲ ocultar':'▼ mostrar';
+  body.parentElement.querySelector('[onclick^="toggleGvCompare"]').style.marginBottom=open?'10px':'0';
+  localStorage.setItem('vi_gv_open',open?'1':'0');
 }
 
 // ── Render portfolio table (compacta y visual) ──
