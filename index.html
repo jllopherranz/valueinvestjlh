@@ -656,6 +656,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <div class="mkt-item"><div class="mkt-name">Oro</div><div class="mkt-val" id="dm-gold">—</div><div class="mkt-chg" id="dc-gold">—</div></div>
       <div class="mkt-item"><div class="mkt-name">EUR/USD</div><div class="mkt-val" id="dm-eur">—</div><div class="mkt-chg" id="dc-eur">—</div></div>
       <div class="mkt-item"><div class="mkt-name">T-Note 10Y</div><div class="mkt-val" id="dm-tnote">—</div><div class="mkt-chg" id="dc-tnote">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">Euríbor 12M</div><div class="mkt-val" id="dm-euribor">—</div><div class="mkt-chg" id="dc-euribor" style="font-size:9px;opacity:.6;font-weight:600;">hipotecas</div></div>
       <div class="mkt-item"><div class="mkt-name">Tipos Fed</div><div class="mkt-val" style="font-size:12px;">4.25–4.50%</div><div class="mkt-chg" style="font-size:9px;opacity:.5;">FOMC</div></div>
     </div>
   </div>
@@ -5086,6 +5087,7 @@ async function fetchDashPrices(){
     if(q&&q.c) updateDashMktTile(m.id,q.c,(q.dp??0),0);
   }));
   fetchFearGreed();
+  fetchEuribor();
   const now=new Date();
   if(ts) ts.textContent='Mercado: '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
   _startTicker();
@@ -5128,6 +5130,39 @@ function _renderFearGreed(score,rating){
   if(valEl) valEl.textContent=score;
   if(lblEl) lblEl.textContent=FG_RATING_ES[rating]||rating;
   if(needle) needle.style.left=Math.min(96,Math.max(4,score))+'%';
+}
+
+// ── Euríbor 12M (BCE) — índice de referencia de las hipotecas en España ──
+function _renderEuribor(v,dpp){
+  const valEl=document.getElementById('dm-euribor'),chgEl=document.getElementById('dc-euribor');
+  if(valEl) valEl.textContent=v.toFixed(3).replace('.',',')+'%';
+  if(chgEl&&dpp!=null&&Math.abs(dpp)>=0.001){
+    // variación mensual en puntos; bajar el Euríbor abarata hipotecas (verde), subir las encarece (rojo)
+    chgEl.textContent=(dpp>=0?'▲ +'+dpp.toFixed(2):'▼ '+Math.abs(dpp).toFixed(2)).replace('.',',')+' pp';
+    chgEl.style.color=dpp>0?'var(--red)':'var(--green)';
+    chgEl.style.opacity='.85';
+  }
+}
+function _parseEcbCsv(txt){
+  const lines=(txt||'').trim().split('\n'); if(lines.length<2) return [];
+  const iVal=lines[0].split(',').indexOf('OBS_VALUE');
+  return lines.slice(1).map(l=>{const c=l.split(',');const v=parseFloat(c[iVal>=0?iVal:9]);return isFinite(v)?v:null;}).filter(v=>v!=null);
+}
+async function fetchEuribor(){
+  const valEl=document.getElementById('dm-euribor'); if(!valEl) return;
+  const cacheKey='vi_euribor',ttl=6*3600*1000; // 6h: el promedio mensual apenas se mueve
+  try{const c=JSON.parse(localStorage.getItem(cacheKey)||'null'); if(c&&Date.now()-c.ts<ttl){_renderEuribor(c.v,c.d);return;}}catch(e){}
+  const url='https://data-api.ecb.europa.eu/service/data/FM/M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA?lastNObservations=2&format=csvdata';
+  let vals=[];
+  try{const r=await fetch(url,{signal:AbortSignal.timeout(9000)}); if(r.ok) vals=_parseEcbCsv(await r.text());}catch(e){}
+  if(!vals.length){ // fallback proxy si el BCE no responde
+    try{const r=await fetch('https://corsproxy.io/?url='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)}); if(r.ok) vals=_parseEcbCsv(await r.text());}catch(e){}
+  }
+  if(!vals.length) return;                       // deja el "—"
+  const v=vals[vals.length-1], prev=vals.length>=2?vals[vals.length-2]:null;
+  const d=prev!=null?+(v-prev).toFixed(4):null;
+  try{localStorage.setItem(cacheKey,JSON.stringify({v,d,ts:Date.now()}));}catch(e){}
+  _renderEuribor(v,d);
 }
 
 async function fetchWeeklyChange(key,fhTicker,apiKey,currentPrice){
