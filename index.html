@@ -4216,6 +4216,8 @@ function setView(v){
   if(btnC) btnC.style.cssText=STYLE_IDLE;
   if(btnW) btnW.style.cssText=STYLE_IDLE;
   btnA.style.cssText=STYLE_IDLE;
+  // Ticker de mercado (Bitcoin, S&P 500, Euríbor…): solo en Cartera/Seguimiento, no dentro del análisis
+  const _mktBar=document.getElementById('dash-mkt-bar'); if(_mktBar) _mktBar.style.display=(v==='analysis')?'none':'';
 
   if(v==='watch'){
     if(watch) watch.style.display='block';
