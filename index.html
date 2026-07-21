@@ -719,6 +719,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
         <tr>
           <th style="text-align:left;">Empresa</th>
           <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','precio',event)" title="¿Qué es? Pulsa para ver">Precio ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
+          <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','coste',event)" title="¿Qué es? Pulsa para ver">Mi coste ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">medio · rdto.</span></th>
           <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','sem',event)" title="¿Qué es? Pulsa para ver">Sem. ⓘ</th>
           <th style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));cursor:help;" onclick="showColInfo('cartera','obj',event)" title="¿Qué es? Pulsa para ver">Obj. precio ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
           <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','entrada',event)" title="¿Qué es? Pulsa para ver">Entrada ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
@@ -728,7 +729,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
         </tr>
       </thead>
       <tbody id="cartera-tbody">
-        <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Cargando cartera…</td></tr>
+        <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Cargando cartera…</td></tr>
       </tbody>
     </table>
   </div>
@@ -2657,6 +2658,20 @@ function rFichaEmpresa(){return '';} // legacy stub - now handled by rSidebarEmp
 
 // ══ MI POSICIÓN — datos guardados en localStorage por ticker ══
 function _posKey(){return 'pos_'+(Object.keys(DB).find(k=>DB[k]===co)||'X');}
+// Lee la posición de CUALQUIER empresa por su clave (para la tabla de cartera)
+function getPositionFor(key){try{const r=localStorage.getItem('pos_'+key);return r?JSON.parse(r):null;}catch(e){return null;}}
+// Añade/edita/borra el precio de compra MEDIO desde la cartera (mantiene acciones/fecha si ya existían)
+function setCarteraPos(key){
+  const nm=(DB[key]&&DB[key].name)||key, prev=getPositionFor(key)||{};
+  const bp=prompt('Precio de compra MEDIO de '+nm+':\n(deja vacío y pulsa Aceptar para borrar tu posición)', prev.buyPrice||'');
+  if(bp===null) return;                                   // canceló
+  if(String(bp).trim()===''){ localStorage.removeItem('pos_'+key); if(typeof renderCartera==='function')renderCartera(); return; }
+  const p=parseFloat(String(bp).replace(',','.'));
+  if(!(p>0)){ alert('Introduce un precio válido.'); return; }
+  const data=Object.assign({shares:0,buyDate:'',spReturn:0},prev,{buyPrice:p});
+  try{localStorage.setItem('pos_'+key,JSON.stringify(data));}catch(e){}
+  if(typeof renderCartera==='function')renderCartera();
+}
 function getMiPosicion(){
   try{
     const raw=localStorage.getItem(_posKey());
@@ -5531,6 +5546,7 @@ function renderStyleCompare(){
 const COL_INFO={
   cartera:{
     precio:['💵 Precio','Cotización en vivo (Yahoo Finance) y variación del día. Si no hay conexión, muestra el último precio guardado.'],
+    coste:['📌 Mi coste','Tu <b>precio de compra medio</b> en esta empresa y tu <b>rendimiento</b>: cuánto ganas (+, verde) o pierdes (−, rojo) respecto al precio actual.<br><br>Pulsa la celda para introducir o editar tu coste. Se guarda en este navegador y también aparece en «Mi posición» dentro del análisis de la empresa.'],
     sem:['📅 Semanal','Variación del precio en la última semana (5 sesiones de mercado).'],
     obj:['🎯 Objetivo de precio','Valor intrínseco HOY: promedio de los 4 múltiplos objetivo (PER, EV/FCF, EV/EBITDA, EV/EBIT) aplicados a los datos del año en curso de tu Excel.<br><br>El % es el <b>Margen de Seguridad (MdS)</b>: cuánto está el precio por debajo (+, verde) o por encima (−, rojo) del valor intrínseco.'],
     entrada:['🟢 Precio de entrada','Precio máximo de compra para lograr un <b>15% anual durante 5 años</b>. Si el precio actual está en o por debajo de esta zona, la fila se resalta: es zona de compra.'],
@@ -5671,6 +5687,16 @@ function renderCartera(){
     const dCol=m.dailyPct==null?'#9a958e':m.dailyPct>=0?'#16a34a':'#dc2626';
     const wCol=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';
     const driveUrl=m.imp?.driveUrl||co.drive||localStorage.getItem('vi_drive_'+k)||null;
+    const pos=getPositionFor(k);
+    const posCell=(()=>{
+      if(pos&&pos.buyPrice>0){
+        const ret=m.price!=null?((m.price-pos.buyPrice)/pos.buyPrice*100):null;
+        const rc=ret==null?'#9a958e':ret>=0?'#16a34a':'#dc2626';
+        return `<div style="font-size:12px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${fmt(pos.buyPrice,k)}</div>`
+          +`<div style="font-size:10px;font-weight:700;color:${rc};">${ret!=null?(ret>=0?'+':'')+ret.toFixed(1)+'%':'—'}</div>`;
+      }
+      return `<span style="font-size:10px;color:#2563eb;font-weight:700;border:1px dashed #2563eb66;border-radius:8px;padding:2px 7px;white-space:nowrap;">+ coste</span>`;
+    })();
     return`<tr id="crow-${k}">
   <td style="padding:7px 10px;cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);" title="Abrir análisis de ${co.name}">
     <div style="display:flex;align-items:center;gap:9px;">
@@ -5686,6 +5712,7 @@ function renderCartera(){
     <div class="cartera-price" id="cprice-${k}">${fmt(m.price,k)}</div>
     <div id="cday-${k}" style="font-size:9px;font-weight:700;color:${dCol};">${m.dailyPct!=null?sp(m.dailyPct,2):''}</div>
   </td>
+  <td style="text-align:right;cursor:pointer;" onclick="event.stopPropagation();setCarteraPos('${k}')" title="Pulsa para poner/editar tu precio de compra medio">${posCell}</td>
   <td style="text-align:right;">
     <div id="cweek-${k}" style="font-size:12px;font-weight:600;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
   </td>
