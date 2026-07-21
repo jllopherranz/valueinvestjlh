@@ -4790,7 +4790,11 @@ const YF_LOCAL={'2330':'2330.TW','2330.TW':'2330.TW'};
 function yfSymbolFor(key,ticker){
   if(YF_TICKER[key]) return YF_TICKER[key];
   for(const c of [key,ticker]){ if(c&&YF_LOCAL[String(c).toUpperCase()]) return YF_LOCAL[String(c).toUpperCase()]; }
-  return ticker||key;
+  // Normaliza formatos de ticker de bolsas asiáticas al símbolo de Yahoo
+  let t=String(ticker||key||'').toUpperCase().trim();
+  t=t.replace(/^TWSE:/,'').replace(/\s+(TT|TW)$/,'');   // "TWSE:2330", "2330 TT" → 2330
+  if(/^\d{4}(\.TWO?)?$/.test(t)) return t.includes('.')?t:t+'.TW'; // código numérico taiwanés → .TW
+  return t;
 }
 // Resuelve la entrada del CATÁLOGO tolerando alias y sufijos de bolsa (TSM.US, ASML.AS, 2330.TW…)
 function catalogFor(key){
@@ -5827,10 +5831,16 @@ function computeTechnicals(closes){
 async function renderTechnicals(){
   const box=document.getElementById('tech-box'); if(!box) return;
   const key=coKeyOf(co), sym=yfSymbolFor(key,co.ticker);
-  const closes=await fetchDailyHistory(sym,'1y');
+  let closes=await fetchDailyHistory(sym,'1y');
+  // Fallback: si la bolsa local falla, intenta el ADR del catálogo (p.ej. TSM para 2330)
+  if((!closes||closes.length<30)){
+    const cat=catalogFor(key)||catalogFor(co.ticker);
+    const adr=cat&&cat.tv?cat.tv.split(':').pop():null; // "NYSE:TSM" → "TSM"
+    if(adr&&adr!==sym){ const c2=await fetchDailyHistory(adr,'1y'); if(c2&&c2.length>=30) closes=c2; }
+  }
   const box2=document.getElementById('tech-box');
   if(!box2||coKeyOf(co)!==key) return;                 // el usuario cambió de empresa/pestaña
-  if(!closes||closes.length<30){ box2.innerHTML='<span style="color:var(--muted);">No se pudo cargar el histórico de precios ahora.</span>'; return; }
+  if(!closes||closes.length<30){ box2.innerHTML='<span style="color:var(--muted);">No se pudo cargar el histórico de precios de <b>'+sym+'</b> ahora. Reintenta con «Actualizar» o revisa el ticker.</span>'; return; }
   const t=computeTechnicals(closes), cs=curSymG();
   const trend=t.sma200!=null?(t.last>=t.sma200?'alcista':'bajista'):null;
   const trendCol=trend==='alcista'?'#16a34a':trend==='bajista'?'#dc2626':'var(--muted)';
