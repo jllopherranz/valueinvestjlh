@@ -3356,6 +3356,13 @@ function rResumen(){
       </iframe></div>
     </div>
 
+    <!-- ══ ANÁLISIS TÉCNICO — niveles de referencia ══ -->
+    <div class="card" id="tech-card" style="margin-bottom:10px;">
+      <div class="ctitle">📈 Análisis técnico — niveles de referencia</div>
+      <div id="tech-box" style="font-size:11px;color:var(--muted);padding:6px 0;">Cargando indicadores técnicos…</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:6px;line-height:1.5;">El análisis técnico refleja la <b>tendencia y el momento del precio</b> (corto plazo) — complementa, no sustituye, a la valoración fundamental.</div>
+    </div>
+
     <!-- ══ BLOQUE 7: MI POSICIÓN ══ -->
     ${rMiPosicion(vd,fv5)}
 
@@ -3674,13 +3681,6 @@ function rValoracion(){
         ${[{l:"Ventas",k:"s",c:"#2563eb",f:v=>"$"+N(Math.round(v))},{l:"EBIT",k:"ebit",c:"#b45309",f:v=>"$"+N(Math.round(v))},{l:"FCF",k:"fcf",c:"#16a34a",f:v=>"$"+N(Math.round(v))},{l:"EPS",k:"eps",c:"#d97706",f:v=>"$"+N(v,2)}].map(r=>`<tr style="background:${_dm()?'#161b27':'#f9f8f6'};"><td style="color:${r.c};font-weight:700;">${r.l}</td>${isM.map(m=>`<td class="isres" style="color:${r.c}">${r.f(m[r.k])}</td>`).join('')}</tr>`).join('')}
       </tbody></table></div>
     </div>
-  </div>
-
-  <!-- ANÁLISIS TÉCNICO -->
-  <div class="card" id="tech-card" style="margin-bottom:10px;">
-    <div class="ctitle">📈 Análisis técnico — niveles de referencia</div>
-    <div id="tech-box" style="font-size:11px;color:var(--muted);padding:6px 0;">Cargando indicadores técnicos…</div>
-    <div style="font-size:9px;color:var(--muted);margin-top:6px;line-height:1.5;">El análisis técnico refleja la <b>tendencia y el momento del precio</b> (corto plazo) — complementa, no sustituye, a la valoración fundamental de arriba.</div>
   </div>
 
   </div>`;
@@ -4011,10 +4011,12 @@ function buildCharts(tab){
       {type:'line',label:'EPS ($)',data:co.pEPS,borderColor:'#d97706',backgroundColor:'#d97706',tension:.35,pointRadius:4,borderWidth:2.5,yAxisID:'y1',order:1}
     ]},options:_vfeOpts});
   }
+  if(tab==='resumen'){
+    setTimeout(()=>renderTechnicals(),80);   // análisis técnico bajo el gráfico de cotización
+  }
   if(tab==='valoracion'){
     setTimeout(()=>buildMultHistChart(),60);
     setTimeout(()=>buildFairValueChart(),60);
-    setTimeout(()=>renderTechnicals(),80);
     // Prefetch del consenso web (FMP/SEC) en segundo plano para la columna comparativa
     const _k=coKeyOf(co);
     if(!_webProj[_k]){
