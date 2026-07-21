@@ -2889,8 +2889,8 @@ function rResumen(){
   const tvSymbol=(()=>{
     if(co.tvSymbol) return co.tvSymbol;
     const _ck=Object.keys(DB).find(k=>DB[k]===co)||'MSFT';
-    const _cat=catalogFor(_ck)||catalogFor(co.ticker);
-    if(_cat&&_cat.tv) return _cat.tv;                 // símbolo TradingView del catálogo (con bolsa)
+    const _tv=tvSymbolFor(_ck,co.ticker);
+    if(_tv) return _tv;                               // símbolo TradingView (bolsa local o catálogo)
     const _f=FICHA[_ck];
     if(_f&&_f.exchange&&co.ticker) return `${_f.exchange}:${co.ticker}`;
     return (co.ticker||_ck).split('.')[0];            // ticker limpio (sin sufijo de bolsa) para que TradingView lo resuelva
@@ -4534,7 +4534,7 @@ function buildImportFromFinancials(rows,e){
   const _cat=catalogFor(e.id);
   return {
     ticker:e.id, name:e.name||(e.profile&&e.profile.name)||e.id, sector:e.sector||(_cat&&_cat.sector)||'', color:(_cat&&_cat.color)||'#1e3a5f',
-    ...((_cat&&_cat.domain)?{domain:_cat.domain}:{}),...((_cat&&_cat.tv)?{tvSymbol:_cat.tv}:{}),
+    ...((_cat&&_cat.domain)?{domain:_cat.domain}:{}),...(tvSymbolFor(e.id,e.id)?{tvSymbol:tvSymbolFor(e.id,e.id)}:{}),
     shares:last(sharesArr)||1, price:(_priceCache[e.id]&&_priceCache[e.id].live)||0,
     driveUrl:'', desc:(e.name||e.id)+' — datos automáticos (Finnhub/SEC). Refina importando tu hoja TIKR.',
     importDate:Date.now(), autoSource:'finnhub', yearsAvailable:n,
@@ -4766,7 +4766,15 @@ const CATALOG={
 };
 const LOGO_DOMAINS={CSU:'csisoftware.com',ASML:'asml.com',AMZN:'amazon.com',MSFT:'microsoft.com',AAPL:'apple.com',GOOGL:'google.com',META:'meta.com',NVDA:'nvidia.com',WDC:'westerndigital.com',AMD:'amd.com',NFLX:'netflix.com',STX:'seagate.com',V:'visa.com'};
 // Variantes de ticker que apuntan a la misma empresa del catálogo (ADR, bolsa local, etc.)
-const TICKER_ALIASES={TSMC:'TSM','2330':'TSM','TSM.US':'TSM','GOOG':'GOOGL','FB':'META','BRK.B':'BRKB'};
+const TICKER_ALIASES={TSMC:'TSM','2330':'TSM','2330.TW':'TSM','TSM.US':'TSM','GOOG':'GOOGL','FB':'META','BRK.B':'BRKB'};
+// Símbolo TradingView para cotizaciones en bolsa LOCAL (moneda local) — prevalece sobre el ADR del catálogo
+const TV_LOCAL={'2330':'TWSE:2330','2330.TW':'TWSE:2330'};
+function tvSymbolFor(key,ticker){
+  const cand=[key,ticker];
+  for(const c of cand){ if(c&&TV_LOCAL[String(c).toUpperCase()]) return TV_LOCAL[String(c).toUpperCase()]; }
+  const cat=catalogFor(key)||catalogFor(ticker);
+  return (cat&&cat.tv)||null;
+}
 // Resuelve la entrada del CATÁLOGO tolerando alias y sufijos de bolsa (TSM.US, ASML.AS, 2330.TW…)
 function catalogFor(key){
   if(!key) return null;
@@ -6190,7 +6198,7 @@ function buildDbEntryFromImport(r){
   // Enriquecer con el catálogo (color corporativo, dominio del logo, símbolo TradingView) por ticker/alias
   const _cat=catalogFor(r.ticker);
   const _color=(r.color&&r.color!=='#1e3a5f')?r.color:((_cat&&_cat.color)||r.color||'#1e3a5f');
-  const _tv=r.tvSymbol||(_cat&&_cat.tv)||null;
+  const _tv=r.tvSymbol||tvSymbolFor(r.ticker,r.ticker);
   return {
     name:r.name||r.ticker,ticker:r.ticker,finnhubTicker:r.ticker,sector:r.sector||(_cat&&_cat.sector)||'',
     ...(( _cat&&_cat.domain)?{domain:_cat.domain}:{}),...( _tv?{tvSymbol:_tv}:{}),
