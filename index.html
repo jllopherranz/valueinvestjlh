@@ -4785,6 +4785,13 @@ function tvLinkFor(key,ticker){
   for(const c of [key,ticker]){ if(c&&TV_LINK[String(c).toUpperCase()]) return TV_LINK[String(c).toUpperCase()]; }
   return null;
 }
+// Símbolo de Yahoo Finance para bolsas locales (el ticker suelto no resuelve: Taiwán necesita .TW)
+const YF_LOCAL={'2330':'2330.TW','2330.TW':'2330.TW'};
+function yfSymbolFor(key,ticker){
+  if(YF_TICKER[key]) return YF_TICKER[key];
+  for(const c of [key,ticker]){ if(c&&YF_LOCAL[String(c).toUpperCase()]) return YF_LOCAL[String(c).toUpperCase()]; }
+  return ticker||key;
+}
 // Resuelve la entrada del CATÁLOGO tolerando alias y sufijos de bolsa (TSM.US, ASML.AS, 2330.TW…)
 function catalogFor(key){
   if(!key) return null;
@@ -5774,7 +5781,7 @@ async function fetchQuoteYF(ticker){
 }
 
 // ══════════ GRÁFICO PRECIO vs VALOR INTRÍNSECO + ANÁLISIS TÉCNICO ══════════
-function curSymG(){return coKeyOf(co)==='ASML'?'€':'$';}
+function curSymG(){const k=coKeyOf(co);if(k==='ASML')return '€';if(k==='2330'||k==='2330.TW')return 'NT$';return '$';}
 function buildFairValueChart(){
   const c=document.getElementById('c-fairvalue'); if(!c) return;
   if(charts.fairvalue){try{charts.fairvalue.destroy();}catch(e){}}
@@ -5819,7 +5826,7 @@ function computeTechnicals(closes){
 }
 async function renderTechnicals(){
   const box=document.getElementById('tech-box'); if(!box) return;
-  const key=coKeyOf(co), sym=YF_TICKER[key]||co.ticker;
+  const key=coKeyOf(co), sym=yfSymbolFor(key,co.ticker);
   const closes=await fetchDailyHistory(sym,'1y');
   const box2=document.getElementById('tech-box');
   if(!box2||coKeyOf(co)!==key) return;                 // el usuario cambió de empresa/pestaña
