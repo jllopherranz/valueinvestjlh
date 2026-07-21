@@ -5895,22 +5895,23 @@ async function renderTechnicals(){
 }
 
 async function fetchCarteraPrices(){
+  const fhKey=getFinnhubKey();
   for(const co of getAllPortfolioCompanies()){
     const yfT=YF_TICKER[co.key]||co.fhTicker||co.ticker||co.key;
-    let q=null;
-    try{ q=await fetchQuoteYF(yfT); }catch(e){}
-    if(!q){ // fallback Finnhub (precio + % diario, sin semanal)
-      const fhKey=getFinnhubKey();
-      if(fhKey){
-        try{
-          const fhT=YF_TICKER_FH[co.key]||co.fhTicker||co.key;
-          const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${fhT}&token=${fhKey}`,{signal:AbortSignal.timeout(7000)});
-          const j=await r.json();
-          if(j&&j.c>0) q={c:j.c,dp:(j.dp??null),wp:null};
-        }catch(e){}
-      }
+    // Yahoo (gratis) da el último CIERRE diario + variación semanal
+    let yq=null; try{ yq=await fetchQuoteYF(yfT); }catch(e){}
+    let c=yq?yq.c:null, dp=yq?yq.dp:null, wp=yq?yq.wp:null;
+    // Finnhub da el precio en TIEMPO REAL → prevalece para el precio y el % diario (Yahoo suele ir un día por detrás).
+    // Devuelve c=0 para tickers que no cubre (bolsas no-US) → en ese caso se mantiene Yahoo.
+    if(fhKey){
+      try{
+        const fhT=YF_TICKER_FH[co.key]||co.fhTicker||co.key;
+        const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(fhT)}&token=${fhKey}`,{signal:AbortSignal.timeout(7000)});
+        const j=await r.json();
+        if(j&&j.c>0){ c=j.c; dp=(j.dp??dp); }   // precio en vivo de Finnhub (wp semanal sigue siendo de Yahoo)
+      }catch(e){}
     }
-    if(q&&q.c>0){ _carteraPrices[co.key]={c:q.c,dp:q.dp,wp:q.wp}; _saveLastPx(co.key,q.c); updateCarteraRow(co.key); }
+    if(c>0){ _carteraPrices[co.key]={c,dp,wp}; _saveLastPx(co.key,c); updateCarteraRow(co.key); }
     await new Promise(r=>setTimeout(r,260));
   }
   if(typeof renderStyleCompare==='function') renderStyleCompare(); // refresca comparador con precios live
