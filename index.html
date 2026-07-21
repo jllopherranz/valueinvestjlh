@@ -2886,7 +2886,15 @@ function rResumen(){
   const quality=calcFCFQuality();
   const isM=calcISModel();
   const moat=vd.moat;
-  const tvSymbol=(()=>{if(co.tvSymbol) return co.tvSymbol;const _ck=Object.keys(DB).find(k=>DB[k]===co)||'MSFT';const _f=FICHA[_ck];return(_f?.exchange&&co.ticker)?`${_f.exchange}:${co.ticker}`:co.ticker;})();
+  const tvSymbol=(()=>{
+    if(co.tvSymbol) return co.tvSymbol;
+    const _ck=Object.keys(DB).find(k=>DB[k]===co)||'MSFT';
+    const _cat=catalogFor(_ck)||catalogFor(co.ticker);
+    if(_cat&&_cat.tv) return _cat.tv;                 // símbolo TradingView del catálogo (con bolsa)
+    const _f=FICHA[_ck];
+    if(_f&&_f.exchange&&co.ticker) return `${_f.exchange}:${co.ticker}`;
+    return (co.ticker||_ck).split('.')[0];            // ticker limpio (sin sufijo de bolsa) para que TradingView lo resuelva
+  })();
   const _b=0.82;
   const medEvFcf=co.med5EvFcf||co.medEvFcf;
   const medEvFcf10=co.medEvFcf;
@@ -4523,8 +4531,10 @@ function buildImportFromFinancials(rows,e){
   const pad10=(arr,fill)=>{const a=arr.map(v=>(v==null||isNaN(v))?fill:v);if(a.length>=10)return a.slice(a.length-10);return Array(10-a.length).fill(a.length?a[0]:fill).concat(a);};
   const padY=ys=>{if(ys.length>=10)return ys.slice(ys.length-10);const f=ys[0]||2025;const h=[];for(let i=10-ys.length;i>0;i--)h.push(f-i);return h.concat(ys);};
   const r0=a=>(a.find(v=>v!=null&&!isNaN(v))||0);
+  const _cat=catalogFor(e.id);
   return {
-    ticker:e.id, name:e.name||(e.profile&&e.profile.name)||e.id, sector:e.sector||'', color:'#1e3a5f',
+    ticker:e.id, name:e.name||(e.profile&&e.profile.name)||e.id, sector:e.sector||(_cat&&_cat.sector)||'', color:(_cat&&_cat.color)||'#1e3a5f',
+    ...((_cat&&_cat.domain)?{domain:_cat.domain}:{}),...((_cat&&_cat.tv)?{tvSymbol:_cat.tv}:{}),
     shares:last(sharesArr)||1, price:(_priceCache[e.id]&&_priceCache[e.id].live)||0,
     driveUrl:'', desc:(e.name||e.id)+' — datos automáticos (Finnhub/SEC). Refina importando tu hoja TIKR.',
     importDate:Date.now(), autoSource:'finnhub', yearsAvailable:n,
@@ -4726,7 +4736,7 @@ const CATALOG={
   WDC:{name:'Western Digital',domain:'westerndigital.com',color:'#005594',sector:'Almacenamiento (HDD)'},
   AVGO:{name:'Broadcom',domain:'broadcom.com',color:'#cc092f',sector:'Semiconductores / Software'},
   AMD:{name:'Advanced Micro Devices',domain:'amd.com',color:'#ed1c24',sector:'Semiconductores'},
-  TSM:{name:'TSMC',domain:'tsmc.com',color:'#d4002a',sector:'Semiconductores (foundry)'},
+  TSM:{name:'TSMC',domain:'tsmc.com',color:'#d4002a',sector:'Semiconductores (foundry)',tv:'NYSE:TSM'},
   INTC:{name:'Intel',domain:'intel.com',color:'#0071c5',sector:'Semiconductores'},
   QCOM:{name:'Qualcomm',domain:'qualcomm.com',color:'#3253dc',sector:'Semiconductores / Móvil'},
   TXN:{name:'Texas Instruments',domain:'ti.com',color:'#cc0000',sector:'Semiconductores (analógico)'},
@@ -4755,7 +4765,20 @@ const CATALOG={
   PANW:{name:'Palo Alto Networks',domain:'paloaltonetworks.com',color:'#f04e23',sector:'Ciberseguridad'},
 };
 const LOGO_DOMAINS={CSU:'csisoftware.com',ASML:'asml.com',AMZN:'amazon.com',MSFT:'microsoft.com',AAPL:'apple.com',GOOGL:'google.com',META:'meta.com',NVDA:'nvidia.com',WDC:'westerndigital.com',AMD:'amd.com',NFLX:'netflix.com',STX:'seagate.com',V:'visa.com'};
-function _domainFor(key){return LOGO_DOMAINS[key]||(CATALOG[key]&&CATALOG[key].domain)||(getImportedData(key)?.domain);}
+// Variantes de ticker que apuntan a la misma empresa del catálogo (ADR, bolsa local, etc.)
+const TICKER_ALIASES={TSMC:'TSM','2330':'TSM','TSM.US':'TSM','GOOG':'GOOGL','FB':'META','BRK.B':'BRKB'};
+// Resuelve la entrada del CATÁLOGO tolerando alias y sufijos de bolsa (TSM.US, ASML.AS, 2330.TW…)
+function catalogFor(key){
+  if(!key) return null;
+  const up=String(key).toUpperCase();
+  if(CATALOG[up]) return CATALOG[up];
+  if(TICKER_ALIASES[up]&&CATALOG[TICKER_ALIASES[up]]) return CATALOG[TICKER_ALIASES[up]];
+  const base=up.split('.')[0];                       // quita sufijo de bolsa (.AS, .TO, .TW…)
+  if(CATALOG[base]) return CATALOG[base];
+  if(TICKER_ALIASES[base]&&CATALOG[TICKER_ALIASES[base]]) return CATALOG[TICKER_ALIASES[base]];
+  return null;
+}
+function _domainFor(key){return LOGO_DOMAINS[key]||(CATALOG[key]&&CATALOG[key].domain)||(getImportedData(key)?.domain)||(catalogFor(key)&&catalogFor(key).domain);}
 function logoUrlFor(key){const dom=_domainFor(key);return dom?('https://icons.duckduckgo.com/ip3/'+dom+'.ico'):null;}
 function logoFallback(key){const dom=_domainFor(key);return dom?('https://www.google.com/s2/favicons?sz=64&domain='+dom):'';}
 const LOGOS_DASH=new Proxy({},{get:(_,k)=>typeof k==='string'?logoUrlFor(k):undefined}); // compat: LOGOS_DASH[key] sigue funcionando
@@ -5335,8 +5358,9 @@ function getAllPortfolioCompanies(){
     if(keys.has(ticker)) continue;
     const d=getImportedData(ticker);
     if(!d) continue;
+    const _cat=catalogFor(ticker);
     base.push({key:ticker,name:d.name||ticker,ticker:d.ticker||ticker,
-      fhTicker:d.ticker||ticker,color:d.color||'#1e3a5f',
+      fhTicker:d.ticker||ticker,color:(d.color&&d.color!=='#1e3a5f')?d.color:((_cat&&_cat.color)||d.color||'#1e3a5f'),
       score:null,verdict:null,vc:null,earnings:null,elbl:null,drive:d.driveUrl||null,isNew:true});
     keys.add(ticker);
   }
@@ -6163,9 +6187,14 @@ function buildDbEntryFromImport(r){
   const sg=[]; for(let i=0;i<5;i++){const s=pS[i];sg.push((prev&&s!=null)?+(((s/prev)-1)*100).toFixed(1):10);if(s!=null)prev=s;}
   const ebitM9=last(r.ebitM)??20, ebitdaM9=last(r.ebitdaM)??(ebitM9*1.2);
   const isD={sg,em:Array(5).fill(+(+ebitM9).toFixed(1)),tr:Array(5).fill(21),di:Array(5).fill(0),cx:Array(5).fill(3),wc:Array(5).fill(0)};
+  // Enriquecer con el catálogo (color corporativo, dominio del logo, símbolo TradingView) por ticker/alias
+  const _cat=catalogFor(r.ticker);
+  const _color=(r.color&&r.color!=='#1e3a5f')?r.color:((_cat&&_cat.color)||r.color||'#1e3a5f');
+  const _tv=r.tvSymbol||(_cat&&_cat.tv)||null;
   return {
-    name:r.name||r.ticker,ticker:r.ticker,finnhubTicker:r.ticker,sector:r.sector||'',
-    shares:r.shares||1,price:r.price||0,equity:0,color:r.color||'#1e3a5f',
+    name:r.name||r.ticker,ticker:r.ticker,finnhubTicker:r.ticker,sector:r.sector||(_cat&&_cat.sector)||'',
+    ...(( _cat&&_cat.domain)?{domain:_cat.domain}:{}),...( _tv?{tvSymbol:_tv}:{}),
+    shares:r.shares||1,price:r.price||0,equity:0,color:_color,
     wacc:10,sectorAvgEbitdaM:Math.round(ebitdaM9)||25,sectorAvgFcfM:Math.round(last(r.fcfM)||20),sectorAvgROIC:Math.round(last(r.roic)||15),
     earningsDate:'',earningsLabel:'Resultados',driveUrl:r.driveUrl||'',
     desc:r.desc||((r.name||r.ticker)+' — empresa importada desde tu Plantilla de Valoración.'),
