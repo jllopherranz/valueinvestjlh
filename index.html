@@ -2895,6 +2895,7 @@ function rResumen(){
     if(_f&&_f.exchange&&co.ticker) return `${_f.exchange}:${co.ticker}`;
     return (co.ticker||_ck).split('.')[0];            // ticker limpio (sin sufijo de bolsa) para que TradingView lo resuelva
   })();
+  const tvLink=(()=>{const _ck=Object.keys(DB).find(k=>DB[k]===co)||'';return tvLinkFor(_ck,co.ticker);})();
   const _b=0.82;
   const medEvFcf=co.med5EvFcf||co.medEvFcf;
   const medEvFcf10=co.medEvFcf;
@@ -3346,7 +3347,8 @@ function rResumen(){
     <!-- ══ BLOQUE 6: GRÁFICO COTIZACIÓN ══ -->
     <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
       <div style="padding:7px 14px;background:${_dm()?'#161b27':'#f9f8f6'};border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">📈 ${co.name} · Semanal · TradingView</span>
+        <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">📈 ${co.name} · Semanal · TradingView${tvLink?` · <span style="text-transform:none;color:var(--muted);font-weight:600;">ADR ${tvSymbol} (USD)</span>`:''}</span>
+        ${tvLink?`<a href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvLink)}" target="_blank" rel="noopener" style="font-size:9px;font-weight:700;color:#2563eb;text-decoration:none;border:1px solid #2563eb55;border-radius:9px;padding:2px 8px;white-space:nowrap;">Ver ${tvLink} (bolsa local) ↗</a>`:''}
       </div>
       <div class="tv-wrap"><iframe
         src="https://s.tradingview.com/widgetembed/?symbol=${tvSymbol}&interval=W&theme=light&style=1&locale=es&toolbarbg=F1F3F6&hideideas=1&range=24M&hidetoptoolbar=0&hidesidetoolbar=1&saveimage=0&studies=%5B%5D&hide_legend=0"
@@ -4769,13 +4771,19 @@ const CATALOG={
 const LOGO_DOMAINS={CSU:'csisoftware.com',ASML:'asml.com',AMZN:'amazon.com',MSFT:'microsoft.com',AAPL:'apple.com',GOOGL:'google.com',META:'meta.com',NVDA:'nvidia.com',WDC:'westerndigital.com',AMD:'amd.com',NFLX:'netflix.com',STX:'seagate.com',V:'visa.com'};
 // Variantes de ticker que apuntan a la misma empresa del catálogo (ADR, bolsa local, etc.)
 const TICKER_ALIASES={TSMC:'TSM','2330':'TSM','2330.TW':'TSM','TSM.US':'TSM','GOOG':'GOOGL','FB':'META','BRK.B':'BRKB'};
-// Símbolo TradingView para cotizaciones en bolsa LOCAL (moneda local) — prevalece sobre el ADR del catálogo
-const TV_LOCAL={'2330':'TWSE:2330','2330.TW':'TWSE:2330'};
+// Símbolo que SÍ carga en el widget gratuito. Bolsas como Taiwán (TWSE) no están disponibles
+// en el embed → se usa el ADR de EE.UU. (misma empresa/tendencia, en USD).
+const TV_EMBED={'2330':'NYSE:TSM','2330.TW':'NYSE:TSM'};
+// Símbolo de la bolsa LOCAL (moneda local) para el enlace "Ver en TradingView" (web completa)
+const TV_LINK={'2330':'TWSE:2330','2330.TW':'TWSE:2330'};
 function tvSymbolFor(key,ticker){
-  const cand=[key,ticker];
-  for(const c of cand){ if(c&&TV_LOCAL[String(c).toUpperCase()]) return TV_LOCAL[String(c).toUpperCase()]; }
+  for(const c of [key,ticker]){ if(c&&TV_EMBED[String(c).toUpperCase()]) return TV_EMBED[String(c).toUpperCase()]; }
   const cat=catalogFor(key)||catalogFor(ticker);
   return (cat&&cat.tv)||null;
+}
+function tvLinkFor(key,ticker){
+  for(const c of [key,ticker]){ if(c&&TV_LINK[String(c).toUpperCase()]) return TV_LINK[String(c).toUpperCase()]; }
+  return null;
 }
 // Resuelve la entrada del CATÁLOGO tolerando alias y sufijos de bolsa (TSM.US, ASML.AS, 2330.TW…)
 function catalogFor(key){
