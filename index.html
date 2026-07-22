@@ -2694,18 +2694,26 @@ function getPositionFor(key){try{const r=localStorage.getItem('pos_'+key);return
 // ══ COPIA DE SEGURIDAD / PASAR A OTRO DISPOSITIVO ══
 // Los datos (empresas importadas, precios de compra, ajustes) viven en localStorage → son locales
 // de este navegador. Esto permite exportar un código y restaurarlo en el móvil.
-const _BACKUP_PREFIXES=['vi_import_','pos_','vi_drive_','vi_mults_','vi_autoval_'];
-const _BACKUP_KEYS=['vi_watchlist','vi_hidden','finnhub_api_key','fmp_api_key','vi_euribor'];
+const _BACKUP_PREFIXES=['vi_import_','pos_','vi_drive_','vi_mults_'];
+const _BACKUP_KEYS=['vi_watchlist','vi_hidden','finnhub_api_key','fmp_api_key'];
 function _collectBackup(){
   const out={};
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i); if(!k) continue;
+    // Las 9 empresas de fábrica ya existen en cualquier dispositivo → no las metemos (achica el código).
+    // Sus datos de tu Excel se recuperan en el móvil con «Sincronizar con hojas» (los enlaces Drive sí van en la copia).
+    if(k.startsWith('vi_import_')&&BUILTIN_KEYS.has(k.slice('vi_import_'.length))) continue;
     if(_BACKUP_KEYS.includes(k)||_BACKUP_PREFIXES.some(p=>k.startsWith(p))) out[k]=localStorage.getItem(k);
   }
   return out;
 }
-function _encodeBackup(o){return 'VIJLH1:'+btoa(unescape(encodeURIComponent(JSON.stringify(o))));}
-function _decodeBackup(s){s=String(s||'').trim();if(s.startsWith('VIJLH1:'))s=s.slice(7);return JSON.parse(decodeURIComponent(escape(atob(s))));}
+function _encodeBackup(o){return 'VIJLH1:'+btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_');}
+function _decodeBackup(s){
+  s=String(s||'').replace(/=\r?\n/g,'').replace(/\s+/g,'');   // quita saltos/espacios y soft-breaks del email
+  const i=s.indexOf('VIJLH1:'); if(i>=0) s=s.slice(i+7);
+  s=s.replace(/-/g,'+').replace(/_/g,'/');                     // base64 url-safe → estándar
+  return JSON.parse(decodeURIComponent(escape(atob(s))));
+}
 function _backupCounts(o){
   const co=Object.keys(o).filter(k=>k.startsWith('vi_import_')).length;
   const pos=Object.keys(o).filter(k=>k.startsWith('pos_')).length;
@@ -2726,6 +2734,12 @@ function copyBackupCode(){
   (navigator.clipboard?navigator.clipboard.writeText(ta.value):Promise.reject())
     .then(()=>{const b=document.getElementById('backup-copy-btn');if(b){b.textContent='✅ Copiado';setTimeout(()=>b.textContent='📋 Copiar código',1800);}})
     .catch(()=>{try{document.execCommand('copy');}catch(e){}});
+}
+function restoreFromFile(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ applyBackup(String(r.result||'')); };
+  r.readAsText(f);
 }
 function downloadBackup(){
   const code=_encodeBackup(_collectBackup());
@@ -2757,7 +2771,11 @@ function openBackupModal(){
       </div>
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--green);margin-bottom:6px;">2 · Restaurar en este dispositivo</div>
       <textarea id="backup-import-ta" placeholder="Pega aquí el código que copiaste en el otro dispositivo (empieza por VIJLH1:)" style="width:100%;height:70px;font-size:10px;font-family:monospace;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);resize:vertical;outline:none;"></textarea>
-      <button onclick="applyBackup(document.getElementById('backup-import-ta').value)" style="width:100%;margin-top:8px;padding:10px;border:none;background:#16a34a;color:#fff;border-radius:8px;cursor:pointer;font-weight:700;">♻️ Restaurar copia</button>
+      <button onclick="applyBackup(document.getElementById('backup-import-ta').value)" style="width:100%;margin-top:8px;padding:10px;border:none;background:#16a34a;color:#fff;border-radius:8px;cursor:pointer;font-weight:700;">♻️ Restaurar del código pegado</button>
+      <div style="text-align:center;font-size:10px;color:var(--muted);margin:8px 0;">— o, si te lo enviaste como archivo —</div>
+      <label style="display:block;text-align:center;padding:9px;border:1.5px dashed var(--border);border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;color:#2563eb;">📄 Restaurar desde archivo .txt
+        <input type="file" accept=".txt,text/plain" onchange="restoreFromFile(this)" style="display:none;"/>
+      </label>
     </div>
   </div>`;
   m.style.display='flex';
