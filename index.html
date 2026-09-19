@@ -6625,21 +6625,40 @@ function newsSim(a,b){
   if(m<5) return ov>=0.8?ov:0;   // textos muy cortos: exige coincidencia casi total para no unir por azar
   return ov;
 }
+// Traduce un único titular (fallback cuando falla el lote)
+async function _translateOne(text){
+  try{
+    const url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q='+encodeURIComponent(text);
+    const r=await fetch(url,{signal:AbortSignal.timeout(9000)});
+    if(!r.ok) return null;
+    const j=await r.json();
+    const t=j[0].map(x=>x[0]).join('').trim();
+    return t||null;
+  }catch(e){return null;}
+}
 // Traduce titulares al español (Google gtx, por lotes, con caché en localStorage)
 async function _translateNews(heads){
   let cache={}; try{cache=JSON.parse(localStorage.getItem('vi_news_es')||'{}');}catch(e){}
   const need=[...new Set(heads.filter(h=>h&&!cache[h]))];
   for(let i=0;i<need.length;i+=8){
     const chunk=need.slice(i,i+8);
+    let parts=null;
     try{
       const url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q='+encodeURIComponent(chunk.join('\n'));
       const r=await fetch(url,{signal:AbortSignal.timeout(9000)});
       if(r.ok){
         const j=await r.json();
-        const parts=j[0].map(x=>x[0]).join('').split('\n').map(x=>x.trim()).filter(x=>x.length);
-        if(parts.length===chunk.length) chunk.forEach((t,n)=>cache[t]=parts[n]);
+        const p=j[0].map(x=>x[0]).join('').split('\n').map(x=>x.trim()).filter(x=>x.length);
+        if(p.length===chunk.length) parts=p;
       }
     }catch(e){}
+    if(parts){
+      chunk.forEach((t,n)=>cache[t]=parts[n]);
+    }else{
+      // El lote falló (desajuste de líneas al traducir, red o timeout) → uno a uno, para no dejar titulares sin traducir
+      const singles=await Promise.allSettled(chunk.map(t=>_translateOne(t)));
+      chunk.forEach((t,n)=>{ const v=singles[n].status==='fulfilled'?singles[n].value:null; if(v) cache[t]=v; });
+    }
   }
   try{localStorage.setItem('vi_news_es',JSON.stringify(cache));}catch(e){}
   const map={}; heads.forEach(h=>map[h]=cache[h]||h);
