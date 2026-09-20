@@ -473,16 +473,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .perfil-dato{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:7px 10px;}
 .perfil-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
 .perfil-val{font-size:14px;font-weight:700;color:var(--text);margin-top:2px;}
-.cart-cur{font-size:8px;font-weight:700;padding:1px 5px;border-radius:5px;background:var(--surface2);color:var(--sub);border:1px solid var(--border);cursor:pointer;white-space:nowrap;}
-.cart-cur:hover{border-color:var(--blue);color:var(--blue);}
-.cart-cur.guess{border-style:dashed;}
 /* Aviso: el precio y los objetivos no están en la misma moneda/escala */
 .cart-escala{font-size:8px;font-weight:700;padding:1px 5px;border-radius:5px;margin-left:4px;white-space:nowrap;cursor:pointer;
   background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);border:1px solid color-mix(in srgb,var(--red) 40%,transparent);}
-.cart-src{font-size:7.5px;font-weight:700;padding:1px 5px;border-radius:5px;margin-left:4px;white-space:nowrap;}
-.cart-src.ok{background:color-mix(in srgb,var(--green) 12%,transparent);color:var(--green);}
-.cart-src.est{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber);}
-.cart-src.app{background:var(--surface2);color:var(--muted);}
 /* Chips de filtro */
 /* Informe de sincronización con las hojas */
 .sync-head{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text);margin-bottom:4px;}
@@ -532,7 +525,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .today-v{font-size:11px;font-weight:700;}
 .today-empty{font-size:10px;color:var(--muted);padding:5px 0;}
 .cartera-co-name{font-size:11.5px;font-weight:700;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;}
-.cartera-ticker{font-size:9.5px;color:var(--muted);font-weight:600;margin-top:0;line-height:1.3;}
+.cartera-ticker{font-size:9.5px;color:var(--muted);font-weight:600;margin-top:0;line-height:1.3;white-space:nowrap;}
 .cartera-sector{font-size:10px;color:var(--sub);}
 .cartera-price{font-size:13px;font-weight:600;color:var(--blue);}
 .cartera-vi{font-size:14px;font-weight:600;}
@@ -632,7 +625,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   .cartera-logo,.cartera-logo-fallback{width:18px !important;height:18px !important;border-radius:5px;font-size:8px;}
   .cartera-co-name{max-width:66px;font-size:10.5px;}
   .cartera-ticker{font-size:8px;}
-  .cart-cur,.cart-src,.cart-escala{font-size:6.5px !important;padding:0 3px !important;margin-left:2px !important;}
+  .cart-escala{font-size:6.5px !important;padding:0 3px !important;margin-left:2px !important;}
   .c-sub{font-size:8.5px !important;}
   .c-sub2{font-size:7.5px !important;margin-left:3px !important;}
   .cartera-price{font-size:11.5px;}
@@ -865,7 +858,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
           <th></th>
           <th style="text-align:left;" data-sort="name" onclick="sortCartera('name')">Empresa <span class="sort-ind"></span></th>
           <th style="text-align:right;" data-sort="price" onclick="sortCartera('price')">Precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','precio',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
-          <th style="text-align:right;" data-sort="retPct" onclick="sortCartera('retPct')">Mi coste <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','coste',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">rdto. · peso</span></th>
+          <th style="text-align:right;" data-sort="retPct" onclick="sortCartera('retPct')">Mi coste <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','coste',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">rdto.</span></th>
           <th style="text-align:right;" data-sort="weeklyPct" onclick="sortCartera('weeklyPct')">Sem. <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','sem',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span></th>
           <th style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));" data-sort="mds" onclick="sortCartera('mds')">Obj. precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
           <th style="text-align:right;" data-sort="mds15" onclick="sortCartera('mds15')">Entrada <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','entrada',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
@@ -7318,7 +7311,7 @@ function renderStyleCompare(){
 const COL_INFO={
   cartera:{
     precio:['💵 Precio','Cotización en vivo (Yahoo Finance) y variación del día. Si no hay conexión, muestra el último precio guardado.'],
-    coste:['📌 Mi coste','Tu <b>precio de compra medio</b> en esta empresa y tu <b>rendimiento</b>: cuánto ganas (+, verde) o pierdes (−, rojo) respecto al precio actual.<br><br>Si además guardas el <b>número de acciones</b>, la tercera línea muestra el valor de la posición y su <b>peso</b> sobre el total de la cartera — sin eso no se puede medir el riesgo de concentración ni sumar los totales.<br><br>Pulsa la celda para introducir o editar tus datos. Se guardan en este navegador y también aparecen en «Mi posición» dentro del análisis de la empresa.'],
+    coste:['📌 Mi coste','Tu <b>precio de compra medio</b> en esta empresa y tu <b>rendimiento</b>: cuánto ganas (+, verde) o pierdes (−, rojo) respecto al precio actual.<br><br>Si además guardas el <b>número de acciones</b>, junto al ticker (bajo el nombre) verás el <b>peso</b> de la posición sobre el total de la cartera — sin eso no se puede medir el riesgo de concentración ni sumar los totales.<br><br>Pulsa la celda para introducir o editar tus datos. Se guardan en este navegador y también aparecen en «Mi posición» dentro del análisis de la empresa.'],
     sem:['📅 Semanal','Variación del precio en la última semana (5 sesiones de mercado).'],
     obj:['🎯 Objetivo de precio','Valor intrínseco HOY: promedio de los 4 múltiplos objetivo (PER, EV/FCF, EV/EBITDA, EV/EBIT) aplicados a los datos del año en curso de tu Excel.<br><br>El % es el <b>Margen de Seguridad (MdS)</b>: cuánto está el precio por debajo (+, verde) o por encima (−, rojo) del valor intrínseco.'],
     entrada:['🟢 Precio de entrada','Precio máximo de compra para lograr un <b>15% anual durante 5 años</b>. Si el precio actual está en o por debajo de esta zona, la fila se resalta: es zona de compra.'],
@@ -7406,8 +7399,8 @@ function showCarteraHelp(){
     ['Veredicto','COMPRAR / MANTENER / EVITAR con su puntuación sobre 100, el mismo que aparece dentro del análisis de la empresa. Pondera retorno esperado 5Y (35), MOAT (30), ROIC (20) y margen de seguridad a un año (15).'],
     ['Escenario prudente','La línea «prud.» de las columnas Obj. precio y Obj. 5Y repite el cálculo con los múltiplos un 20% más bajos. El múltiplo es la parte más frágil de cualquier valoración: si aun contrayéndose el retorno sigue siendo bueno, la tesis es robusta.'],
     ['Calidad del negocio','El botón «⚙ Calidad del negocio» añade cuatro columnas: ROIC medio de 5 años, margen de caja libre, deuda neta ÷ EBITDA y crecimiento de ventas a 5 años. Un inversor value filtra primero por calidad y solo después mira el precio.'],
-    ['Excel / estimado','La etiqueta junto al ticker dice de dónde salen los números: «Excel» (de tu hoja, con aviso si se importó hace más de 6 meses), «estimado» (proyecciones calculadas por la app, NO son tuyas) o «sin Excel» (datos de fábrica).'],
-    ['Divisa','Cada empresa muestra su precio en la divisa de la bolsa de la que se descarga, y esa divisa la declara la propia fuente (no se adivina). Mientras no haya una descarga se deduce del ticker y aparece con un «?» y el borde punteado. Pulsando la divisa puedes cambiar la bolsa de referencia (por ejemplo ASML.AS en Ámsterdam en euros, o ASML en Nasdaq en dólares): el precio y la divisa cambian juntos, para que nunca compares un precio en dólares con unos objetivos calculados en euros. Los totales del resumen se convierten a la divisa base que elijas arriba.'],
+    ['Excel / estimado','El icono 📂 al final de la fila dice si ya importaste tu hoja: 📂✓ (importada, pulsa para reimportar/editar) o 📂 (pendiente, pulsa para importar). Sin importar, las proyecciones son estimadas por la app (o de fábrica) y NO son tuyas — dentro del análisis de la empresa verás el aviso ámbar completo.'],
+    ['Divisa / bolsa','Cada empresa cotiza en la divisa de la bolsa de la que se descarga su precio, y esa divisa la declara la propia fuente (no se adivina). Pulsando el ticker (bajo el nombre) puedes cambiar la bolsa de referencia (por ejemplo ASML.AS en Ámsterdam en euros, o ASML en Nasdaq en dólares): el precio y la divisa cambian juntos, para que nunca compares un precio en dólares con unos objetivos calculados en euros. Los totales del resumen se convierten a la divisa base que elijas arriba.'],
     ['Barra lateral','Semáforo visual del potencial anualizado a 5 años: cuanto más larga y verde, mayor retorno esperado.'],
   ];
   m=document.createElement('div');
@@ -7570,22 +7563,18 @@ function renderCartera(){
     const dCol=m.dailyPct==null?'#9a958e':m.dailyPct>=0?'#16a34a':'#dc2626';
     const wCol=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';
     const driveUrl=m.imp?.driveUrl||co.drive||localStorage.getItem('vi_drive_'+k)||null;
-    // Procedencia del dato: de tu Excel (y cuándo), o estimado por la app
-    const org=m.origen==='excel'
-      ? `<span class="cart-src ok" title="Datos de tu Excel · importado hace ${m.impAge!=null?m.impAge+' días':'—'}">Excel${m.impAge!=null&&m.impAge>180?' ⚠':''}</span>`
-      : m.origen==='estimado'
-        ? `<span class="cart-src est" title="Proyecciones estimadas por la app: NO salen de tu Excel">estimado</span>`
-        : `<span class="cart-src app" title="Datos de fábrica de la app · aún sin importar tu hoja">sin Excel</span>`;
+    // Peso de la posición sobre el total invertido (se pinta junto al ticker, no en «Mi coste»,
+    // para que esa columna no pase de 2 líneas). El origen del dato (Excel/estimado) ya lo
+    // muestra el icono 📂 de la última columna — no hace falta repetirlo aquí.
+    const peso=(m.buyPrice&&m.mktValue!=null&&totalMkt>0)?(m.mktValue/totalMkt*100):null;
+    const pesoBadge=!m.buyPrice?'':(peso!=null
+      ? `<span class="c-sub2" title="${privado()?'Peso':(m.shares+' acciones · valor '+fmtBase(m.mktValue))} de tu cartera">${peso.toFixed(0)}%</span>`
+      : `<span class="c-sub2" style="color:var(--amber);" title="Añade el nº de acciones para ver el peso de la posición">+nº</span>`);
     const posCell=(()=>{
       if(m.buyPrice){
         const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
-        const peso=(m.mktValue!=null&&totalMkt>0)?(m.mktValue/totalMkt*100):null;
-        // En modo privado se ocultan coste, acciones y valor; la rentabilidad y el peso se quedan
         return `<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(fmt(m.buyPrice,k))}</div>`
-          +`<div class="c-sub" style="color:${rc};">${sp(m.retPct)}</div>`
-          +(peso!=null
-             ? `<div class="c-sub2" title="${privado()?'Peso':(m.shares+' acciones · valor '+fmtBase(m.mktValue))} de tu cartera">${peso.toFixed(0)}% cartera</div>`
-             : (m.buyPrice&&!m.shares?`<div class="c-sub2" style="color:var(--amber);" title="Añade el nº de acciones para ver el peso de la posición">+ nº acc</div>`:''));
+          +`<div class="c-sub" style="color:${rc};">${sp(m.retPct)}</div>`;
       }
       return `<span style="font-size:10px;color:#2563eb;font-weight:700;border:1px dashed #2563eb66;border-radius:8px;padding:2px 7px;white-space:nowrap;">+ coste</span>`;
     })();
@@ -7601,12 +7590,10 @@ function renderCartera(){
   </td>
   <td style="cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);" title="Abrir análisis de ${co.name}">
     <div class="cartera-co-name" title="${co.name}">${shortCoName(co.name)}</div>
-    <div class="cartera-ticker">${co.ticker}
-      <span class="cart-cur${m.curDet?'':' guess'}" onclick="event.stopPropagation();promptListing('${k}')"
-            title="Precio y divisa tomados de ${m.yfSym}${m.curDet?' (divisa confirmada por la fuente)':' (divisa deducida del ticker, aún sin confirmar)'} · pulsa para cambiar de bolsa">${m.cur}${m.curDet?'':'?'}</span>
-      ${m.escalaMal?`<span class="cart-escala" onclick="event.stopPropagation();promptListing('${k}')"
-            title="El precio (${m.yfSym}) es ${m.escala>=1?m.escala.toFixed(1)+' veces mayor':(1/m.escala).toFixed(1)+' veces menor'} que tu objetivo de precio. Suele significar que la cotización es de otra bolsa o de un ADR (que equivale a varias acciones), y entonces el margen de seguridad no vale. Pulsa para elegir la cotización correcta.">⚠ escala</span>`:''}
-      ${org}</div>
+    <div class="cartera-ticker" style="cursor:pointer;" onclick="event.stopPropagation();promptListing('${k}')"
+         title="Bolsa: ${m.yfSym}${m.curDet?'':' (divisa deducida del ticker, aún sin confirmar)'} · pulsa para cambiar">${co.ticker}
+      ${m.escalaMal?`<span class="cart-escala" title="El precio (${m.yfSym}) es ${m.escala>=1?m.escala.toFixed(1)+' veces mayor':(1/m.escala).toFixed(1)+' veces menor'} que tu objetivo de precio. Suele significar que la cotización es de otra bolsa o de un ADR (que equivale a varias acciones), y entonces el margen de seguridad no vale. Pulsa para elegir la cotización correcta.">⚠</span>`:''}
+      ${pesoBadge}</div>
   </td>
   <td style="text-align:right;">
     <div class="cartera-price" id="cprice-${k}">${fmt(m.price,k)}</div>
