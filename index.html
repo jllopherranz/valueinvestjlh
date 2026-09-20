@@ -622,8 +622,20 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   .price-lbl .price-live-badge,.price-lbl #hdr-sim-flag{font-size:8px !important;}
   .price-inp{width:66px;font-size:15px;}
   .price-change{font-size:9px;margin-top:0;min-height:0;}
+  /* ── Cartera/Seguimiento en móvil: columnas más estrechas y menos espacio entre ellas,
+     para que quepan más columnas visibles sin tener que hacer scroll horizontal ── */
+  .cartera-tbl th,.cartera-tbl td{padding:4px 5px !important;}
+  .cartera-tbl td:first-child>div{gap:5px !important;}
+  .cartera-logo,.cartera-logo-fallback{width:18px !important;height:18px !important;border-radius:5px;font-size:8px;}
+  .cartera-co-name{max-width:66px;font-size:10.5px;}
+  .cartera-ticker{font-size:8px;}
+  .cart-cur,.cart-src,.cart-escala{font-size:6.5px !important;padding:0 3px !important;margin-left:2px !important;}
+  .c-sub{font-size:8.5px !important;}
+  .c-sub2{font-size:7.5px !important;margin-left:3px !important;}
+  .cartera-price{font-size:11.5px;}
 }
 @media (max-width:480px){
+  .cartera-co-name{max-width:52px;}
   .kpi-grid{grid-template-columns:1fr !important;}
   .target5y-grid{grid-template-columns:repeat(2,1fr) !important;}
 }
