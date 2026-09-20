@@ -1748,6 +1748,63 @@ async function ensureProfiles(){
   for(const c of faltan){ await fetchCompanyProfile(c.key); await new Promise(r=>setTimeout(r,220)); }
   return true;
 }
+// ══════════════════════════════════════════════════════════════════
+// FICHA AMPLIADA AUTOMÁTICA — para empresas SIN ficha manual (FICHA[key])
+// Descripción real (perfil oficial FMP, viene de sus propias cuentas/web)
+// + comparables reales (Finnhub peers). Nunca se inventa nada: si no hay
+// key de FMP/Finnhub o la API no devuelve dato, esa sección simplemente no aparece.
+// ══════════════════════════════════════════════════════════════════
+function companyExtra(key){
+  try{const p=JSON.parse(localStorage.getItem('vi_extra_'+key)||'null');return p||null;}catch(e){return null;}
+}
+function saveCompanyExtra(key,p){try{localStorage.setItem('vi_extra_'+key,JSON.stringify(p));}catch(e){}}
+const _extraInFlight={};
+async function fetchCompanyExtra(key,force){
+  if(!force){const c=companyExtra(key); if(c&&Date.now()-(c.ts||0)<30*864e5) return c;}
+  if(_extraInFlight[key]) return _extraInFlight[key];
+  _extraInFlight[key]=(async()=>{
+    const out={desc:null,descEs:null,ceo:null,employees:null,website:null,peers:null,ts:Date.now()};
+    const d=DB[key]||{}, imp=(typeof getImportedData==='function')?getImportedData(key):null;
+    const tkr=(imp&&imp.ticker)||d.ticker||key;
+    // Comparables reales del sector (Finnhub, mismo key gratis que el perfil público)
+    const fk=(typeof getFinnhubKey==='function')?getFinnhubKey():'';
+    if(fk){
+      try{
+        const fhSym=(typeof fhInfoSymbolFor==='function')?fhInfoSymbolFor(key):tkr;
+        const r=await fetch('https://finnhub.io/api/v1/stock/peers?symbol='+encodeURIComponent(fhSym)+'&token='+fk,{signal:AbortSignal.timeout(9000)});
+        if(r.ok){const j=await r.json(); if(Array.isArray(j)) out.peers=j.filter(t=>t&&String(t).toUpperCase()!==String(fhSym).toUpperCase()).slice(0,6);}
+      }catch(e){}
+    }
+    // Descripción del negocio: perfil oficial (FMP la saca de sus propios informes/web)
+    const fmpKey=(typeof getFMPKey==='function')?getFMPKey():'';
+    if(fmpKey){
+      try{
+        const r=await fetch('https://financialmodelingprep.com/stable/profile?symbol='+encodeURIComponent(tkr)+'&apikey='+fmpKey,{signal:AbortSignal.timeout(9000)});
+        if(r.ok){
+          const j=await r.json();
+          const p=Array.isArray(j)?j[0]:j;
+          if(p&&p.description){
+            out.desc=p.description;
+            out.ceo=p.ceo||null;
+            out.employees=p.fullTimeEmployees||null;
+            out.website=p.website||null;
+          }
+        }
+      }catch(e){}
+    }
+    // Traducción al español (misma vía gtx que las noticias)
+    if(out.desc){
+      try{
+        const url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q='+encodeURIComponent(out.desc.slice(0,1800));
+        const r=await fetch(url,{signal:AbortSignal.timeout(9000)});
+        if(r.ok){const j=await r.json(); out.descEs=j[0].map(x=>x[0]).join('');}
+      }catch(e){}
+    }
+    saveCompanyExtra(key,out);
+    return out;
+  })();
+  try{return await _extraInFlight[key];}finally{delete _extraInFlight[key];}
+}
 // Dominio del logo: lo que hayas puesto a mano > ficha de Finnhub > catálogo interno
 function domainOverride(key){try{return localStorage.getItem('vi_domain_'+key)||null;}catch(e){return null;}}
 function setDomainFor(key,dom){
@@ -2313,6 +2370,13 @@ function switchCo(k){
     });
   }
   if(isEstimatedCo(co)) _preferFMPIfAvailable(k);   // empresa sin Excel: preferir consenso FMP si existe
+  // Empresa sin ficha manual: trae descripción oficial + comparables reales para la ficha automática
+  if(!FICHA[k]&&!companyExtra(k)){
+    fetchCompanyExtra(k).then(ex=>{
+      if(!ex||coKeyOf(co)!==k) return;
+      if(curTab==='resumen') showTab('resumen');
+    });
+  }
   const _dd=document.getElementById('co-dropdown'); if(_dd) _dd.style.display='none'; // cerrar desplegable al elegir empresa
 }
 
@@ -4043,6 +4107,11 @@ function rPerfilAuto(key,prof){
   if(deuda!=null) frases.push(deuda<0?'y opera con <b>caja neta</b> (más dinero que deuda)'
     :`y arrastra una deuda de <b>${deuda.toFixed(1)}x EBITDA</b>`+(deuda<1?', muy contenida':deuda<3?', manejable':', elevada'));
 
+  // Descripción real del negocio (perfil oficial, vía FMP) + comparables reales (Finnhub) — nunca inventado
+  const extra=companyExtra(key);
+  const tieneFMP=!!(typeof getFMPKey==='function'&&getFMPKey());
+  const descTxt=extra&&(extra.descEs||extra.desc);
+
   return `
   <div class="card" style="margin-bottom:10px;">
     <div class="ctitle" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
@@ -4054,6 +4123,10 @@ function rPerfilAuto(key,prof){
       </span>
     </div>
     ${meta.length?`<div style="font-size:10.5px;color:var(--muted);font-weight:600;margin-bottom:8px;">${meta.join(' · ')}${prof&&prof.web?` · <a href="${prof.web}" target="_blank" rel="noopener" style="color:var(--blue);font-weight:700;text-decoration:none;">${_hostOf(prof.web)||'web'} ↗</a>`:''}</div>`:''}
+    ${descTxt?`
+    <div class="ficha-desc-card" style="margin-bottom:4px;">${descTxt}</div>
+    <div style="font-size:8.5px;color:var(--muted);margin-bottom:10px;">Fuente: perfil oficial de la empresa (Financial Modeling Prep)${extra.website?` · <a href="${/^https?:\/\//.test(extra.website)?extra.website:'https://'+extra.website}" target="_blank" rel="noopener" style="color:var(--blue);font-weight:700;text-decoration:none;">${_hostOf(extra.website)||'web'} ↗</a>`:''}${extra.employees?` · ${N(extra.employees)} empleados`:''}</div>`
+    :(tieneFMP?'':`<div style="font-size:10px;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:8px;">Sin descripción oficial todavía — <a onclick="promptFMPKey()" style="color:var(--blue);font-weight:700;cursor:pointer;">añade tu key gratis de FMP</a> para traerla de su perfil público.</div>`)}
     ${frases.length?`<div class="ficha-desc-card" style="margin-bottom:10px;">${frases.join(', ')}.</div>`:''}
     <div class="perfil-grid">
       ${dato('Ventas último año',ventas!=null?cs+N(Math.round(ventas))+'M':'—','Ventas del último ejercicio disponible')}
@@ -4063,16 +4136,21 @@ function rPerfilAuto(key,prof){
       ${dato('Deuda neta / EBITDA',deuda!=null?deuda.toFixed(1)+'x':'—','Negativo = caja neta')}
       ${dato('Divisa',curOf(key),'Divisa en la que cotiza y en la que están sus cuentas')}
     </div>
+    ${extra&&extra.peers&&extra.peers.length?`
+    <div style="margin-top:10px;">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px;">Rivales / comparables del sector (fuente: Finnhub)</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${extra.peers.map(p=>`<span style="background:var(--surface2);border:1px solid var(--border);padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${p}</span>`).join('')}</div>
+    </div>`:''}
     <div style="margin-top:9px;font-size:10px;color:var(--muted);line-height:1.55;">
-      Esta ficha se genera con los datos públicos de la empresa y con sus propias cuentas —
-      <b>no es un análisis cualitativo</b>. El foso competitivo, los segmentos de negocio y la tesis
-      los escribes tú: por ahora solo las nueve empresas de fábrica los tienen redactados.
+      Esta ficha se genera con los datos públicos de la empresa, su perfil oficial y sus propias cuentas —
+      <b>no es un análisis cualitativo completo</b>. El foso competitivo, los catalizadores y la tesis
+      los escribes tú: por ahora solo las nueve empresas de fábrica los tienen redactados a mano.
     </div>
   </div>`;
 }
 // Vuelve a pedir la ficha pública (por si el logo o el sector salieron mal)
 async function refrescarPerfil(key){
-  await fetchCompanyProfile(key,true);
+  await Promise.all([fetchCompanyProfile(key,true),fetchCompanyExtra(key,true)]);
   if(typeof showTab==='function'&&curTab) showTab(curTab);
   if(typeof renderCartera==='function') renderCartera();
 }
@@ -4350,6 +4428,7 @@ function rResumen(){
      sub:()=>P(cagr(co.sales[9],co.sales[0],9))+' CAGR 10Y',
      c:'#2563eb',
      hist:()=>co.sales.slice(5),
+     full:()=>co.sales,unit:'',
      hist_fmt:v=>''+curSymG()+N(Math.round(v/1000))+'B',
      est:()=>co.pS.slice(0,3),
      detail:()=>`Ventas ${_y9()}: ${curSymG()}${N(co.sales[9])}M. CAGR 10Y ${P(cagr(co.sales[9],co.sales[0],9))}. Último año: ${P(pct(co.sales[9],co.sales[8]))}. Estimaciones: ${co.pS.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
@@ -4360,6 +4439,7 @@ function rResumen(){
      sub:()=>P(cagr(co.fcf[9],co.fcf[0],9))+' CAGR 10Y',
      c:'#16a34a',
      hist:()=>co.fcf.slice(5),
+     full:()=>co.fcf,unit:'',
      hist_fmt:v=>v<0?'−'+curSymG()+N(Math.round(Math.abs(v)/1000))+'B':''+curSymG()+N(Math.round(v/1000))+'B',
      est:()=>co.pF.slice(0,3),
      detail:()=>`FCF ${_y9()}: ${curSymG()}${N(co.fcf[9])}M. Margen FCF ${P(co.fcfM[9])} (sector ~${P(sectorRefFor(co).fcfMg)}). FCF/acción ${curSymG()}${N(co.fcfps[9],2)}. Est: ${co.pF.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
@@ -4370,6 +4450,7 @@ function rResumen(){
      sub:()=>'Sector ~'+P(sectorRefFor(co).ebitdaMg),
      c:'#b45309',
      hist:()=>co.ebitda.slice(5),
+     full:()=>co.ebitda,unit:'',
      hist_fmt:v=>''+curSymG()+N(Math.round(v/1000))+'B',
      est:()=>co.pEB.slice(0,3),
      detail:()=>`EBITDA ${_y9()}: ${curSymG()}${N(co.ebitda[9])}M. Margen EBITDA ${P(co.ebitdaM[9])} vs sector ~${P(sectorRefFor(co).ebitdaMg)}. Est: ${co.pEB.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
@@ -4380,6 +4461,7 @@ function rResumen(){
      sub:()=>'CAGR 10Y '+P(cagr(co.eps[9],co.eps[0],9)),
      c:'#7c3aed',
      hist:()=>co.eps.slice(5),
+     full:()=>co.eps,unit:'$',
      hist_fmt:v=>''+curSymG()+N(v,2),
      est:()=>co.pEPS.slice(0,3),
      detail:()=>`EPS ${_y9()}: ${curSymG()}${N(co.eps[9],2)}. Crecimiento YoY ${P(pct(co.eps[9],co.eps[8]))}. CAGR 10Y ${P(cagr(co.eps[9],co.eps[0],9))}. Est: ${co.pEPS.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(v,2)}`).join(' · ')}.`},
@@ -4390,6 +4472,7 @@ function rResumen(){
      sub:()=>vd.roicMomentum,
      c:co.roic[9]>=co.wacc+10?'#16a34a':co.roic[9]>=co.wacc?'#d97706':'#dc2626',
      hist:()=>co.roic.slice(5),
+     full:()=>co.roic,unit:'%',
      hist_fmt:v=>v+'%',
      est:null,
      detail:()=>`ROIC ${P(co.roic[9])} vs WACC ${co.wacc}%. Spread ${(co.roic[9]-co.wacc)>=0?'+':''}${(co.roic[9]-co.wacc).toFixed(0)}pp. Trend 5Y: ${vd.roicTrend5>=0?'+':''}${vd.roicTrend5}pp (${vd.roicMomentum}). Historial: ${co.roic.slice(5).map((v,i)=>co.years[5+i]+' '+v+'%').join(' · ')}.`},
@@ -4400,6 +4483,7 @@ function rResumen(){
      sub:()=>'Med 5Y: '+Math.round(medEvFcf)+'x · 10Y: '+Math.round(medEvFcf10)+'x',
      c:'#7c3aed',
      hist:()=>co.hEvF.slice(5),
+     full:()=>co.hEvF,unit:'x',
      hist_fmt:v=>v!=null?v+'x':'—',
      est:null,
      detail:()=>`EV/FCF actual ${evfcfCurrent}x. Mediana 5Y ${Math.round(medEvFcf)}x, 10Y ${Math.round(medEvFcf10)}x. ${evfcfCurrent>medEvFcf?`Prima del ${((evfcfCurrent-medEvFcf)/medEvFcf*100).toFixed(0)}% sobre la media — el mercado exige crecimiento.`:'Descuento del '+Math.abs(((evfcfCurrent-medEvFcf)/medEvFcf*100).toFixed(0))+'% bajo la media — posible oportunidad.'}`},
@@ -4434,6 +4518,8 @@ function rResumen(){
       est:estData?estData.map((v,i)=>co.pY[i]+'E: '+k.hist_fmt(v)):null
     };
     const kJson=JSON.stringify(kData).replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    // Serie completa (10Y) para el gráfico ampliado — clic en el mini-gráfico, no en la tarjeta
+    const fullSeries=(k.full?k.full():histData).map(v=>v==null?'':v).join(',');
 
     return`<div class="kpi2" id="kpi2-${k.key}" style="border-left-color:${k.c};cursor:pointer;"
       onclick="regKpi2('${k.key}',${JSON.stringify(kData).replace(/"/g,"'")});kpiEdu('${k.key}',event)">
@@ -4445,7 +4531,13 @@ function rResumen(){
           <div style="font-size:10px;font-weight:700;color:${pctColor};margin-top:2px;">${pctV>=0?'+':''}${pctV.toFixed(1)}% ${k.pct_lbl}</div>
           <div style="font-size:9px;color:var(--muted);margin-top:1px;">${k.sub()}</div>
         </div>
-        <div style="display:flex;align-items:flex-end;gap:2px;height:48px;min-width:70px;">${sparkBars}</div>
+        <div data-cs="${fullSeries}" data-cl="${k.lbl}" data-color="${k.c}" data-cu="${k.unit||''}"
+          onclick="event.stopPropagation();openMetricChart(this)"
+          title="Ampliar: ver evolución completa y variación % interanual"
+          style="position:relative;display:flex;align-items:flex-end;gap:2px;height:48px;min-width:70px;cursor:zoom-in;">
+          ${sparkBars}
+          <span style="position:absolute;top:-3px;right:-2px;font-size:8px;opacity:.6;">🔍</span>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -5324,29 +5416,73 @@ function refreshDCFSim(){} // placeholder if needed
 // ═══════════════════════════════════════════════════════════════════
 // ALERTAS
 // ═══════════════════════════════════════════════════════════════════
-// ── Gráfico ampliado de una partida (clic en Análisis) para ver la tendencia ──
+// ── Gráfico ampliado de una partida (clic en Análisis o en Métricas clave) ──
+// Muestra el valor histórico y, con el toggle, su variación interanual en %
+// (mismo cálculo que pct() en el resto de la app) para ver la evolución de un vistazo.
 let _metricChartInst=null;
+let _metricChartState=null;   // {series,label,color,unit}
+let _metricChartMode='value'; // 'value' | 'pct'
+function _metricFmt(unit){
+  return unit==='%'?(v=>(Math.round(v*10)/10)+'%')
+    :unit==='$'?(v=>''+curSymG()+N(v,2))
+    :unit==='x'?(v=>(Math.round(v*10)/10)+'x')
+    :(v=>''+curSymG()+N(Math.round(v))+'M');
+}
 function openMetricChart(el){
   const series=(el.dataset.cs||'').split(',').map(v=>v===''?null:+v);
   if(!series.length) return;
   const label=el.dataset.cl||'', color=el.dataset.color||'#2563eb', unit=el.dataset.cu||'';
-  const fmt=unit==='%'?(v=>(Math.round(v*10)/10)+'%'):unit==='$'?(v=>''+curSymG()+N(v,2)):(v=>''+curSymG()+N(Math.round(v))+'M');
-  const labels=co.years.slice(-series.length).map(String);
+  _metricChartState={series,label,color,unit};
+  _metricChartMode='value';
   let modal=document.getElementById('metric-modal');
   if(!modal){
     modal=document.createElement('div'); modal.id='metric-modal';
     modal.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;align-items:center;justify-content:center;padding:16px;';
     modal.addEventListener('click',e=>{if(e.target===modal)closeMetricChart();});
-    modal.innerHTML=`<div style="background:${_dm()?'#161b27':'#fff'};border-radius:14px;padding:18px;max-width:700px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;"><div id="metric-modal-title" style="font-size:14px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};"></div><button onclick="closeMetricChart()" style="border:none;background:${_dm()?'#2a3a52':'#f0ede8'};border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px;flex-shrink:0;">✕</button></div><div style="position:relative;height:320px;"><canvas id="metric-modal-canvas"></canvas></div><div id="metric-modal-note" style="font-size:10px;color:var(--muted);margin-top:8px;"></div></div>`;
+    modal.innerHTML=`<div style="background:${_dm()?'#161b27':'#fff'};border-radius:14px;padding:18px;max-width:700px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap;"><div id="metric-modal-title" style="font-size:14px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};"></div><div style="display:flex;align-items:center;gap:8px;"><div id="metric-modal-toggle" style="display:flex;background:${_dm()?'#0f1420':'#f0ede8'};border-radius:8px;padding:2px;"></div><button onclick="closeMetricChart()" style="border:none;background:${_dm()?'#2a3a52':'#f0ede8'};border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px;flex-shrink:0;">✕</button></div></div><div style="position:relative;height:320px;"><canvas id="metric-modal-canvas"></canvas></div><div id="metric-modal-note" style="font-size:10px;color:var(--muted);margin-top:8px;"></div></div>`;
     document.body.appendChild(modal);
   }
-  document.getElementById('metric-modal-title').textContent=label+' · '+co.name;
-  document.getElementById('metric-modal-note').textContent='Tendencia '+labels[0]+'–'+labels[labels.length-1]+(unit==='%'?' (%)':unit==='$'?' (por acción)':' (millones '+curSymG()+')')+'. Toca fuera o ✕ para cerrar.';
   modal.style.display='flex';
-  if(_metricChartInst){try{_metricChartInst.destroy();}catch(e){}}
-  _metricChartInst=new Chart(document.getElementById('metric-modal-canvas'),{type:'line',data:{labels,datasets:[{label,data:series,borderColor:color,backgroundColor:color+'18',fill:true,tension:.3,pointRadius:4,borderWidth:2.5,pointBackgroundColor:series.map(v=>v!=null&&v<0?'#dc2626':color)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(c.raw!=null?fmt(c.raw):'—')}}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10}}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>fmt(v)}}}}});
+  _renderMetricChart();
 }
-function closeMetricChart(){const m=document.getElementById('metric-modal');if(m)m.style.display='none';if(_metricChartInst){try{_metricChartInst.destroy();}catch(e){}_metricChartInst=null;}}
+function setMetricChartMode(mode){
+  if(!_metricChartState||_metricChartMode===mode) return;
+  _metricChartMode=mode;
+  _renderMetricChart();
+}
+function _renderMetricChart(){
+  if(!_metricChartState) return;
+  const {series,label,color,unit}=_metricChartState;
+  const labels=co.years.slice(-series.length).map(String);
+  const isPct=_metricChartMode==='pct';
+  const fmtVal=_metricFmt(unit);
+  let data=series, fmt=fmtVal, chartLabel=label;
+  if(isPct){
+    data=series.map((v,i)=>i===0?null:(v==null||series[i-1]==null)?null:pct(v,series[i-1]));
+    fmt=v=>(v>=0?'+':'')+v.toFixed(1)+'%';
+    chartLabel=label+' — variación interanual';
+  }
+  document.getElementById('metric-modal-title').textContent=chartLabel+' · '+co.name;
+  document.getElementById('metric-modal-note').textContent=(isPct
+    ? 'Variación interanual (YoY) '+labels[1]+'–'+labels[labels.length-1]+'. Positivo = crece respecto al año anterior.'
+    : 'Tendencia '+labels[0]+'–'+labels[labels.length-1]+(unit==='%'?' (%)':unit==='$'?' (por acción)':unit==='x'?' (múltiplo)':' (millones '+curSymG()+')'))
+    +' Toca fuera o ✕ para cerrar.';
+  const tg=document.getElementById('metric-modal-toggle');
+  if(tg){
+    const btn=(m,l)=>`<button onclick="setMetricChartMode('${m}')" style="border:none;background:${_metricChartMode===m?color:'transparent'};color:${_metricChartMode===m?'#fff':'var(--muted)'};font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;cursor:pointer;">${l}</button>`;
+    tg.innerHTML=btn('value','Valor')+btn('pct','% interanual');
+  }
+  if(_metricChartInst){try{_metricChartInst.destroy();}catch(e){}}
+  _metricChartInst=new Chart(document.getElementById('metric-modal-canvas'),{
+    type:isPct?'bar':'line',
+    data:{labels,datasets:[{label:chartLabel,data,
+      borderColor:color,
+      backgroundColor:isPct?data.map(v=>v==null?(_dm()?'#2a3a52':'#e0ddd8'):v>=0?color:'#dc2626'):color+'18',
+      fill:!isPct,tension:.3,pointRadius:4,borderWidth:2.5,borderRadius:isPct?4:0,
+      pointBackgroundColor:isPct?undefined:series.map(v=>v!=null&&v<0?'#dc2626':color)}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(c.raw!=null?fmt(c.raw):'—')}}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10}}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>fmt(v)}}}}});
+}
+function closeMetricChart(){const m=document.getElementById('metric-modal');if(m)m.style.display='none';if(_metricChartInst){try{_metricChartInst.destroy();}catch(e){}_metricChartInst=null;}_metricChartState=null;}
 
 // ── ANÁLISIS por partidas (IS · FCF · ROIC · Valoración) con semáforo + explicación ──
 function rAnalisis(){
