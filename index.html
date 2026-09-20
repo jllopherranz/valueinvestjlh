@@ -7567,9 +7567,7 @@ function renderCartera(){
     // para que esa columna no pase de 2 líneas). El origen del dato (Excel/estimado) ya lo
     // muestra el icono 📂 de la última columna — no hace falta repetirlo aquí.
     const peso=(m.buyPrice&&m.mktValue!=null&&totalMkt>0)?(m.mktValue/totalMkt*100):null;
-    const pesoBadge=!m.buyPrice?'':(peso!=null
-      ? `<span class="c-sub2" title="${privado()?'Peso':(m.shares+' acciones · valor '+fmtBase(m.mktValue))} de tu cartera">${peso.toFixed(0)}%</span>`
-      : `<span class="c-sub2" style="color:var(--amber);" title="Añade el nº de acciones para ver el peso de la posición">+nº</span>`);
+    const pesoBadge=!m.buyPrice?'':`<span id="cwt-${k}" class="c-sub2"${peso==null?' style="color:var(--amber);"':''} title="${peso!=null?(privado()?'Peso':(m.shares+' acciones · valor '+fmtBase(m.mktValue)))+' de tu cartera':'Añade el nº de acciones para ver el peso de la posición'}">${peso!=null?peso.toFixed(0)+'%':'+nº'}</span>`;
     const posCell=(()=>{
       if(m.buyPrice){
         const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
@@ -8128,15 +8126,27 @@ function updateCarteraRow(key){
   if(p('cobj5-'+key)) p('cobj5-'+key).textContent=fmt(m.obj5);
   if(p('cret-'+key)){p('cret-'+key).textContent=m.cagr5!=null?sp(m.cagr5,0)+'/año':'';p('cret-'+key).style.color=retCol(m.cagr5);}
   if(p('cpeg-'+key)) p('cpeg-'+key).innerHTML=pegBar(m.peg,m.per,m.g);
-  // Mi coste: el rendimiento y el peso dependen del precio, así que también se refrescan
+  // Mi coste: el rendimiento depende del precio, así que también se refresca (el peso
+  // sobre la cartera vive junto al ticker, no aquí — ver rowFor en renderCartera).
   if(p('cpos-'+key)&&m.buyPrice){
     const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
-    const peso=(m.mktValue!=null&&_cartTotal>0)?(m.mktValue/_cartTotal*100):null;
     p('cpos-'+key).innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(fmt(m.buyPrice))}</div>`
-      +`<div class="c-sub" style="color:${rc};">${sp(m.retPct)}</div>`
-      +(peso!=null
-        ? `<div class="c-sub2">${peso.toFixed(0)}% cartera</div>`
-        : (m.buyPrice&&!m.shares?`<div class="c-sub2" style="color:var(--amber);">+ nº acc</div>`:''));
+      +`<div class="c-sub" style="color:${rc};">${sp(m.retPct)}</div>`;
+  }
+  // Peso junto al ticker: depende del total de la cartera, que solo se conoce cuando
+  // todos los precios han llegado — se refresca aquí en vez de en cpos-.
+  if(p('cwt-'+key)&&m.buyPrice){
+    const peso=(m.mktValue!=null&&_cartTotal>0)?(m.mktValue/_cartTotal*100):null;
+    const el=p('cwt-'+key);
+    if(peso!=null){
+      el.textContent=peso.toFixed(0)+'%';
+      el.style.color='';
+      el.title=(privado()?'Peso':(m.shares+' acciones · valor '+fmtBase(m.mktValue)))+' de tu cartera';
+    }else{
+      el.textContent='+nº';
+      el.style.color='var(--amber)';
+      el.title='Añade el nº de acciones para ver el peso de la posición';
+    }
   }
 }
 
