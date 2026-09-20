@@ -539,7 +539,10 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .cartera-pot{font-size:12px;font-weight:600;padding:3px 9px;border-radius:10px;}
 .cartera-pill{font-size:9px;font-weight:700;padding:3px 9px;border-radius:10px;white-space:nowrap;}
 .cartera-logo{width:24px;height:24px;border-radius:7px;object-fit:contain;border:1px solid var(--border);padding:2px;background:var(--surface);flex-shrink:0;}
-.cartera-logo-fallback{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;}
+.cartera-logo-fallback{width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;}
+/* Columna icono: va congelada (sticky) sola, separada del nombre, para que al desplazar
+   horizontalmente la tabla en móvil quepan más columnas de datos visibles. */
+.cartera-icon-cell{text-align:center;padding-left:7px!important;padding-right:3px!important;}
 .cartera-tag{font-size:8px;font-weight:700;padding:2px 6px;border-radius:6px;background:var(--surface2);color:var(--sub);}
 .cartera-import-badge{font-size:8px;font-weight:700;padding:1px 6px;border-radius:6px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;}
 .cartera-import-badge.no-import{background:#fff7ed;color:#d97706;border-color:#fed7aa;}
@@ -625,7 +628,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   /* ── Cartera/Seguimiento en móvil: columnas más estrechas y menos espacio entre ellas,
      para que quepan más columnas visibles sin tener que hacer scroll horizontal ── */
   .cartera-tbl th,.cartera-tbl td{padding:4px 5px !important;}
-  .cartera-tbl td:first-child>div{gap:5px !important;}
+  .cartera-icon-cell{padding-left:5px!important;padding-right:2px!important;}
   .cartera-logo,.cartera-logo-fallback{width:18px !important;height:18px !important;border-radius:5px;font-size:8px;}
   .cartera-co-name{max-width:66px;font-size:10.5px;}
   .cartera-ticker{font-size:8px;}
@@ -859,6 +862,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <table class="cartera-tbl" id="cartera-table">
       <thead>
         <tr>
+          <th></th>
           <th style="text-align:left;" data-sort="name" onclick="sortCartera('name')">Empresa <span class="sort-ind"></span></th>
           <th style="text-align:right;" data-sort="price" onclick="sortCartera('price')">Precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','precio',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
           <th style="text-align:right;" data-sort="retPct" onclick="sortCartera('retPct')">Mi coste <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','coste',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">rdto. · peso</span></th>
@@ -876,7 +880,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
         </tr>
       </thead>
       <tbody id="cartera-tbody">
-        <tr><td colspan="14" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Cargando cartera…</td></tr>
+        <tr><td colspan="15" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Cargando cartera…</td></tr>
       </tbody>
     </table>
   </div>
@@ -935,6 +939,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <table class="cartera-tbl" id="watch-table">
       <thead>
         <tr>
+          <th></th>
           <th style="text-align:left;">Empresa</th>
           <th style="text-align:right;">Precio<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
           <th style="text-align:left;">Sector / tesis</th>
@@ -944,7 +949,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
         </tr>
       </thead>
       <tbody id="watch-tbody">
-        <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Cargando seguimiento…</td></tr>
+        <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Cargando seguimiento…</td></tr>
       </tbody>
     </table>
   </div>
@@ -6127,7 +6132,7 @@ function renderWatchlist(){
   const tb=document.getElementById('watch-tbody');
   if(!tb) return;
   const wl=getWatchlist();
-  if(!wl.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">No sigues ninguna empresa todavía. Pulsa “➕ Añadir empresa a seguir”.</td></tr>';return;}
+  if(!wl.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">No sigues ninguna empresa todavía. Pulsa “➕ Añadir empresa a seguir”.</td></tr>';return;}
   const ranked=wl.map(e=>({e,inDB:!!DB[e.id],pre:watchPre(e)}))
     .sort((a,b)=>((b.pre?b.pre.score:-1)-(a.pre?a.pre.score:-1)));
   tb.innerHTML=ranked.map(({e,inDB,pre})=>{
@@ -6137,15 +6142,13 @@ function renderWatchlist(){
     const verdict=pre?pre.verdict:'—', vcolor=pre?pre.color:'#9a958e', score=pre?pre.score:null;
     const sector=e.sector||(co&&co.sector)||'';
     return `<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">
+      <td class="cartera-icon-cell">
+        ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';"/>`:''}
+        <div class="cartera-logo-fallback" style="background:#1e3a5f;display:${logoUrl?'none':'flex'};">${e.id.substring(0,2)}</div>
+      </td>
       <td>
-        <div style="display:flex;align-items:center;gap:8px;">
-          ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';"/>`:''}
-          <div class="cartera-logo-fallback" style="background:#1e3a5f;display:${logoUrl?'none':'flex'};">${e.id.substring(0,2)}</div>
-          <div>
-            <div class="cartera-co-name">${e.name}${isYoung?` <span class="joven-badge" style="vertical-align:middle;">JOVEN</span>`:''}</div>
-            <div class="cartera-ticker">${e.ticker}</div>
-          </div>
-        </div>
+        <div class="cartera-co-name">${e.name}${isYoung?` <span class="joven-badge" style="vertical-align:middle;">JOVEN</span>`:''}</div>
+        <div class="cartera-ticker">${e.ticker}</div>
       </td>
       <td style="text-align:right;">
         <div class="cartera-price" id="wprice-${e.id}">—</div>
@@ -7461,7 +7464,7 @@ function toggleCarteraGrupo(gid){
 let _cartSort=(()=>{try{return JSON.parse(localStorage.getItem('vi_cart_sort')||'null')||{col:'cagr5',dir:-1};}catch(e){return{col:'cagr5',dir:-1};}})();
 let _cartFilter=(()=>{try{return localStorage.getItem('vi_cart_filter')||'all';}catch(e){return 'all';}})();
 let _cartCalidad=(()=>{try{return localStorage.getItem('vi_cart_calidad')==='1';}catch(e){return false;}})();
-const CART_COLS=14;   // nº de columnas de la tabla (para los colspan)
+const CART_COLS=15;   // nº de columnas de la tabla (para los colspan)
 
 function sortCartera(col){
   if(_cartSort.col===col) _cartSort.dir=-_cartSort.dir;
@@ -7592,20 +7595,18 @@ function renderCartera(){
       return `<td class="col-cal" style="text-align:right;font-size:11.5px;font-weight:700;color:${c};" title="${tip}">${fmtF(v)}</td>`;
     };
     return`<tr id="crow-${k}" class="cart-r cart-r-${gid}"${open?'':' style="display:none;"'}>
+  <td class="cartera-icon-cell" style="cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);" title="Abrir análisis de ${co.name}">
+    ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.onerror=null;if(!this.dataset.fb){this.dataset.fb=1;this.src='${logoFallback(k)}';}else{this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';}"/>`:''}
+    <div class="cartera-logo-fallback" style="background:${co.color};display:none;">${k.substring(0,2)}</div>
+  </td>
   <td style="cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);" title="Abrir análisis de ${co.name}">
-    <div style="display:flex;align-items:center;gap:8px;">
-      ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.onerror=null;if(!this.dataset.fb){this.dataset.fb=1;this.src='${logoFallback(k)}';}else{this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';}"/>`:''}
-      <div class="cartera-logo-fallback" style="background:${co.color};display:none;">${k.substring(0,2)}</div>
-      <div>
-        <div class="cartera-co-name" title="${co.name}">${shortCoName(co.name)}</div>
-        <div class="cartera-ticker">${co.ticker}
-          <span class="cart-cur${m.curDet?'':' guess'}" onclick="event.stopPropagation();promptListing('${k}')"
-                title="Precio y divisa tomados de ${m.yfSym}${m.curDet?' (divisa confirmada por la fuente)':' (divisa deducida del ticker, aún sin confirmar)'} · pulsa para cambiar de bolsa">${m.cur}${m.curDet?'':'?'}</span>
-          ${m.escalaMal?`<span class="cart-escala" onclick="event.stopPropagation();promptListing('${k}')"
-                title="El precio (${m.yfSym}) es ${m.escala>=1?m.escala.toFixed(1)+' veces mayor':(1/m.escala).toFixed(1)+' veces menor'} que tu objetivo de precio. Suele significar que la cotización es de otra bolsa o de un ADR (que equivale a varias acciones), y entonces el margen de seguridad no vale. Pulsa para elegir la cotización correcta.">⚠ escala</span>`:''}
-          ${org}</div>
-      </div>
-    </div>
+    <div class="cartera-co-name" title="${co.name}">${shortCoName(co.name)}</div>
+    <div class="cartera-ticker">${co.ticker}
+      <span class="cart-cur${m.curDet?'':' guess'}" onclick="event.stopPropagation();promptListing('${k}')"
+            title="Precio y divisa tomados de ${m.yfSym}${m.curDet?' (divisa confirmada por la fuente)':' (divisa deducida del ticker, aún sin confirmar)'} · pulsa para cambiar de bolsa">${m.cur}${m.curDet?'':'?'}</span>
+      ${m.escalaMal?`<span class="cart-escala" onclick="event.stopPropagation();promptListing('${k}')"
+            title="El precio (${m.yfSym}) es ${m.escala>=1?m.escala.toFixed(1)+' veces mayor':(1/m.escala).toFixed(1)+' veces menor'} que tu objetivo de precio. Suele significar que la cotización es de otra bolsa o de un ADR (que equivale a varias acciones), y entonces el margen de seguridad no vale. Pulsa para elegir la cotización correcta.">⚠ escala</span>`:''}
+      ${org}</div>
   </td>
   <td style="text-align:right;">
     <div class="cartera-price" id="cprice-${k}">${fmt(m.price,k)}</div>
