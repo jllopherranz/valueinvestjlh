@@ -4839,21 +4839,25 @@ function rGraficos(){
 // ═══════════════════════════════════════════════════════════════════
 // CENTRO DE DATOS — tarjetas con sparkline (histórico de tu Excel) + ratios en vivo (Finnhub)
 // ═══════════════════════════════════════════════════════════════════
-function _sparklineSVG(values,color){
-  const w=100,h=26,pad=2;
-  const vs=values.filter(v=>v!=null);
-  if(vs.length<2) return '';
-  const min=Math.min(...vs),max=Math.max(...vs),range=(max-min)||1;
-  const step=(w-2*pad)/(values.length-1);
-  const pts=values.map((v,i)=>v==null?null:[pad+i*step,h-pad-((v-min)/range)*(h-2*pad)]);
-  const validPts=pts.filter(Boolean).map(p=>p.join(',')).join(' ');
-  const last=[...pts].reverse().find(Boolean);
-  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" style="display:block;">
-    <polyline points="${validPts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    ${last?`<circle cx="${last[0]}" cy="${last[1]}" r="2.2" fill="${color}"/>`:''}
-  </svg>`;
+// Sparkline en BARRAS (mismo estilo que el spark() de la pestaña Análisis) — una barra por año.
+// Por defecto negativo=rojo (pérdida). Con invert:true se invierte (p.ej. deuda neta: negativo=caja neta=bien).
+function _barSpark(values,color,invert){
+  const h=26;
+  const vals=(values||[]).filter(v=>v!=null);
+  if(!vals.length) return '';
+  const mx=Math.max(...vals.map(v=>Math.abs(v)),1e-9);
+  return '<div style="display:flex;align-items:flex-end;gap:2px;height:'+h+'px;">'+values.map(v=>{
+    const bh=v!=null?Math.max(2,Math.round(Math.abs(v)/mx*h)):2;
+    let c=color;
+    if(v==null) c=_dm()?'#2a3a52':'#e0ddd8';
+    else if(invert) c=v<0?color:'#dc2626';
+    else if(v<0) c='#dc2626';
+    return `<div style="flex:1;min-width:3px;height:${bh}px;background:${c};border-radius:1px;" title="${v!=null?v.toFixed(1):'s/d'}"></div>`;
+  }).join('')+'</div>';
 }
-// Tarjeta de una métrica con histórico propio: valor actual + variación vs año anterior + sparkline
+// Tarjeta de una métrica con histórico propio: valor actual + variación vs año anterior + barras.
+// Si opts.cu está definido, la tarjeta es CLICABLE y abre el mismo modal de gráfico ampliado
+// que ya usa la pestaña Análisis (openMetricChart) — mismo patrón, misma interacción.
 function _dataTile(label,values,years,opts){
   opts=opts||{};
   const fmt=opts.fmt||(v=>N(Math.round(v)));
@@ -4865,14 +4869,16 @@ function _dataTile(label,values,years,opts){
     else if(prev!==0){ yoy=(last/prev-1)*100; yoyTxt=(yoy>=0?'+':'')+yoy.toFixed(1)+'%'; }
   }
   const yoyCol=yoy==null?'var(--muted)':yoy>=0?'#16a34a':'#dc2626';
-  return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 10px;">
+  const color=opts.color||'#2563eb';
+  const clk=opts.cu?`data-cs="${values.map(v=>v==null?'':v).join(',')}" data-cu="${opts.cu}" data-cl="${label}" data-color="${color}" onclick="openMetricChart(this)" style="cursor:pointer;`:`style="`;
+  return `<div ${clk}background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 10px;">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;">
       <span style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">${label}</span>
-      ${opts.tip?`<span title="${opts.tip}" style="cursor:help;font-size:9px;color:var(--muted);">ⓘ</span>`:''}
+      ${opts.cu?'<span style="font-size:10px;color:var(--muted);" title="Toca para ampliar">⤢</span>':(opts.tip?`<span title="${opts.tip}" style="cursor:help;font-size:9px;color:var(--muted);">ⓘ</span>`:'')}
     </div>
     <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:2px;">${last!=null?fmt(last):'—'}</div>
     <div style="font-size:9.5px;font-weight:700;color:${yoyCol};margin-top:1px;">${yoyTxt}${hasYoY?' vs '+years[n-2]:''}</div>
-    <div style="margin-top:5px;">${_sparklineSVG(values,opts.color||'#2563eb')}</div>
+    <div style="margin-top:6px;">${_barSpark(values,color,opts.invert)}</div>
   </div>`;
 }
 function rCentroDatos(){
@@ -4881,27 +4887,27 @@ function rCentroDatos(){
   const sec=(title,tiles)=>`<div class="card" style="margin-bottom:10px;"><div class="ctitle">${title}</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">${tiles.join('')}</div></div>`;
   return`
   ${estimatedBanner()}
-  ${sec('Crecimiento (de tu Excel)',[
-    _dataTile('Ventas',co.sales,y,{color:'#2563eb',fmt:v=>curSymG()+N(v)+'M'}),
-    _dataTile('EBITDA',co.ebitda,y,{color:'#b45309',fmt:v=>curSymG()+N(v)+'M'}),
-    _dataTile('EBIT',co.ebit,y,{color:'#d97706',fmt:v=>curSymG()+N(v)+'M'}),
-    _dataTile('Beneficio neto',co.netIncome,y,{color:'#7c3aed',fmt:v=>curSymG()+N(v)+'M'}),
-    _dataTile('FCF',co.fcf,y,{color:'#16a34a',fmt:v=>curSymG()+N(v)+'M'}),
-    _dataTile('BPA',co.eps,y,{color:'#2563eb',fmt:v=>curSymG()+N(v,2)}),
+  ${sec('Crecimiento (de tu Excel · toca una tarjeta para ampliar)',[
+    _dataTile('Ventas',co.sales,y,{color:'#2563eb',cu:'M',fmt:v=>curSymG()+N(v)+'M'}),
+    _dataTile('EBITDA',co.ebitda,y,{color:'#b45309',cu:'M',fmt:v=>curSymG()+N(v)+'M'}),
+    _dataTile('EBIT',co.ebit,y,{color:'#d97706',cu:'M',fmt:v=>curSymG()+N(v)+'M'}),
+    _dataTile('Beneficio neto',co.netIncome,y,{color:'#7c3aed',cu:'M',fmt:v=>curSymG()+N(v)+'M'}),
+    _dataTile('FCF',co.fcf,y,{color:'#16a34a',cu:'M',fmt:v=>curSymG()+N(v)+'M'}),
+    _dataTile('BPA',co.eps,y,{color:'#2563eb',cu:'$',fmt:v=>curSymG()+N(v,2)}),
   ])}
   ${sec('Rentabilidad y márgenes (de tu Excel)',[
-    _dataTile('Margen EBITDA',co.ebitdaM,y,{color:'#b45309',fmt:v=>v.toFixed(1)+'%',pp:true}),
-    _dataTile('Margen EBIT',co.ebitM,y,{color:'#d97706',fmt:v=>v.toFixed(1)+'%',pp:true}),
-    _dataTile('Margen FCF',co.fcfM,y,{color:'#16a34a',fmt:v=>v.toFixed(1)+'%',pp:true}),
-    _dataTile('ROIC',co.roic,y,{color:'#dc2626',fmt:v=>v.toFixed(1)+'%',pp:true,tip:'Retorno sobre capital invertido. Compáralo con el WACC ('+co.wacc+'%): por encima crea valor.'}),
+    _dataTile('Margen EBITDA',co.ebitdaM,y,{color:'#b45309',cu:'%',fmt:v=>v.toFixed(1)+'%',pp:true}),
+    _dataTile('Margen EBIT',co.ebitM,y,{color:'#d97706',cu:'%',fmt:v=>v.toFixed(1)+'%',pp:true}),
+    _dataTile('Margen FCF',co.fcfM,y,{color:'#16a34a',cu:'%',fmt:v=>v.toFixed(1)+'%',pp:true}),
+    _dataTile('ROIC',co.roic,y,{color:'#0891b2',cu:'%',fmt:v=>v.toFixed(1)+'%',pp:true,tip:'Retorno sobre capital invertido. Compáralo con el WACC ('+co.wacc+'%): por encima crea valor.'}),
   ])}
   ${sec('Caja y generación de FCF (de tu Excel)',[
-    _dataTile('FCF',co.fcf,y,{color:'#16a34a',fmt:v=>curSymG()+N(v)+'M'}),
-    _dataTile('FCF por acción',co.fcfps,y,{color:'#16a34a',fmt:v=>curSymG()+N(v,2)}),
+    _dataTile('FCF',co.fcf,y,{color:'#16a34a',cu:'M',fmt:v=>curSymG()+N(v)+'M'}),
+    _dataTile('FCF por acción',co.fcfps,y,{color:'#16a34a',cu:'$',fmt:v=>curSymG()+N(v,2)}),
   ])}
   ${sec('Balance y deuda (de tu Excel)',[
-    _dataTile('Deuda neta',co.netDebt,y,{color:'#dc2626',fmt:v=>curSymG()+N(v)+'M',tip:'Negativo = caja neta (más caja que deuda).'}),
-    _dataTile('Deuda neta / EBITDA',ebDebt,y,{color:'#1e3a5f',fmt:v=>v.toFixed(2)+'x',tip:'Años de EBITDA que harían falta para pagar la deuda neta. Cuanto más bajo —o negativo, caja neta— más cómoda es la deuda.'}),
+    _dataTile('Deuda neta',co.netDebt,y,{color:'#16a34a',invert:true,cu:'M',fmt:v=>curSymG()+N(v)+'M',tip:'Negativo = caja neta (más caja que deuda) → barra verde. Positivo = deuda neta → barra roja.'}),
+    _dataTile('Deuda neta / EBITDA',ebDebt,y,{color:'#16a34a',invert:true,cu:'x',fmt:v=>v.toFixed(2)+'x',tip:'Años de EBITDA que harían falta para pagar la deuda neta. Negativo (caja neta) → barra verde; a más alto en positivo, menos cómoda la deuda.'}),
   ])}
   ${rCentroDatosLiveShell()}
   <div style="font-size:9.5px;color:var(--muted);margin-top:2px;line-height:1.5;">Estas tarjetas usan el histórico ${y[0]}–${y[9]} de tu Excel (o las estimaciones marcadas arriba). Beneficio bruto, margen bruto, margen neto, ROE, ROA, deuda bruta, caja bruta y cobertura de intereses no están en tu hoja de importación — se muestran abajo como snapshot en vivo de Finnhub, claramente marcado, en vez de inventarse un histórico que no tenemos.</div>`;
@@ -5501,7 +5507,7 @@ function openMetricChart(el){
   const series=(el.dataset.cs||'').split(',').map(v=>v===''?null:+v);
   if(!series.length) return;
   const label=el.dataset.cl||'', color=el.dataset.color||'#2563eb', unit=el.dataset.cu||'';
-  const fmt=unit==='%'?(v=>(Math.round(v*10)/10)+'%'):unit==='$'?(v=>''+curSymG()+N(v,2)):(v=>''+curSymG()+N(Math.round(v))+'M');
+  const fmt=unit==='%'?(v=>(Math.round(v*10)/10)+'%'):unit==='$'?(v=>''+curSymG()+N(v,2)):unit==='x'?(v=>(Math.round(v*100)/100)+'x'):(v=>''+curSymG()+N(Math.round(v))+'M');
   const labels=co.years.slice(-series.length).map(String);
   let modal=document.getElementById('metric-modal');
   if(!modal){
@@ -5512,7 +5518,7 @@ function openMetricChart(el){
     document.body.appendChild(modal);
   }
   document.getElementById('metric-modal-title').textContent=label+' · '+co.name;
-  document.getElementById('metric-modal-note').textContent='Tendencia '+labels[0]+'–'+labels[labels.length-1]+(unit==='%'?' (%)':unit==='$'?' (por acción)':' (millones '+curSymG()+')')+'. Toca fuera o ✕ para cerrar.';
+  document.getElementById('metric-modal-note').textContent='Tendencia '+labels[0]+'–'+labels[labels.length-1]+(unit==='%'?' (%)':unit==='$'?' (por acción)':unit==='x'?' (múltiplo)':' (millones '+curSymG()+')')+'. Toca fuera o ✕ para cerrar.';
   modal.style.display='flex';
   if(_metricChartInst){try{_metricChartInst.destroy();}catch(e){}}
   _metricChartInst=new Chart(document.getElementById('metric-modal-canvas'),{type:'line',data:{labels,datasets:[{label,data:series,borderColor:color,backgroundColor:color+'18',fill:true,tension:.3,pointRadius:4,borderWidth:2.5,pointBackgroundColor:series.map(v=>v!=null&&v<0?'#dc2626':color)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(c.raw!=null?fmt(c.raw):'—')}}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10}}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>fmt(v)}}}}});
