@@ -2178,6 +2178,7 @@ function computeMediansFor(c){
   set('PER',      c.hPER);
   set('EvEbitda', c.hEvEbitda);
   set('EvEbit',   c.hEvEbit);
+  set('EvOcf',    c.hEvOcf);   // múltiplo nuevo de la plantilla v2026.3; sin fila histórica, queda sin mediana
 }
 
 // ── MÚLTIPLOS OBJETIVO POR EMPRESA ──
@@ -2186,11 +2187,13 @@ function computeMediansFor(c){
 // (antes tEVF/tPER eran globales fijos 30/35/22/25 → resumen y valoración no cuadraban).
 function baseMultsFor(c){
   const me=(c.medEvEbit||Math.round(c.medEvEbitda*c.ebitdaM[9]/Math.max(c.ebitM[9],1)));
+  const medOcf=c.med5EvOcf||c.medEvOcf; // solo existe si la hoja es plantilla v2026.3 (fila EV/OCF)
   return {
     evf : Math.round((c.med5EvFcf   ||c.medEvFcf   )*0.82),
     per : Math.round((c.med5PER     ||c.medPER     )*0.82),
     eve : Math.round((c.med5EvEbitda||c.medEvEbitda)*0.82),
     evei: Math.round((c.med5EvEbit  ||me           )*0.82),
+    evocf: medOcf!=null?Math.round(medOcf*0.82):null,
   };
 }
 function applyBaseMults(c){const b=baseMultsFor(c||co);tEVF=b.evf;tPER=b.per;tEVE=b.eve;tEVEI=b.evei;}
@@ -2201,12 +2204,12 @@ function applyBaseMults(c){const b=baseMultsFor(c||co);tEVF=b.evf;tPER=b.per;tEV
 function coKeyOf(c){return Object.keys(DB).find(k=>DB[k]===(c||co))||'';}
 function getCompanyMults(key){
   try{const u=JSON.parse(localStorage.getItem('vi_mults_'+key)||'null');
-    if(u&&u.evf>0&&u.per>0) return {per:u.per,evf:u.evf,eveb:u.eveb||u.evf,evei:u.evei||u.evf};}catch(e){}
+    if(u&&u.evf>0&&u.per>0) return {per:u.per,evf:u.evf,eveb:u.eveb||u.evf,evei:u.evei||u.evf,evocf:u.evocf||null};}catch(e){}
   const imp=getImportedData(key), t=imp&&imp.targetMultiples;
-  if(t&&t.evf>0&&t.per>0) return {per:t.per,evf:t.evf,eveb:t.eveb||t.evf,evei:t.evei||t.evf};
+  if(t&&t.evf>0&&t.per>0) return {per:t.per,evf:t.evf,eveb:t.eveb||t.evf,evei:t.evei||t.evf,evocf:t.evocf||null};
   const c=DB[key];
-  if(c){const b=baseMultsFor(c);return {per:b.per,evf:b.evf,eveb:b.eve,evei:b.evei};}
-  return {per:30,evf:28,eveb:22,evei:26};
+  if(c){const b=baseMultsFor(c);return {per:b.per,evf:b.evf,eveb:b.eve,evei:b.evei,evocf:b.evocf};}
+  return {per:30,evf:28,eveb:22,evei:26,evocf:null};
 }
 function saveCompanyMults(key,m){try{localStorage.setItem('vi_mults_'+key,JSON.stringify(m));}catch(e){}}
 // Guarda los múltiplos que el usuario tiene puestos ahora (en la vista Análisis) para esta empresa
@@ -2248,7 +2251,8 @@ function avgTargetsFor(arg){
   if(k===coKeyOf(co) && (_projSource==='auto'||_isEdited)){
     const er=(d&&d.ebitda&&d.ebitda[9]>0)?(d.ebit[9]/d.ebitda[9]):0.85;
     return calcISModel().map(m=>{
-      const vals=[m.eps>0?m.eps*gm.per:null,(m.fcf*gm.evf-m.nd)/m.sh,(m.eb*gm.eveb-m.nd)/m.sh,(m.ebit*gm.evei-m.nd)/m.sh].filter(v=>v!=null&&isFinite(v)&&v>0);
+      const ocf=(m.ocf!=null&&gm.evocf!=null)?(m.ocf*gm.evocf-m.nd)/m.sh:null;
+      const vals=[m.eps>0?m.eps*gm.per:null,(m.fcf*gm.evf-m.nd)/m.sh,(m.eb*gm.eveb-m.nd)/m.sh,(m.ebit*gm.evei-m.nd)/m.sh,ocf].filter(v=>v!=null&&isFinite(v)&&v>0);
       return vals.length?Math.round(vals.reduce((s,v)=>s+v,0)/vals.length):null;
     });
   }
@@ -2258,14 +2262,15 @@ function avgTargetsFor(arg){
     const tp=imp.targetPrices;
     // 1a) usar la fila "Promedio" de TU hoja si existe → idéntico a tu Excel
     if(Array.isArray(tp.avg) && tp.avg.some(v=>v!=null)) return tp.avg.map(v=>v!=null?Math.round(v):null);
-    // 1b) si no, promediar los métodos por año
-    const rows=['per','evf','eveb','evei'].map(m=>tp[m]).filter(a=>Array.isArray(a)&&a.some(v=>v!=null));
+    // 1b) si no, promediar los métodos por año (evocf solo si la hoja es v2026.3 y lo trae)
+    const rows=['per','evf','eveb','evei','evocf'].map(m=>tp[m]).filter(a=>Array.isArray(a)&&a.some(v=>v!=null));
     if(rows.length>=2){
       return [0,1,2,3,4].map(i=>{const vals=rows.map(a=>a[i]).filter(v=>v!=null&&isFinite(v));return vals.length?Math.round(vals.reduce((s,v)=>s+v,0)/vals.length):null;});
     }
   }
-  // 2) Calcular desde proyecciones × tus múltiplos (PER·EV/FCF·EV/EBITDA·EV/EBIT) y promediar
+  // 2) Calcular desde proyecciones × tus múltiplos (PER·EV/FCF·EV/EBITDA·EV/EBIT[·EV/OCF]) y promediar
   const pEB=(imp&&imp.pEB)||d?.pEB, pEPS=(imp&&imp.pEPS)||d?.pEPS, pND=(imp&&imp.pND)||d?.pND, pSh=(imp&&imp.pShares)||d?.pShares;
+  const pOCF=(imp&&imp.pOCF)||d?.pOCF;
   const sh0=(imp&&imp.shares)||d?.shares;
   const ebitRatio=(d&&d.ebitda&&d.ebitda[9]>0)?(d.ebit[9]/d.ebitda[9]):0.85;
   const evf=evfTargetsFor(k);
@@ -2275,7 +2280,8 @@ function avgTargetsFor(arg){
       const per=(pEPS[i]!=null)?pEPS[i]*gm.per:null;
       const eveb=(pEB[i]!=null)?(pEB[i]*gm.eveb-nd)/sh:null;
       const evei=(pEB[i]!=null)?(pEB[i]*ebitRatio*gm.evei-nd)/sh:null;
-      const vals=[per,evf?.[i],eveb,evei].filter(v=>v!=null&&isFinite(v));
+      const ocf=(pOCF&&pOCF[i]!=null&&gm.evocf!=null)?(pOCF[i]*gm.evocf-nd)/sh:null;
+      const vals=[per,evf?.[i],eveb,evei,ocf].filter(v=>v!=null&&isFinite(v));
       return vals.length?Math.round(vals.reduce((s,v)=>s+v,0)/vals.length):null;
     });
   }
@@ -2355,7 +2361,11 @@ function calcMult(){
   const p=co.eps[9]*tPER;
   const e=(co.ebitda[9]*tEVE-nd)/sh;
   const ei=(co.ebit[9]*tEVEI-nd)/sh;
-  return{f,p,e,ei,avg:(f+p+e+ei)/4};
+  // EV/OCF: 5º múltiplo, solo si la empresa viene de la plantilla v2026.3 (trae OCF histórico
+  // y múltiplo objetivo). Si no, ocf queda null y el promedio sigue siendo el de siempre (4 múltiplos).
+  const ocfMult=getCompanyMults(coKeyOf(co)).evocf;
+  const ocf=(ocfMult!=null&&co.cfo&&co.cfo[9]!=null)?((co.cfo[9]*ocfMult-nd)/sh):null;
+  return ocf!=null?{f,p,e,ei,ocf,avg:(f+p+e+ei+ocf)/5}:{f,p,e,ei,avg:(f+p+e+ei)/4};
 }
 
 function calcISModel(){
@@ -2372,7 +2382,8 @@ function calcISModel(){
       const tr=(co.isD&&co.isD.tr&&co.isD.tr[i]!=null)?co.isD.tr[i]/100:0.18;
       // acciones proyectadas: de la hoja si existen; si no, derivadas de EPS y beneficio (nopat/eps)
       const sh=(co.pShares&&co.pShares[i]>0)?co.pShares[i]:(eps>0?(ebit*(1-tr))/eps:co.shares);
-      return {yr:co.pY[i],s,eb,ebit,fcf,eps,sh,nd,em:s>0?ebit/s*100:0,ebm:s>0?eb/s*100:0,fm:s>0?fcf/s*100:0};
+      const ocf=(co.pOCF&&co.pOCF[i]!=null)?co.pOCF[i]:null; // solo si la hoja v2026.3 trae la fila OCF proyectada
+      return {yr:co.pY[i],s,eb,ebit,fcf,eps,sh,nd,ocf,em:s>0?ebit/s*100:0,ebm:s>0?eb/s*100:0,fm:s>0?fcf/s*100:0};
     });
   }
   // ── Modo simulación (porcentajes editables) ──
@@ -2386,9 +2397,10 @@ function calcISModel(){
     const cx=s*isCX[i]/100;
     const dwc=(s-ps)*Math.abs(isWC[i])/100*(isWC[i]<0?1:-1);
     const fcf=nopat+(eb-ebit)-cx+dwc;
+    const ocf=fcf+cx; // OCF = FCF + CapEx (aquí cx hace de proxy del CapEx de mantenimiento, Glosario IDC)
     const sh=psh*(1+isDI[i]/100);
     const nd=Math.max(0,(rows[i-1]?.nd??co.netDebt[9])-fcf*0.3);
-    rows.push({yr:co.pY[i],s,eb,ebit,fcf,eps:nopat/sh,sh,nd,em:isEM[i],ebm:eb/s*100,fm:fcf/s*100});
+    rows.push({yr:co.pY[i],s,eb,ebit,fcf,ocf,eps:nopat/sh,sh,nd,em:isEM[i],ebm:eb/s*100,fm:fcf/s*100});
     ps=s;psh=sh;
   }return rows;
 }
@@ -8652,6 +8664,10 @@ async function doImport(){
       if(result.hPER?.some(v=>v!=null)) d.hPER=result.hPER;
       if(result.hEvEbitda?.some(v=>v!=null)) d.hEvEbitda=result.hEvEbitda;
       if(result.hEvEbit?.some(v=>v!=null)) d.hEvEbit=result.hEvEbit;
+      if(result.hEvOcf?.some(v=>v!=null)) d.hEvOcf=result.hEvOcf;
+      if(result.medEvOcf) d.medEvOcf=result.medEvOcf;
+      if(result.pOCF?.some(v=>v!=null)) d.pOCF=result.pOCF;
+      d.tplVersion=result.tplVersion; // se actualiza en cada reimportación (legacy ↔ v2026.3)
       // NO recalculamos: usamos las medianas de TU hoja (columna Q) leídas por parseExcelData
     } else {
       // Empresa NUEVA: crear entrada DB completa con las medianas de tu hoja
@@ -8789,6 +8805,7 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   // CapEx suele venir en negativo (salida de caja): se guarda en positivo
   const capex=nums(capexRow,1,10).map(v=>v==null?null:Math.abs(v));
   const cfo=nums(cfoRow,1,10);
+  const pOCF=nums(cfoRow,11,5); // OCF proyectado (fila nueva de la plantilla v2026.3, Hoja 2.FCF)
   const sbc=nums(sbcRow,1,10).map(v=>v==null?null:Math.abs(v));
   const workingCap=nums(wcRow,1,10);
   // Impuestos: pueden venir como 0.21 o como 21 → se normaliza a porcentaje
@@ -8827,12 +8844,20 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   const hEvfRow=findRow(valS,'EV / FCF');
   const hEveRow=findRow(valS,'EV / EBITDA');
   const hEveiRow=findEvEbit(valS);
+  // EV / OCF: múltiplo nuevo de la plantilla v2026.3 (Hoja 4.Valoracion). Si la hoja es de una
+  // plantilla anterior esta fila no existe → todo queda en null y nada aguas abajo cambia.
+  const hOcfRow=findRow(valS,'EV / OCF');
   const medPER=medFrom(hPerRow);
   const medEvFcf=medFrom(hEvfRow);
   const medEvEbitda=medFrom(hEveRow);
   const medEvEbit=medFrom(hEveiRow);
+  const medEvOcf=medFrom(hOcfRow);
   // Series históricas de múltiplos (cols 1-10) → para gráficos y medianas reales (como la hoja)
   const hPER=nums(hPerRow,1,10), hEvF=nums(hEvfRow,1,10), hEvEbitda=nums(hEveRow,1,10), hEvEbit=nums(hEveiRow,1,10);
+  const hEvOcf=nums(hOcfRow,1,10);
+  // Marca de versión de plantilla: la fila EV/OCF solo existe desde v2026.3. Se guarda con la
+  // empresa para poder respetar el comportamiento de quien siga con la plantilla anterior.
+  const tplVersion=hOcfRow?'v2026.3':'legacy';
 
   // Target multiples (section after "Objetivo" label)
   let tSecIdx=-1;
@@ -8840,34 +8865,56 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
     if(valS[i]?.[1]==='Objetivo'){tSecIdx=i;break;}
     if(valS[i]?.[0]&&String(valS[i][0]).includes('Objetivo')){tSecIdx=i;break;}
   }
-  let tPER=null,tEVF=null,tEVEB=null,tEVEI=null;
+  let tPER=null,tEVF=null,tEVEB=null,tEVEI=null,tEVOCF=null;
   if(tSecIdx>=0){
     const r1=findRow(valS,'PER',tSecIdx+1);
     const r2=findRow(valS,'EV / FCF',tSecIdx+1);
     const r3=findRow(valS,'EV / EBITDA',tSecIdx+1);
     const r4=findEvEbit(valS,tSecIdx+1);
+    const r5=findRow(valS,'EV / OCF',tSecIdx+1);
     tPER=toNum(r1?.[1]); tEVF=toNum(r2?.[1]);
-    tEVEB=toNum(r3?.[1]); tEVEI=toNum(r4?.[1]);
+    tEVEB=toNum(r3?.[1]); tEVEI=toNum(r4?.[1]); tEVOCF=toNum(r5?.[1]);
   }
+  // Múltiplo "sugerido" por la plantilla v2026.3: la celda "Múltiplo de valoración sugerido"
+  // trae debajo, en la misma columna, el nombre del múltiplo (p.ej. "EV / OCF"). Se busca en
+  // crudo sobre la matriz de celdas porque su posición de columna varía según la hoja.
+  let suggestedMultiple=null;
+  outer: for(let i=0;i<valS.length;i++){
+    const row=valS[i]; if(!row) continue;
+    for(let j=0;j<row.length;j++){
+      const c=row[j];
+      if(c&&String(c).toLowerCase().includes('múltiplo de valoración sugerido')){
+        const below=valS[i+1]&&valS[i+1][j];
+        if(below){ suggestedMultiple=String(below).trim(); break outer; }
+      }
+    }
+  }
+  const _SUGG_MAP={'per ex cash':'per','per':'per','ev / fcf':'evf','ev / ocf':'evocf','ev / ebitda':'eveb','ev / ebit':'evei'};
+  const suggestedMultKey=suggestedMultiple?(_SUGG_MAP[suggestedMultiple.toLowerCase().trim()]||null):null;
 
   // Target prices & MoS (section after "Precio objetivo")
   let pSecIdx=-1;
   for(let i=0;i<valS.length;i++){
     if(valS[i]?.[0]&&String(valS[i][0]).toLowerCase().includes('precio objetivo')){pSecIdx=i;break;}
   }
-  let tPricesPER=[],tPricesEVF=[],tPricesEVEB=[],tPricesEVEI=[],tPricesAvg=[],moS=[],upside=[];
+  let tPricesPER=[],tPricesEVF=[],tPricesEVEB=[],tPricesEVEI=[],tPricesEVOCF=[],tPricesAvg=[],moS=[],upside=[];
   if(pSecIdx>=0){
     const rPER=findRow(valS,'PER ex Cash',pSecIdx);
     const rEVF=findRow(valS,'EV / FCF ',pSecIdx)||findRow(valS,'EV / FCF',pSecIdx+2);
     const rEVEB=findRow(valS,'EV / EBITDA',pSecIdx+1);
     const rEVEI=findEvEbit(valS,pSecIdx+1);
+    const rEVOCF=findRow(valS,'EV / OCF',pSecIdx);
     const rAvg=findRow(valS,'Promedio',pSecIdx);
+    // OJO: desde v2026.3 esta fila puede venir rotulada "Margen de seguridad (EV / OCF)" —
+    // ya no es el promedio de los 4-5 múltiplos, sino solo el del múltiplo sugerido. Se sigue
+    // leyendo igual (match por "empieza por"), pero su significado depende de tplVersion.
     const rMoS=findRow(valS,'Margen de seguridad');
     const rUp=findRow(valS,'Potencial de revalorización');
     tPricesPER=nums(rPER,1,5);
     tPricesEVF=nums(rEVF,1,5);
     tPricesEVEB=nums(rEVEB,1,5);
     tPricesEVEI=nums(rEVEI,1,5);
+    tPricesEVOCF=nums(rEVOCF,1,5);
     tPricesAvg=nums(rAvg,1,5);
     moS=pct(nums(rMoS,1,5));
     upside=pct(nums(rUp,1,5));
@@ -8877,16 +8924,17 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
     ticker,name,sector:sector||'',color:color||'#1e3a5f',driveUrl:driveUrl||'',
     importDate:new Date().toISOString(),
     price,shares,sharesHist,
-    capex,cfo,sbc,workingCap,taxRate,dividends,grossProfit,investedCap,totalDebt,cashEq,rnd,
+    capex,cfo,pOCF,sbc,workingCap,taxRate,dividends,grossProfit,investedCap,totalDebt,cashEq,rnd,
     camposHoja,
     years:_years,
     sales,ebitda,ebitdaM,ebit,ebitM,netIncome,eps,fcf,fcfM,fcfps,roic,netDebt,
     pY:_pY,pS,pEB,pF,pEPS,pND,pShares,
-    medPER,medEvFcf,medEvEbitda,medEvEbit,
-    hPER,hEvF,hEvEbitda,hEvEbit,
-    targetMultiples:{per:tPER,evf:tEVF,eveb:tEVEB,evei:tEVEI},
-    targetPrices:{per:tPricesPER,evf:tPricesEVF,eveb:tPricesEVEB,evei:tPricesEVEI,avg:tPricesAvg},
-    mos:moS,upside
+    medPER,medEvFcf,medEvEbitda,medEvEbit,medEvOcf,
+    hPER,hEvF,hEvEbitda,hEvEbit,hEvOcf,
+    targetMultiples:{per:tPER,evf:tEVF,eveb:tEVEB,evei:tEVEI,evocf:tEVOCF},
+    targetPrices:{per:tPricesPER,evf:tPricesEVF,eveb:tPricesEVEB,evei:tPricesEVEI,evocf:tPricesEVOCF,avg:tPricesAvg},
+    mos:moS,upside,
+    tplVersion,suggestedMultiple,suggestedMultKey
   };
 }
 
@@ -8924,7 +8972,7 @@ function buildDbEntryFromImport(r){
     name:r.name||r.ticker,ticker:r.ticker,finnhubTicker:r.ticker,sector:r.sector||(_cat&&_cat.sector)||'',
     ...(( _cat&&_cat.domain)?{domain:_cat.domain}:{}),...( _tv?{tvSymbol:_tv}:{}),
     shares:r.shares||1,sharesHist:r.sharesHist||[],price:r.price||0,equity:0,color:_color,
-    capex:r.capex||[],cfo:r.cfo||[],sbc:r.sbc||[],workingCap:r.workingCap||[],
+    capex:r.capex||[],cfo:r.cfo||[],pOCF:r.pOCF||[],sbc:r.sbc||[],workingCap:r.workingCap||[],
     taxRate:r.taxRate||[],dividends:r.dividends||[],grossProfit:r.grossProfit||[],
     investedCap:r.investedCap||[],totalDebt:r.totalDebt||[],cashEq:r.cashEq||[],rnd:r.rnd||[],
     camposHoja:r.camposHoja||{},
@@ -8936,9 +8984,10 @@ function buildDbEntryFromImport(r){
     fcf:r.fcf||[],eps:r.eps||[],fcfps:r.fcfps||[],roic:r.roic||[],
     ebitdaM:r.ebitdaM||[],ebitM:r.ebitM||[],fcfM:r.fcfM||[],netDebt:r.netDebt||[],
     pY:r.pY||[2026,2027,2028,2029,2030],pS:r.pS||[],pEB:r.pEB||[],pF:r.pF||[],pEPS:r.pEPS||[],pND:r.pND||[],
-    medEvFcf:r.medEvFcf||20,medPER:r.medPER||20,medEvEbitda:r.medEvEbitda||15,medEvEbit:r.medEvEbit||18,
-    hEvF:r.hEvF||[],hPER:r.hPER||[],hEvEbitda:r.hEvEbitda||[],hEvEbit:r.hEvEbit||[],
+    medEvFcf:r.medEvFcf||20,medPER:r.medPER||20,medEvEbitda:r.medEvEbitda||15,medEvEbit:r.medEvEbit||18,medEvOcf:r.medEvOcf||null,
+    hEvF:r.hEvF||[],hPER:r.hPER||[],hEvEbitda:r.hEvEbitda||[],hEvEbit:r.hEvEbit||[],hEvOcf:r.hEvOcf||[],
     estimated:!!(r.estimated||r.autoSource==='finnhub'),
+    tplVersion:r.tplVersion||'legacy',suggestedMultiple:r.suggestedMultiple||null,suggestedMultKey:r.suggestedMultKey||null,
     isD
   };
   _estimateProjections(entry);   // rellena proyecciones a 5 años por márgenes si faltan (empresas auto, sin Excel)
