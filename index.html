@@ -2815,6 +2815,7 @@ async function _fetchFinnhub(ticker){
 
 async function fetchLivePrice(){
   const coKey=Object.keys(DB).find(k=>DB[k]===co)||'MSFT';
+  const _co=co; // snapshot: si el usuario cambia de empresa mientras esto está en vuelo, no pisar su vista actual
   if(_priceCache[coKey]&&(Date.now()-_priceCache[coKey].ts)<60000){
     const c=_priceCache[coKey];_applyPrice(c.live,c.prev,c.isLive);return;
   }
@@ -2826,12 +2827,14 @@ async function fetchLivePrice(){
     const p=await _fetchFinnhub(fhT);
     _priceCache[coKey]={...p,ts:Date.now()};
     _saveLastPx(coKey,p.live);
+    if(co!==_co) return; // ya se cambió de empresa: este precio ya no corresponde a la que se ve
     _applyPrice(p.live,p.prev,p.isLive);return;
   }catch(e){
     // Respaldo: Yahoo (último cierre). Imprescindible para Ámsterdam, Toronto, Taiwán…
     try{
       const q=await fetchQuoteYF(yfSymbolForKey(coKey));
       if(q&&q.c>0){
+        if(co!==_co) return; // ya se cambió de empresa: este precio ya no corresponde a la que se ve
         if(q.cur) setDetectedCur(coKey,q.cur,q.sym);
         const prev=(q.dp!=null&&q.dp!==0)?q.c/(1+q.dp/100):q.c;
         _priceCache[coKey]={live:q.c,prev,isLive:false,ts:Date.now()};
@@ -2840,6 +2843,7 @@ async function fetchLivePrice(){
         return;
       }
     }catch(e2){}
+    if(co!==_co) return; // ya se cambió de empresa: no tocar el badge/veredicto de la empresa activa
     const b=_getLiveBadge();
     if(b){
       const txt=document.getElementById('live-text');
