@@ -47,11 +47,54 @@ Dentro del script principal el **init es un IIFE** `(function(){…})()` (≈546
   sector`, series de 10 años (`sales, ebit, ebitda, netIncome, fcf, eps, fcfps, roic, ebitdaM, ebitM,
   fcfM, netDebt, years`), múltiplos históricos (`hEvF, hPER, hEvEbitda, hEvEbit`) y medianas
   (`medPER, medEvFcf, medEvEbitda, medEvEbit`, `med5*`), proyecciones (`pY, pS, pEB, pF, pEPS, pND`), `isD`.
-- **`FICHA`** (≈1125): datos cualitativos/trimestrales/mercado por empresa.
+- **`FICHA`** (≈1125): datos cualitativos/trimestrales/mercado por empresa. Clave = ticker. Se usa
+  por `coKey` en `rResumen` (`fichaData = FICHA[coKey] || {}`) **sea la empresa de fábrica o añadida
+  por el usuario** — no depende de `BUILTIN_KEYS`. Si no hay entrada, la pestaña Resumen cae en
+  `rPerfilAuto()` (perfil 100% automático, sin análisis cualitativo). Hoy tienen `FICHA` las 9 de
+  fábrica + todo `CATALOG` (ver sección "Ficha rica de contexto" más abajo).
 - **`CATALOG`** (≈4717 → busca `const CATALOG=`): catálogo para importar (name, domain, color, sector,
   `tv`). `catalogFor(key)` resuelve alias (`TSMC→TSM`, `2330→TSM`) y sufijos de bolsa.
 - **Empresas añadidas por el usuario**: guardadas en `localStorage` (`vi_import_*`), recuperadas a `DB`
   al cargar con `hydrateImportedIntoDB()` → `buildDbEntryFromImport()`.
+
+### Ficha rica de contexto (`FICHA`) — cómo añadirla a una empresa nueva
+
+El bloque "Contexto de empresa" (descripción, segmentos de negocio, rival principal, catalizadores,
+riesgos) que ves arriba del todo en la pestaña Resumen viene de `FICHA[TICKER]`. Si el ticker no está
+ahí, se pinta en su lugar `rPerfilAuto()`: solo cifras (ventas, FCF, ROIC, deuda) sacadas de sus
+cuentas, sin nada cualitativo — y lo dice explícitamente en la propia ficha.
+
+Para que una empresa nueva tenga la ficha "mejorada" (no la automática):
+
+1. Si la empresa no está en `CATALOG` (grep `const CATALOG=`), añádela ahí primero (`name, domain,
+   color, sector`, y `tv` si su símbolo de TradingView no es el ticker a secas).
+2. Añade su entrada en `FICHA` con este esquema (copia el de `WDC:{exchange:` como plantilla):
+
+   ```js
+   TICKER:{exchange:'NASDAQ',
+     businessLines:[{pct,name,desc}, ...],      // segmentos de negocio, pct suman ~100
+     descRich:'<strong class="ficha-keyword" style="border-color:HEX">Nombre</strong> ...',
+     position:'...', positionLabel:'...', share:'...',
+     subsectors:[{rank,sector,share,note}, ...],
+     rival:{name,ticker,color,why:['razón 1','razón 2','razón 3']},  // 1 rival principal
+     catalysts:[{icon,title,color,text}, ...],   // 2-3 catalizadores
+     risks:'riesgo 1 · riesgo 2 · riesgo 3',      // string, separado por " · "
+     tvInterval:'W',
+     // opcionales — solo si el dato es reciente y verificado, nunca inventado:
+     lastQ:{label,salesYoY,epsYoY,salesVal,epsVal},
+     nextQ:{label,salesEst,epsEst,guidance},
+     ath:{price,date,dist52wHigh,dist52wLabel},
+   },
+   ```
+
+3. `lastQ`/`nextQ`/`ath` son opcionales a propósito: son datos de mercado muy perecederos (se quedan
+   desfasados en semanas). Si no tienes la cifra verificada y reciente, **omítelos** — la plantilla
+   oculta esos bloques automáticamente cuando no existen.
+4. Este texto (`descRich`, `risks`, `catalysts[].text`, etc.) es contenido redactado, no datos del
+   Excel del usuario → no dispara el banner "NO son de tu Excel" (regla de oro 1), que aplica solo a
+   las series financieras (`sales, ebit, fcf...`). Aun así tiene que ser real y verificable, no
+   inventado — igual que el resto de `FICHA`.
+5. Verifica con `node --check` (regla de oro 3) y mira la pestaña Resumen de esa empresa en el navegador.
 - **Estado global** (≈1420): `co` (empresa activa), `price`, `curTab`, `tEVF/tPER/tEVE/tEVEI` (múltiplos
   objetivo activos), `_projSource` ('sheet'|'auto'), `_projManual`, `_webProj`, `BUILTIN_KEYS`.
 

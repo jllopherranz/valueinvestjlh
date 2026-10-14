@@ -1538,6 +1538,31 @@ const FICHA={
     ath:{price:283,date:'Feb 2026',dist52wHigh:283,dist52wLabel:'52W High'},
     tvInterval:'W',
   },
+
+  STX:{exchange:'NASDAQ',
+    businessLines:[
+      {pct:85,name:'Cloud (Hyperscalers + Enterprise)',desc:'HDDs nearline alta capacidad para data centers. Clientes: AWS, Azure, GCP, Meta, Microsoft. Segmento que crece más rápido por demanda de almacenamiento para IA.'},
+      {pct:15,name:'Legacy (Edge/Consumer/VAR)',desc:'HDDs para PCs, NAS, videovigilancia y canal de distribución. Mercado maduro/en declive secular pero con márgenes estables.'},
+    ],
+    descRich:`<strong class="ficha-keyword" style="border-color:#6ebe49">Seagate</strong> es, junto con Western Digital, uno de los dos únicos fabricantes mundiales de discos duros (HDD) a escala relevante. Tras años de márgenes débiles y deuda elevada, la compañía ha dado un giro: <strong class="ficha-keyword" style="border-color:#6ebe49">Mozaic 3+</strong> (su plataforma HAMR de nueva generación) le permite por primera vez competir en densidad con ventaja real frente a WDC, y la demanda de almacenamiento masivo para <em>datasets</em> de IA ha disparado el <strong class="ficha-keyword" style="border-color:#6ebe49">segmento Cloud</strong> (~85% de ingresos). <span style="color:#dc2626;font-weight:700;">Negocio cíclico y con más apalancamiento histórico que WDC</span> — la expansión de márgenes depende de que el ciclo de precios HDD se mantenga.`,
+    position:'Duopolio HDD junto con Western Digital. Toshiba/Kioxia tercer player marginal.',
+    positionLabel:'#2 en HDDs nearline (cuota similar a WDC)',
+    share:'~38% cuota global HDD',
+    subsectors:[
+      {rank:'#1',sector:'Densidad HDD (HAMR)',share:'Tecnología líder',note:'Mozaic 3+ (3TB/disco) ya en producción; primera vez que Seagate lidera densidad frente a WDC'},
+      {rank:'#2',sector:'HDD nearline (data center)',share:'~38% cuota',note:'Prácticamente a la par con WDC (~40%); juntos son >75% del mercado'},
+      {rank:'#2',sector:'Capacidad total HDD',share:'~38% TB enviados',note:'WDC ligeramente por delante en volumen total'},
+    ],
+    rival:{name:'Western Digital',ticker:'WDC',color:'#005594',
+      why:['Cuota casi idéntica (~38% vs ~40% HDD nearline) — es la competencia duopolística día a día','HAMR (Mozaic 3+) de Seagate compite directamente con UltraSMR de WDC por la misma demanda cloud/IA','WDC tiene balance más sólido tras escindir Sandisk; Seagate aún reduce deuda desde niveles más altos']},
+    catalysts:[
+      {icon:'☁️',title:'Demanda IA cloud insaciable',color:'#6ebe49',text:'Mismo viento de cola que WDC: hyperscalers necesitan PB de almacenamiento barato para entrenar e indexar modelos. HDD sigue siendo 5-10x más barato por TB que SSD.'},
+      {icon:'⚡',title:'Mozaic 3+ (HAMR) — salto de densidad',color:'#16a34a',text:'Discos de 3TB/plato (36TB+ por unidad) ya enviándose a clientes cloud clave. Primer ciclo en años donde Seagate lidera tecnológicamente sobre WDC.'},
+      {icon:'💰',title:'Desapalancamiento + retorno a caja',color:'#d97706',text:'Mejora de márgenes y FCF está permitiendo reducir deuda neta/EBITDA desde niveles elevados y retomar recompras/dividendo de forma más sostenible.'},
+    ],
+    risks:'Ciclicidad extrema (años de pérdidas o márgenes muy débiles en el ciclo bajo HDD) · Deuda históricamente más alta que WDC — más sensible a una subida de tipos o caída del ciclo · Sustitución por SSD a largo plazo en segmentos de mayor margen · Concentración en pocos hyperscalers · Ejecución de Mozaic 3+ a gran escala aún reciente, sin track record largo',
+    tvInterval:'W',
+  },
 };
 
 // ── LOGOS ──
@@ -4113,7 +4138,8 @@ function rPerfilAuto(key,prof){
     <div style="margin-top:9px;font-size:10px;color:var(--muted);line-height:1.55;">
       Esta ficha se genera con los datos públicos de la empresa y con sus propias cuentas —
       <b>no es un análisis cualitativo</b>. El foso competitivo, los segmentos de negocio y la tesis
-      los escribes tú: por ahora solo las nueve empresas de fábrica los tienen redactados.
+      los escribes tú: esta empresa en concreto aún no los tiene redactados en <code>FICHA</code>
+      (ver CLAUDE.md → "Ficha rica de contexto" para añadirlos).
     </div>
   </div>`;
 }
