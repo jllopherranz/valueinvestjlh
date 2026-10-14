@@ -896,7 +896,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <div id="body-news" style="display:none;">
       <div style="display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:10px 0 10px;">
         <span id="news-filter"></span>
-        <button onclick="event.stopPropagation();fetchDashNews()" style="font-size:10px;padding:3px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--sub);cursor:pointer;font-weight:600;">↻ Actualizar</button>
+        <button onclick="fetchDashNews()" style="font-size:10px;padding:3px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--sub);cursor:pointer;font-weight:600;">↻ Actualizar</button>
       </div>
       <div id="dash-news-list"><!-- JS: titulares --></div>
     </div>
@@ -6656,6 +6656,7 @@ function renderDashboard(){
 
   // Earnings calendar
   const now=new Date();
+  const diffDays=d=>Math.ceil((d-now)/86400000);   // días hasta `d` — compartido por badges y resumen de calendarios
   let upcoming=[],upMacro=[];
   const earnEl=document.getElementById('dash-earnings-list');
   if(earnEl){
@@ -6663,7 +6664,7 @@ function renderDashboard(){
       .filter(e=>new Date(e.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,8);
     earnEl.innerHTML=upcoming.map(e=>{
       const d=new Date(e.date);
-      const diff=Math.ceil((d-now)/(86400000));
+      const diff=diffDays(d);
       const urg=diff<=7?'background:#fef2f2;color:#dc2626;':diff<=30?'background:#fffbeb;color:#d97706;':'background:#f5f4f1;color:var(--muted);';
       return`<div class="ev-item">
         <div class="ev-datebox"><div class="ev-day">${d.getDate()}</div><div class="ev-mon">${d.toLocaleString('es-ES',{month:'short'})}</div></div>
@@ -6682,7 +6683,7 @@ function renderDashboard(){
     upMacro=MACRO_CAL.filter(e=>new Date(e.date)>=now).slice(0,7);
     macroEl.innerHTML=upMacro.map(e=>{
       const d=new Date(e.date);
-      const diff=Math.ceil((d-now)/(86400000));
+      const diff=diffDays(d);
       const urg=diff<=7?'background:#fef2f2;color:#dc2626;':diff<=30?'background:#fffbeb;color:#d97706;':'background:#f5f4f1;color:var(--muted);';
       const icons={'#1e3a5f':'🏦','#0891b2':'🏛️','#dc2626':'📈','#d97706':'👷','#7c3aed':'📋'};
       return`<div class="ev-item">
@@ -6698,7 +6699,7 @@ function renderDashboard(){
   // Resumen de una línea para la cabecera cerrada de «Calendarios»: el próximo evento de cada lista
   const calSumEl=document.getElementById('cal-summary');
   if(calSumEl){
-    const dLbl=d=>{const diff=Math.ceil((d-now)/86400000);return diff<=0?'hoy':diff===1?'mañana':'en '+diff+' días';};
+    const dLbl=d=>{const diff=diffDays(d);return diff<=0?'hoy':diff===1?'mañana':'en '+diff+' días';};
     const parts=[];
     if(upcoming[0]) parts.push(`${upcoming[0].co.key} ${dLbl(new Date(upcoming[0].date))}`);
     if(upMacro[0])  parts.push(`${upMacro[0].title} ${dLbl(new Date(upMacro[0].date))}`);
