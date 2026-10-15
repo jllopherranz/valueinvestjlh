@@ -312,6 +312,10 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .ev-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media(max-width:900px){.ev-grid{grid-template-columns:1fr;}}
 .dash-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;}
+/* Cabeceras de las secciones plegables del dashboard (comparativa, growth/value, noticias, calendarios):
+   título normal (no versalitas) en negrita con su icono delante, más legible que .dash-sec-title al ser
+   lo primero que se lee de la sección cuando está cerrada. */
+.sec-title-big{font-size:13px;font-weight:700;color:var(--text);text-transform:none;letter-spacing:0;}
 /* Columnas (no grid): al plegar/desplegar empresas las tarjetas se recolocan sin dejar huecos */
 #dash-news-list{columns:280px 4;column-gap:12px;}
 #dash-news-list>.news-co{break-inside:avoid;margin:0 0 12px;}
@@ -890,7 +894,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
        la reabre en cada renderDashboard() si el usuario la dejó abierta la última vez. -->
   <div class="card" style="margin-bottom:12px;">
     <div class="sec-fold" onclick="toggleSec('news')">
-      <div class="dash-sec-title" style="margin:0;">📰 Noticias del mercado <span id="news-summary" style="font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0;">cargando…</span></div>
+      <div class="sec-title-big" style="margin:0;">📰 Noticias del mercado <span id="news-summary" style="font-weight:600;color:var(--muted);">cargando…</span></div>
       <span class="sec-chev" id="chev-news">▼ mostrar</span>
     </div>
     <div id="body-news" style="display:none;">
@@ -906,7 +910,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <!-- Mismo patrón de plegado que noticias; cal-summary se rellena en renderDashboard(). -->
   <div class="card" style="margin-bottom:12px;">
     <div class="sec-fold" onclick="toggleSec('cal')">
-      <div class="dash-sec-title" style="margin:0;">🗓️ Calendarios <span id="cal-summary" style="font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0;">cargando…</span></div>
+      <div class="sec-title-big" style="margin:0;">🗓️ Calendarios <span id="cal-summary" style="font-weight:600;color:var(--muted);">cargando…</span></div>
       <span class="sec-chev" id="chev-cal">▼ mostrar</span>
     </div>
     <div id="body-cal" style="display:none;">
@@ -7687,13 +7691,32 @@ async function fetchDashNews(){
   });
   // Empresas ordenadas ALFABÉTICAMENTE (siempre en el mismo sitio, fácil de encontrar)
   groups.sort((a,b)=>(a.co.name||a.co.key).localeCompare(b.co.name||b.co.key,'es'));
+  _dashAllNews=groups;    // caché sin filtrar: cambiar el filtro rápido (Últimas/Importantes) no pide red
+  _dashNewsTs=Date.now();
+  await _renderNewsGroups();
+}
+
+// Pinta #dash-news-list a partir del caché _dashAllNews aplicando el filtro rápido activo
+// (todas / solo recientes / solo la más importante de cada empresa). Se llama al terminar
+// fetchDashNews() y también desde setNewsQuick() para cambiar de filtro sin red.
+async function _renderNewsGroups(){
+  const newsEl=document.getElementById('dash-news-list');
+  if(!newsEl) return;
+  let groups=_dashAllNews.map(g=>({co:g.co,items:g.items}));   // copia superficial: no tocar el caché
+  if(_newsQuick==='fresh'){
+    groups=groups.map(g=>({co:g.co,items:g.items.filter(c=>c.fresh)})).filter(g=>g.items.length);
+  }else if(_newsQuick==='top'){
+    groups=groups.map(g=>({co:g.co,items:g.items.slice(0,1)}));   // ya vienen ordenadas por relevancia
+  }
+  groups.forEach(g=>{ g.fresh=g.items.filter(c=>c.fresh).length; });
+
+  const sumEl=document.getElementById('news-summary');
   if(!groups.length){
-    newsEl.innerHTML='<div style="grid-column:1/-1;font-size:11px;color:var(--muted);text-align:center;padding:14px;">No hay noticias relevantes ahora (revisa tu API key Finnhub) - pulsa Actualizar.</div>';
-    const sumElEmpty=document.getElementById('news-summary'); if(sumElEmpty) sumElEmpty.textContent='sin noticias relevantes';
+    newsEl.innerHTML='<div style="grid-column:1/-1;font-size:11px;color:var(--muted);text-align:center;padding:14px;">'
+      +(_dashAllNews.length?'Ninguna noticia cumple el filtro elegido.':'No hay noticias relevantes ahora (revisa tu API key Finnhub) - pulsa Actualizar.')+'</div>';
+    if(sumEl) sumEl.textContent=_dashAllNews.length?'0 con este filtro':'sin noticias relevantes';
     return;
   }
-  _dashNewsTs=Date.now();
-  const sumEl=document.getElementById('news-summary');
   if(sumEl){
     const freshCount=groups.reduce((a,g)=>a+g.fresh,0);
     sumEl.textContent=freshCount
@@ -7731,10 +7754,21 @@ function toggleNewsInvertidas(){
   try{localStorage.setItem('vi_news_inv',newsSoloInvertidas()?'0':'1');}catch(e){}
   fetchDashNews();
 }
+// ── Filtro rápido: todas / solo recientes (≤36h) / solo la más importante de cada empresa.
+// No pide red: re-pinta desde el caché _dashAllNews (ver _renderNewsGroups).
+let _newsQuick=(()=>{try{return localStorage.getItem('vi_news_quick')||'all';}catch(e){return'all';}})();
+function setNewsQuick(mode){
+  _newsQuick=mode;
+  try{localStorage.setItem('vi_news_quick',mode);}catch(e){}
+  _paintNewsFilter();
+  if(_dashAllNews.length) _renderNewsGroups(); else fetchDashNews();
+}
 function _paintNewsFilter(){
   const el=document.getElementById('news-filter'); if(!el) return;
+  const QUICK=[['all','Todas'],['fresh','🕐 Últimas 36h'],['top','⭐ Solo lo más importante']];
   const on=newsSoloInvertidas();
-  el.innerHTML=`<button class="cart-chip${on?' on':''}" onclick="toggleNewsInvertidas()" title="Muestra solo las noticias de las empresas en las que tienes posición">Solo mis invertidas</button>`;
+  el.innerHTML=QUICK.map(([k,l])=>`<button class="cart-chip${_newsQuick===k?' on':''}" onclick="setNewsQuick('${k}')">${l}</button>`).join('')
+    +`<button class="cart-chip${on?' on':''}" onclick="toggleNewsInvertidas()" title="Muestra solo las noticias de las empresas en las que tienes posición">Solo mis invertidas</button>`;
 }
 
 // ── Plegado de noticias por empresa (recuerda tu elección) ──
@@ -8188,7 +8222,7 @@ function renderCrossCompare(){
   const th=(k,l,tip)=>`<th style="text-align:${k==='name'?'left':'right'};padding:6px 8px;cursor:pointer;white-space:nowrap;${_crossSort.col===k?'color:var(--blue);':''}" onclick="sortCross('${k}')" title="${tip||''}">${l}${_crossSort.col===k?(_crossSort.dir>0?' ▲':' ▼'):''}</th>`;
   el.innerHTML=`<div class="card">
     <div class="sec-fold" onclick="toggleSec('cross')">
-      <div class="dash-sec-title" style="margin:0;">Comparativa entre tus empresas <span style="font-weight:600;color:var(--muted);font-size:10px;">¿cuál es la mejor que puedo comprar hoy?</span></div>
+      <div class="sec-title-big" style="margin:0;">🔀 Comparativa entre tus empresas <span style="font-weight:600;color:var(--muted);font-size:10px;">¿cuál es la mejor que puedo comprar hoy?</span></div>
       <span class="sec-chev" id="chev-cross">${open?'▲ ocultar':'▼ mostrar'}</span>
     </div>
     <div id="body-cross" style="display:${open?'block':'none'};margin-top:${open?'10px':'0'};">
@@ -8280,7 +8314,7 @@ function renderStyleCompare(){
     .map(([s,n])=>n+' '+s).join(', ');
   el.innerHTML=`<div class="card">
     <div onclick="toggleGvCompare()" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;cursor:pointer;user-select:none;${gvOpen?'margin-bottom:10px;':''}">
-      <div class="dash-sec-title" style="margin:0;">Growth vs Value — comparador de la cartera <span style="font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0;">${gvSummary}</span> <span id="gv-chevron" style="font-size:9px;color:var(--muted);">${gvOpen?'▲ ocultar':'▼ mostrar'}</span></div>
+      <div class="sec-title-big" style="margin:0;">⚖️ Growth vs Value — comparador de la cartera <span style="font-weight:600;color:var(--muted);">${gvSummary}</span> <span id="gv-chevron" style="font-size:9px;color:var(--muted);">${gvOpen?'▲ ocultar':'▼ mostrar'}</span></div>
       <span style="display:flex;gap:6px;flex-wrap:wrap;">
         <span onclick="event.stopPropagation();showGvHelp()" style="cursor:pointer;font-size:9px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;">¿Qué significan las métricas? ⓘ</span>
         <span onclick="event.stopPropagation();showTip('estilo',this)" style="cursor:pointer;font-size:9px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;">¿Cómo se clasifica? ⓘ</span>
