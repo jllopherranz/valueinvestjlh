@@ -323,6 +323,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .hero-kpi-lbl{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
 .hero-kpi-val{font-size:21px;font-weight:700;color:var(--text);letter-spacing:-.01em;}
 .hero-kpi-sub{font-size:11px;color:var(--sub);margin-top:4px;}
+.hero-kpi-logo-fallback{width:20px;height:20px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0;}
 @media(max-width:760px){.hero-kpi-row{grid-template-columns:repeat(2,1fr);}}
 /* Columnas (no grid): al plegar/desplegar empresas las tarjetas se recolocan sin dejar huecos */
 #dash-news-list{columns:280px 4;column-gap:12px;}
@@ -8955,12 +8956,20 @@ function renderHeroKPIs(rows,st){
   // En zona de compra: precio hoy en o por debajo del precio de entrada al 15% anual
   const zona=rows.filter(r=>r.m.price!=null&&r.m.price15!=null&&r.m.price<=r.m.price15*1.03);
 
-  // Próximo resultado trimestral entre las empresas de la cartera
+  // Próximo evento: el que llegue antes entre un resultado de tu cartera y un evento macro,
+  // con el logo de la empresa (resultados) o el icono de su categoría (macro) — mismos iconos
+  // que ya usa la lista "Próximos eventos importantes" de Calendarios.
   const now=new Date();
   const myKeys=new Set(rows.map(r=>r.co.key));
   const nextEarn=(typeof DASH_COMPANIES!=='undefined'?DASH_COMPANIES:[])
     .filter(c=>myKeys.has(c.key)).map(co=>({date:co.earnings,co}))
     .filter(e=>new Date(e.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
+  const nextMacro=(typeof MACRO_CAL!=='undefined'?MACRO_CAL:[])
+    .filter(e=>new Date(e.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
+  const MACRO_ICONS={'#1e3a5f':'🏦','#0891b2':'🏛️','#dc2626':'📈','#d97706':'👷','#7c3aed':'📋'};
+  let nextEvt=null;
+  if(nextEarn&&(!nextMacro||new Date(nextEarn.date)<=new Date(nextMacro.date))) nextEvt={type:'earn',date:nextEarn.date,co:nextEarn.co};
+  else if(nextMacro) nextEvt={type:'macro',date:nextMacro.date,title:nextMacro.title,icon:MACRO_ICONS[nextMacro.c]||'📋'};
 
   const card=(lbl,val,sub,valColor)=>`<div class="hero-kpi">`
     +`<div class="hero-kpi-lbl">${lbl}</div>`
@@ -8979,8 +8988,16 @@ function renderHeroKPIs(rows,st){
         zona.length?zona.map(r=>r.co.key).join(', ')+' por debajo de entrada':'ninguna hoy',
         zona.length?'var(--amber)':null)
     + card('Próximo evento',
-        nextEarn?nextEarn.co.key+' reporta':'—',
-        nextEarn?`en ${Math.max(0,Math.ceil((new Date(nextEarn.date)-now)/86400000))} días · ${new Date(nextEarn.date).toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}`:'sin resultados próximos');
+        nextEvt?(()=>{
+          const logo=nextEvt.type==='earn'?logoUrlFor(nextEvt.co.key):null;
+          const ico=nextEvt.type==='earn'
+            ?(logo?`<img src="${logo}" onerror="this.style.display='none'" style="width:20px;height:20px;border-radius:5px;object-fit:contain;flex-shrink:0;"/>`
+                  :`<span class="hero-kpi-logo-fallback" style="background:${nextEvt.co.color||'#1e3a5f'};">${nextEvt.co.key.substring(0,2)}</span>`)
+            :`<span style="font-size:17px;flex-shrink:0;">${nextEvt.icon}</span>`;
+          const txt=nextEvt.type==='earn'?nextEvt.co.key+' reporta':nextEvt.title;
+          return `<span style="display:flex;align-items:center;gap:8px;">${ico}<span>${txt}</span></span>`;
+        })():'—',
+        nextEvt?`en ${Math.max(0,Math.ceil((new Date(nextEvt.date)-now)/86400000))} días · ${new Date(nextEvt.date).toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}`:'sin eventos próximos');
 }
 
 // ── «Qué mirar hoy»: las tres listas que de verdad piden una decisión ──
