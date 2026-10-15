@@ -9055,7 +9055,7 @@ function renderTodayPanel(rows){
     .sort((a,b)=>(b.m.mds15??-1e9)-(a.m.mds15??-1e9));
   const caras=rows.filter(r=>r.m.mds!=null&&r.m.mds<-10).sort((a,b)=>(a.m.mds)-(b.m.mds));
   const caidas=rows.filter(r=>r.m.weeklyPct!=null&&r.m.weeklyPct<=-7).sort((a,b)=>a.m.weeklyPct-b.m.weeklyPct);
-  const item=(r,txt,c)=>`<a class="today-item" onclick="setView('analysis');setTimeout(()=>{if(DB['${r.co.key}'])switchCo('${r.co.key}');},80);">
+  const item=(r,txt,c,tip)=>`<a class="today-item" title="${tip||''}" onclick="setView('analysis');setTimeout(()=>{if(DB['${r.co.key}'])switchCo('${r.co.key}');},80);">
       <span class="today-k" style="color:${r.co.color};">${r.co.key}</span>
       <span class="today-n" title="${r.co.name}">${shortCoName(r.co.name)}</span>
       <span class="today-v" style="color:${c};">${txt}</span></a>`;
@@ -9084,7 +9084,15 @@ function renderTodayPanel(rows){
 
   const listas=[
     {t:'En zona de compra',s:'precio ≤ tu entrada para +15% anual',c:'var(--green)',
-     items:zona.map(r=>item(r,(r.m.mds15>=0?'+':'')+ (r.m.mds15??0).toFixed(0)+'%','var(--green)')),
+     // El badge muestra la rentabilidad anual esperada a 5 años (más útil que el margen sobre
+     // el precio de entrada, que ya es el motivo por el que la empresa está en esta lista) — el
+     // precio objetivo a 5 años se ve al pasar el ratón.
+     items:zona.map(r=>{
+       const retColor=r.m.cagr5==null?'var(--muted)':r.m.cagr5>=15?'var(--green)':r.m.cagr5>=8?'var(--amber)':'var(--red)';
+       const txt=r.m.cagr5!=null?(r.m.cagr5>=0?'+':'')+r.m.cagr5.toFixed(0)+'%/año':'—';
+       const tip=r.m.obj5!=null?`Objetivo a 5 años: ${curSymOf(r.co.key)}${r.m.obj5>=1000?new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(r.m.obj5):r.m.obj5.toFixed(2)}`:'';
+       return item(r,txt,retColor,tip);
+     }),
      vacio:'Ninguna a precio de entrada hoy.'},
     {t:'Por encima del objetivo',s:'cotizan por encima de tu precio objetivo',c:'var(--red)',
      items:caras.map(r=>item(r,r.m.mds.toFixed(0)+'% MdS','var(--red)')),
