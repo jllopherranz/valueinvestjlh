@@ -7810,6 +7810,12 @@ function _newsAge(date){
 }
 
 
+// Último valor conocido de cada índice/activo, para no dejar "—" si fallan los tres proxies
+// (p.ej. si están todos caídos o bloqueados en la red del usuario) — se pinta atenuado y se
+// sustituye por el dato fresco en cuanto llega alguno.
+function _mktCacheGet(id){ try{return JSON.parse(localStorage.getItem('vi_mkt_'+id)||'null');}catch(e){return null;} }
+function _mktCacheSet(id,c,dp){ try{localStorage.setItem('vi_mkt_'+id,JSON.stringify({c,dp,ts:Date.now()}));}catch(e){} }
+
 async function fetchDashPrices(){
   const ts=document.getElementById('dash-prices-ts'); if(ts) ts.textContent='Actualizando...';
   // Índices/activos REALES vía Yahoo (corsproxy). Finnhub free no tiene índices, cripto ni forex,
@@ -7819,12 +7825,18 @@ async function fetchDashPrices(){
     {id:'btc',t:'BTC-USD'},{id:'gold',t:'GC=F'},{id:'eur',t:'EURUSD=X'},
     {id:'tnote',t:'^TNX'},{id:'oil',t:'CL=F'},
   ];
+  // Mientras llega el dato fresco, pinta el último conocido (atenuado) en vez de dejar "—"
+  mktMap.forEach(m=>{ const c=_mktCacheGet(m.id); if(c) updateDashMktTile(m.id,c.c,c.dp,0,true); });
   // Pedir los 9 índices a la vez satura el proxy gratuito (corsproxy.io): algunos vuelven con
   // "demasiadas peticiones" según el orden de llegada y no según el ticker — unas veces falla
   // Nasdaq, otras el EUR/USD. Escalonar el disparo ~150ms entre cada uno reparte la carga, y los
   // que aun así fallen se reintentan una vez (también escalonados) con los otros dos proxies.
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  const fetchOneMkt=async m=>{ const q=await fetchQuoteYF(m.t); if(q&&q.c){ updateDashMktTile(m.id,q.c,(q.dp??0),0); return true; } return false; };
+  const fetchOneMkt=async m=>{
+    const q=await fetchQuoteYF(m.t);
+    if(q&&q.c){ updateDashMktTile(m.id,q.c,(q.dp??0),0,false); _mktCacheSet(m.id,q.c,q.dp??0); return true; }
+    return false;
+  };
   const firstPass=await Promise.allSettled(mktMap.map((m,i)=>sleep(i*150).then(()=>fetchOneMkt(m))));
   const failed=mktMap.filter((m,i)=>!(firstPass[i].status==='fulfilled'&&firstPass[i].value));
   if(failed.length) await Promise.allSettled(failed.map((m,i)=>sleep(i*150).then(()=>fetchOneMkt(m))));
@@ -7845,10 +7857,11 @@ async function fetchFearGreed(){
   const valEl=document.getElementById('dm-fg'),lblEl=document.getElementById('fg-lbl'),needle=document.getElementById('fg-needle');
   if(!valEl) return;
   const cacheKey='vi_feargreed',cacheTtl=30*60*1000; // 30min cache, el índice no se mueve más rápido
-  try{
-    const cached=JSON.parse(localStorage.getItem(cacheKey)||'null');
-    if(cached&&Date.now()-cached.ts<cacheTtl){ _renderFearGreed(cached.score,cached.rating); return; }
-  }catch(e){}
+  let cached=null;
+  try{ cached=JSON.parse(localStorage.getItem(cacheKey)||'null'); }catch(e){}
+  if(cached&&Date.now()-cached.ts<cacheTtl){ _renderFearGreed(cached.score,cached.rating,false); return; }
+  // Hay un valor en caché pero caducado: lo pinta atenuado mientras intenta refrescar, en vez de "—"
+  if(cached) _renderFearGreed(cached.score,cached.rating,true);
   const url='https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
   const headers={'headers':{'accept':'application/json'}};
   let data=null;
@@ -7872,16 +7885,18 @@ async function fetchFearGreed(){
   }
   const fg=data&&data.fear_and_greed;
   if(!fg||typeof fg.score!=='number'){
-    if(valEl) valEl.textContent='—'; if(lblEl) lblEl.textContent='';
+    // Los tres proxies fallaron: si no había nada en caché, sí queda en "—"; si había (aunque
+    // caducado) ya se pintó atenuado arriba y se deja tal cual en vez de borrarlo.
+    if(!cached){ if(valEl) valEl.textContent='—'; if(lblEl) lblEl.textContent=''; }
     return;
   }
   const score=Math.round(fg.score),rating=(fg.rating||'').toLowerCase();
   try{localStorage.setItem(cacheKey,JSON.stringify({score,rating,ts:Date.now()}));}catch(e){}
-  _renderFearGreed(score,rating);
+  _renderFearGreed(score,rating,false);
 }
-function _renderFearGreed(score,rating){
+function _renderFearGreed(score,rating,stale){
   const valEl=document.getElementById('dm-fg'),lblEl=document.getElementById('fg-lbl'),needle=document.getElementById('fg-needle');
-  if(valEl) valEl.textContent=score;
+  if(valEl){ valEl.textContent=score; valEl.style.opacity=stale?'.5':''; valEl.title=stale?'Último valor conocido — no se ha podido actualizar ahora':''; }
   if(lblEl) lblEl.textContent=FG_RATING_ES[rating]||rating;
   if(needle) needle.style.left=Math.min(96,Math.max(4,score))+'%';
 }
@@ -7938,7 +7953,7 @@ async function fetchWeeklyChange(key,fhTicker,apiKey,currentPrice){
   }catch{}
 }
 
-function updateDashMktTile(id,price,pct,change){
+function updateDashMktTile(id,price,pct,change,stale){
   const pEl=document.getElementById('dm-'+id);
   const cEl=document.getElementById('dc-'+id);
   if(!pEl) return;
@@ -7950,9 +7965,12 @@ function updateDashMktTile(id,price,pct,change){
     return v.toFixed(2);
   };
   pEl.textContent=fmt(price);
+  pEl.style.opacity=stale?'.5':'';
+  pEl.title=stale?'Último precio conocido — no se ha podido actualizar ahora':'';
   if(cEl){
     cEl.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';
     cEl.style.color=pct>=0?'var(--green)':'var(--red)';
+    cEl.style.opacity=stale?'.5':'';
   }
   if(id==='vix'){
     const vixReal=price; // VXX no es exactamente VIX pero es buen proxy
