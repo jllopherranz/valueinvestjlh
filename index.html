@@ -2305,6 +2305,28 @@ PANW:{exchange:'NASDAQ',
   risks:'<strong>Integración de CyberArk (mayor adquisición de su historia)</strong> con riesgo de ejecución · Crítica de la industria (Check Point y otros) a la <strong>concentración de todo el stack en un único proveedor</strong> · <strong>Competencia de Fortinet y Check Point</strong> en hardware de firewall tradicional en declive secular · <strong>Valoración exigente</strong> tras años de múltiplos altos · Transición de hardware a software/SASE sigue presionando el mix de márgenes a corto plazo',
   tvInterval:'W',
 },
+
+NBIS:{exchange:'NASDAQ',
+  businessLines:[
+    {pct:98,name:'Nebius AI Cloud',desc:'Infraestructura GPU full-stack (clústeres, plataforma cloud, herramientas para desarrolladores) para entrenar e inferir modelos de IA. Facturó $574,9M en el 2T 2026 (+514% interanual) — prácticamente todo el grupo.'},
+    {pct:2,name:'TripleTen y Avride',desc:'Apuestas heredadas de Yandex N.V.: TripleTen (bootcamps de formación tech, $10M en 2T 2026, -19% YoY) y Avride (conducción autónoma, $1M) — hoy residuales frente al negocio cloud.'},
+  ],
+  descRich:`<strong class="ficha-keyword" style="border-color:#052b42">Nebius Group</strong> nació en 2024 de la escisión de <strong class="ficha-keyword" style="border-color:#052b42">Yandex N.V.</strong>: tras vender su negocio ruso de búsqueda y publicidad por unos $5.400M, la matriz holandesa cambió de nombre y volvió a cotizar en Nasdaq en octubre de 2024 convertida en una empresa pura de <strong>infraestructura de IA</strong> — clústeres GPU, plataforma cloud y software propio (almacenamiento, redes, orquestación) para entrenar e inferir modelos. El crecimiento es explosivo: el ingreso del 2T 2026 se disparó <strong>+454% interanual hasta $582,3M</strong>, con el EBITDA ajustado girando a positivo (41% de margen) desde pérdidas hace un año, aunque el negocio todavía no es rentable en términos GAAP. Dos contratos marcan el salto de escala: un acuerdo plurianual con <strong class="ficha-keyword" style="border-color:#052b42">Microsoft valorado en $17.000M</strong> (sept. 2025) y otro con <strong>Meta por $3.000M</strong>. La compañía reafirma una guía 2026 de $3.000-3.400M de ingresos, ha elevado su objetivo de potencia contratada a <strong>5 GW</strong>, y cerró el trimestre con ~$8.000M en caja — pero el capex previsto para el año ($20.000-25.000M) es brutal y exige financiación externa continua.`,
+  position:'#2',positionLabel:'"Neocloud" de infraestructura IA — por detrás de CoreWeave en ingresos, con mucha menos deuda',share:'Ingresos ~5x menores que CoreWeave, pero capitalización bursátil dentro de un 6% de diferencia',
+  subsectors:[
+    {rank:'#2',sector:'"Neoclouds" de infraestructura GPU dedicada a IA',share:'~5x más pequeña que CoreWeave en ingresos',note:'CoreWeave factura más y tiene mayor backlog, pero carga ~$21.000M de deuda frente a los ~$4.000M de Nebius'},
+    {rank:'Retador',sector:'Cloud de IA frente a los hyperscalers (AWS, Azure, GCP)',share:'Nicho minoritario',note:'Los hyperscalers siguen controlando la gran mayoría de la capacidad cloud mundial; Nebius y CoreWeave compiten por la demanda que no cabe en sus centros de datos'},
+  ],
+  rival:{name:'CoreWeave',ticker:'CRWV',color:'#2741e7',
+    why:['CoreWeave es el "neocloud" de IA más grande por ingresos (~$2.100M en el 1T 2026, +112% YoY, frente a los $399M de Nebius ese mismo trimestre), con un backlog contratado de ~$99.400M','CoreWeave se apoya mucho más en alquilar espacio de terceros, mientras Nebius posee y opera la mayoría de sus propios centros de datos y diseña su propio software de cloud','CoreWeave arrastra ~$21.000M de deuda frente a los ~$4.000M de Nebius — la cartera de Nebius es la apuesta "más barata en riesgo financiero, más cara en múltiplo" dentro del mismo sector']},
+  catalysts:[
+    {icon:'🤝',title:'Contratos ancla con Microsoft y Meta',color:'#052b42',text:'El acuerdo plurianual con <strong>Microsoft por $17.000M</strong> (sept. 2025) y el de <strong>Meta por $3.000M</strong> dan visibilidad de ingresos a varios años y validan a Nebius como proveedor de GPU para clientes de primer nivel.'},
+    {icon:'⚡',title:'Objetivo de potencia contratada elevado a 5 GW',color:'#16a34a',text:'Más potencia contratada significa más capacidad de clústeres GPU que vender; la compañía ha elevado este objetivo mientras mantiene su guía de ingresos 2026 ($3.000-3.400M).'},
+    {icon:'🏗️',title:'Modelo propietario: dueña de sus centros de datos',color:'#7c3aed',text:'A diferencia de CoreWeave, que alquila gran parte de su capacidad, Nebius construye sus propios centros de datos y su propio software de cloud — más control de costes a largo plazo, a cambio de más capex por adelantado.'},
+  ],
+  risks:'Negocio aún <strong>no rentable en términos GAAP</strong> (pérdida neta de $190,4M en 2T 2026) · <strong>Capex masivo previsto para 2026</strong> ($20.000-25.000M) que exige financiación externa continua · <strong>Alta concentración de ingresos en pocos clientes ancla</strong> (Microsoft, Meta) · Competencia de <strong>CoreWeave y de los hyperscalers</strong> (AWS, Azure, Google Cloud), que también construyen su propia capacidad de IA · Origen corporativo en Yandex N.V. — la escisión del negocio ruso en 2024 es reciente y añade complejidad de gobernanza',
+  tvInterval:'W',
+},
 };
 
 // ── LOGOS ──
@@ -7263,6 +7285,7 @@ const CATALOG={
   CRWD:{name:'CrowdStrike',domain:'crowdstrike.com',color:'#e01a22',sector:'Ciberseguridad'},
   SNOW:{name:'Snowflake',domain:'snowflake.com',color:'#29b5e8',sector:'Datos / Cloud'},
   PANW:{name:'Palo Alto Networks',domain:'paloaltonetworks.com',color:'#f04e23',sector:'Ciberseguridad'},
+  NBIS:{name:'Nebius Group',domain:'nebius.com',color:'#052b42',sector:'Cloud IA / Infraestructura GPU',tv:'NASDAQ:NBIS'},
 };
 const LOGO_DOMAINS={CSU:'csisoftware.com',ASML:'asml.com',AMZN:'amazon.com',MSFT:'microsoft.com',AAPL:'apple.com',GOOGL:'google.com',META:'meta.com',NVDA:'nvidia.com',WDC:'westerndigital.com',AMD:'amd.com',NFLX:'netflix.com',STX:'seagate.com',V:'visa.com'};
 // Variantes de ticker que apuntan a la misma empresa del catálogo (ADR, bolsa local, etc.)
