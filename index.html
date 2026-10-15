@@ -7838,8 +7838,17 @@ async function fetchDashPrices(){
     return false;
   };
   const firstPass=await Promise.allSettled(mktMap.map((m,i)=>sleep(i*150).then(()=>fetchOneMkt(m))));
-  const failed=mktMap.filter((m,i)=>!(firstPass[i].status==='fulfilled'&&firstPass[i].value));
-  if(failed.length) await Promise.allSettled(failed.map((m,i)=>sleep(i*150).then(()=>fetchOneMkt(m))));
+  let pending=mktMap.filter((m,i)=>!(firstPass[i].status==='fulfilled'&&firstPass[i].value));
+  if(pending.length){
+    const retry1=await Promise.allSettled(pending.map((m,i)=>sleep(i*150).then(()=>fetchOneMkt(m))));
+    pending=pending.filter((m,i)=>!(retry1[i].status==='fulfilled'&&retry1[i].value));
+  }
+  // Segunda vuelta, con más margen (el proxy puede tardar un par de segundos en levantar el límite
+  // de peticiones): solo para lo poco que siga sin llegar tras la primera.
+  if(pending.length){
+    await sleep(2000);
+    await Promise.allSettled(pending.map((m,i)=>sleep(i*200).then(()=>fetchOneMkt(m))));
+  }
   const now=new Date();
   if(ts) ts.textContent='Mercado: '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
   // Espera a que Sentimiento y Euríbor tengan valor ANTES de clonar el ticker (máx 1,5s),
