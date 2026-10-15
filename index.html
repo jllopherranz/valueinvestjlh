@@ -9002,7 +9002,7 @@ function renderHeroKPIs(rows,st){
   if(nextEarn&&(!nextMacro||new Date(nextEarn.date)<=new Date(nextMacro.date))) nextEvt={type:'earn',date:nextEarn.date,co:nextEarn.co};
   else if(nextMacro) nextEvt={type:'macro',date:nextMacro.date,title:nextMacro.title,icon:MACRO_ICONS[nextMacro.c]||'📋'};
 
-  const card=(lbl,val,sub,valColor)=>`<div class="hero-kpi">`
+  const card=(lbl,val,sub,valColor,onclick)=>`<div class="hero-kpi"${onclick?` style="cursor:pointer;" onclick="${onclick}"`:''}>`
     +`<div class="hero-kpi-lbl">${lbl}</div>`
     +`<div class="hero-kpi-val"${valColor?` style="color:${valColor};"`:''}>${val}</div>`
     +`<div class="hero-kpi-sub">${sub}</div></div>`;
@@ -9015,9 +9015,11 @@ function renderHeroKPIs(rows,st){
     + card('Rentabilidad total',
         sinPos?'—':pct(st.pnlPct),
         sinPos?'':'vs. tu precio de coste', sinPos?null:col(st.pnlPct))
+    // El detalle (qué empresas) vive en «Qué mirar hoy», justo debajo — aquí solo el total,
+    // para no repetir la misma lista dos veces en la primera pantalla.
     + card('En zona de compra', String(zona.length),
-        zona.length?zona.map(r=>r.co.key).join(', ')+' por debajo de entrada':'ninguna hoy',
-        zona.length?'var(--amber)':null)
+        zona.length?'ver cuáles en «Qué mirar hoy» ↓':'ninguna hoy',
+        zona.length?'var(--amber)':null, 'scrollToToday()')
     + card('Próximo evento',
         nextEvt?(()=>{
           const logo=nextEvt.type==='earn'?logoUrlFor(nextEvt.co.key):null;
@@ -9031,7 +9033,13 @@ function renderHeroKPIs(rows,st){
         nextEvt?`en ${Math.max(0,Math.ceil((new Date(nextEvt.date)-now)/86400000))} días · ${new Date(nextEvt.date).toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}`:'sin eventos próximos');
 }
 
-// ── «Qué mirar hoy»: las tres listas que de verdad piden una decisión ──
+// ── «Qué mirar hoy»: las listas que de verdad piden una decisión ──
+function scrollToToday(){
+  const body=document.getElementById('body-today');
+  if(body&&body.style.display==='none') toggleSec('today');
+  const el=document.getElementById('cartera-today');
+  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
 function renderTodayPanel(rows){
   const el=document.getElementById('cartera-today'); if(!el) return;
   const zona=rows.filter(r=>r.m.price!=null&&r.m.price15!=null&&r.m.price<=r.m.price15*1.03)
@@ -9042,6 +9050,29 @@ function renderTodayPanel(rows){
       <span class="today-k" style="color:${r.co.color};">${r.co.key}</span>
       <span class="today-n" title="${r.co.name}">${shortCoName(r.co.name)}</span>
       <span class="today-v" style="color:${c};">${txt}</span></a>`;
+
+  // 4ª columna: lo que no es solo precio — noticias frescas y resultados de los próximos 7 días,
+  // para que esta sección sea el único sitio que hace falta mirar cada mañana.
+  const now=new Date();
+  const myKeys=new Set(rows.map(r=>r.co.key));
+  const earnSoon=(typeof DASH_COMPANIES!=='undefined'?DASH_COMPANIES:[])
+    .filter(c=>myKeys.has(c.key)).map(co=>({date:co.earnings,co}))
+    .filter(e=>{const diff=Math.ceil((new Date(e.date)-now)/86400000);return diff>=0&&diff<=7;})
+    .sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,3);
+  let trCache={}; try{trCache=JSON.parse(localStorage.getItem('vi_news_es')||'{}');}catch(e){}
+  const newsToday=(typeof _dashAllNews!=='undefined'?_dashAllNews:[])
+    .flatMap(g=>g.items.filter(c=>c.fresh).map(c=>({co:g.co,n:c.n,impact:c.impact})))
+    .sort((a,b)=>(b.n.datetime||0)-(a.n.datetime||0)).slice(0,4);
+  const dLblShort=d=>{const diff=Math.ceil((d-now)/86400000);return diff<=0?'HOY':diff===1?'mañana':'en '+diff+'d';};
+  const IMPACT_COL={pos:'var(--green)',neg:'var(--red)',neu:'var(--muted)'};
+  const newsItems=[
+    ...earnSoon.map(e=>item({co:e.co},'Reporta '+dLblShort(new Date(e.date)),'var(--blue)')),
+    ...newsToday.map(c=>{
+      const head=trCache[c.n.headline]||c.n.headline;
+      return item({co:c.co},head.length>42?head.slice(0,40)+'…':head,IMPACT_COL[c.impact]||'var(--muted)');
+    }),
+  ];
+
   const listas=[
     {t:'En zona de compra',s:'precio ≤ tu entrada para +15% anual',c:'var(--green)',
      items:zona.map(r=>item(r,(r.m.mds15>=0?'+':'')+ (r.m.mds15??0).toFixed(0)+'%','var(--green)')),
@@ -9052,9 +9083,12 @@ function renderTodayPanel(rows){
     {t:'Caídas de la semana',s:'−7% o más en 5 sesiones',c:'var(--amber)',
      items:caidas.map(r=>item(r,r.m.weeklyPct.toFixed(1)+'%','var(--red)')),
      vacio:'Sin caídas fuertes esta semana.'},
+    {t:'Noticias y resultados',s:'lo fresco de hoy + próximos 7 días',c:'var(--blue)',
+     items:newsItems,
+     vacio:'Nada destacado por ahora.'},
   ];
   const open=_secOpen('today');
-  const totalItems=zona.length+caras.length+caidas.length;
+  const totalItems=zona.length+caras.length+caidas.length+earnSoon.length+newsToday.length;
   const grid=listas.map(l=>`<div class="today-col">
       <div class="today-t" style="border-color:${l.c};">${l.t} <span style="font-weight:700;color:var(--muted);">${l.items.length}</span><span>${l.s}</span></div>
       ${l.items.length?l.items.join(''):`<div class="today-empty">${l.vacio}</div>`}
