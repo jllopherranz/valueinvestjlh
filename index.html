@@ -7819,10 +7819,15 @@ async function fetchDashPrices(){
     {id:'btc',t:'BTC-USD'},{id:'gold',t:'GC=F'},{id:'eur',t:'EURUSD=X'},
     {id:'tnote',t:'^TNX'},{id:'oil',t:'CL=F'},
   ];
-  await Promise.allSettled(mktMap.map(async m=>{
-    const q=await fetchQuoteYF(m.t);
-    if(q&&q.c) updateDashMktTile(m.id,q.c,(q.dp??0),0);
-  }));
+  // Pedir los 9 índices a la vez satura el proxy gratuito (corsproxy.io): algunos vuelven con
+  // "demasiadas peticiones" según el orden de llegada y no según el ticker — unas veces falla
+  // Nasdaq, otras el EUR/USD. Escalonar el disparo ~150ms entre cada uno reparte la carga, y los
+  // que aun así fallen se reintentan una vez (también escalonados) con los otros dos proxies.
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const fetchOneMkt=async m=>{ const q=await fetchQuoteYF(m.t); if(q&&q.c){ updateDashMktTile(m.id,q.c,(q.dp??0),0); return true; } return false; };
+  const firstPass=await Promise.allSettled(mktMap.map((m,i)=>sleep(i*150).then(()=>fetchOneMkt(m))));
+  const failed=mktMap.filter((m,i)=>!(firstPass[i].status==='fulfilled'&&firstPass[i].value));
+  if(failed.length) await Promise.allSettled(failed.map((m,i)=>sleep(i*150).then(()=>fetchOneMkt(m))));
   const now=new Date();
   if(ts) ts.textContent='Mercado: '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
   // Espera a que Sentimiento y Euríbor tengan valor ANTES de clonar el ticker (máx 1,5s),
@@ -7855,6 +7860,14 @@ async function fetchFearGreed(){
     try{
       const r=await fetch('https://api.allorigins.win/get?url='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});
       if(r.ok){const w=await r.json();data=JSON.parse(w.contents||'null');}
+    }catch(e){}
+  }
+  if(!data){
+    // Tercer proxy de respaldo (ver fetchQuoteYF): corsproxy.io/allorigins a veces devuelven
+    // "demasiadas peticiones" justo cuando el ticker (índices) pide varias cosas a la vez.
+    try{
+      const r=await fetch('https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});
+      if(r.ok) data=await r.json();
     }catch(e){}
   }
   const fg=data&&data.fear_and_greed;
@@ -9095,6 +9108,13 @@ async function fetchQuoteYF(ticker){
   try{
     const r=await fetch('https://api.allorigins.win/get?url='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});
     if(r.ok){const w=await r.json();const p=_parseYF(JSON.parse(w.contents||'{}'));if(p)return p;}
+  }catch(e){}
+  // 3) codetabs (JSON directo) — tercer proxy de respaldo: cuando varios índices piden a la vez,
+  // corsproxy.io/allorigins devuelven error de "demasiadas peticiones" para algunos tickers y no para
+  // otros según el orden de llegada; este tercer proxy rescata justo esos casos.
+  try{
+    const r=await fetch('https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});
+    if(r.ok){const d=await r.json();const p=_parseYF(d);if(p)return p;}
   }catch(e){}
   return null;
 }
