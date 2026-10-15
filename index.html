@@ -316,6 +316,14 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
    título normal (no versalitas) en negrita con su icono delante, más legible que .dash-sec-title al ser
    lo primero que se lee de la sección cuando está cerrada. */
 .sec-title-big{font-size:13px;font-weight:700;color:var(--text);text-transform:none;letter-spacing:0;}
+/* Fila de 4 tarjetas KPI siempre visible arriba del todo del Dashboard (valor, rentabilidad,
+   zona de compra, próximo evento) — ver renderHeroKPIs(). */
+.hero-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;}
+.hero-kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+.hero-kpi-lbl{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+.hero-kpi-val{font-size:21px;font-weight:700;color:var(--text);letter-spacing:-.01em;}
+.hero-kpi-sub{font-size:11px;color:var(--sub);margin-top:4px;}
+@media(max-width:760px){.hero-kpi-row{grid-template-columns:repeat(2,1fr);}}
 /* Columnas (no grid): al plegar/desplegar empresas las tarjetas se recolocan sin dejar huecos */
 #dash-news-list{columns:280px 4;column-gap:12px;}
 #dash-news-list>.news-co{break-inside:avoid;margin:0 0 12px;}
@@ -842,6 +850,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <span id="dash-prices-ts" style="font-size:9px;color:var(--muted);">—</span>
     </div>
   </div>
+
+  <!-- ── KPIs siempre arriba: valor, rentabilidad, zona de compra, próximo evento ── -->
+  <div id="dash-hero-kpis" class="hero-kpi-row"></div>
 
   <!-- ── Informe de la última sincronización con las hojas ── -->
   <div class="card" id="sync-report" style="display:none;margin-bottom:12px;padding:9px 13px;"></div>
@@ -8918,7 +8929,58 @@ function renderPortfolioSummary(){
       <div class="pf-tiles">${tiles}</div>
       ${conc}${avisoHtml}
     </div>`;
+  renderHeroKPIs(rows,st);
   renderTodayPanel(rows);
+}
+
+// ── KPIs "siempre arriba": 4 tarjetas con lo más importante de un vistazo, antes de todo lo demás ──
+function renderHeroKPIs(rows,st){
+  const el=document.getElementById('dash-hero-kpis'); if(!el) return;
+  const pct=(v,d=1)=>v==null?'—':((v>=0?'+':'')+v.toFixed(d)+'%');
+  const col=v=>v==null?'var(--muted)':v>=0?'var(--green)':'var(--red)';
+  const sinPos=st.inv.length===0;
+
+  // Variación semanal ponderada por el valor de cada posición (igual patrón que mdsW/cagrW en portfolioStats)
+  let weekW=null;
+  {
+    let w=0,acc=0;
+    st.conValor.forEach(r=>{ if(r.m.weeklyPct==null) return; w+=r.m.mktValue; acc+=r.m.weeklyPct*r.m.mktValue; });
+    if(w>0) weekW=acc/w;
+    else{
+      const vals=st.inv.map(r=>r.m.weeklyPct).filter(v=>v!=null);
+      if(vals.length) weekW=vals.reduce((a,b)=>a+b,0)/vals.length;
+    }
+  }
+
+  // En zona de compra: precio hoy en o por debajo del precio de entrada al 15% anual
+  const zona=rows.filter(r=>r.m.price!=null&&r.m.price15!=null&&r.m.price<=r.m.price15*1.03);
+
+  // Próximo resultado trimestral entre las empresas de la cartera
+  const now=new Date();
+  const myKeys=new Set(rows.map(r=>r.co.key));
+  const nextEarn=(typeof DASH_COMPANIES!=='undefined'?DASH_COMPANIES:[])
+    .filter(c=>myKeys.has(c.key)).map(co=>({date:co.earnings,co}))
+    .filter(e=>new Date(e.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
+
+  const card=(lbl,val,sub,valColor)=>`<div class="hero-kpi">`
+    +`<div class="hero-kpi-lbl">${lbl}</div>`
+    +`<div class="hero-kpi-val"${valColor?` style="color:${valColor};"`:''}>${val}</div>`
+    +`<div class="hero-kpi-sub">${sub}</div></div>`;
+
+  el.innerHTML=
+      card('Valor cartera',
+        sinPos?'—':(privado()?st.inv.length+' posic.':(st.totalMkt>0?fmtBase(st.totalMkt,0):'—')),
+        sinPos?'añade tu coste para verlo'
+          :(weekW!=null?`<span style="color:${col(weekW)};font-weight:700;">${weekW>=0?'▲':'▼'} ${pct(weekW)}</span> esta semana`:'—'))
+    + card('Rentabilidad total',
+        sinPos?'—':pct(st.pnlPct),
+        sinPos?'':'vs. tu precio de coste', sinPos?null:col(st.pnlPct))
+    + card('En zona de compra', String(zona.length),
+        zona.length?zona.map(r=>r.co.key).join(', ')+' por debajo de entrada':'ninguna hoy',
+        zona.length?'var(--amber)':null)
+    + card('Próximo evento',
+        nextEarn?nextEarn.co.key+' reporta':'—',
+        nextEarn?`en ${Math.max(0,Math.ceil((new Date(nextEarn.date)-now)/86400000))} días · ${new Date(nextEarn.date).toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}`:'sin resultados próximos');
 }
 
 // ── «Qué mirar hoy»: las tres listas que de verdad piden una decisión ──
