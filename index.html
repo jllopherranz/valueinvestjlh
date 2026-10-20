@@ -7450,6 +7450,10 @@ const MACRO_CAL=[
 ];
 
 let _allEarnFetched=false;
+// Caché de fechas de resultados por ticker (Finnhub) — cubre TODA la cartera, no solo las 9 de
+// fábrica: antes esta función solo recorría DASH_COMPANIES, así que una empresa añadida por el
+// usuario (p.ej. Nebius) nunca aparecía en "Próximo evento" / "Qué mirar hoy" / Calendarios.
+let _earnCache={};
 async function fetchAllEarnings(){
   if(_allEarnFetched) return;
   const key=(typeof getFinnhubKey==='function')?getFinnhubKey():null; if(!key) return;
@@ -7457,17 +7461,21 @@ async function fetchAllEarnings(){
   const from=new Date().toISOString().slice(0,10);
   const to=new Date(Date.now()+120*864e5).toISOString().slice(0,10);
   let changed=false;
-  await Promise.all(DASH_COMPANIES.map(async co=>{
-    const sym=co.fhTicker||co.ticker;
+  const companies=(typeof getAllPortfolioCompanies==='function')?getAllPortfolioCompanies():DASH_COMPANIES;
+  await Promise.all(companies.map(async co=>{
+    const sym=co.fhTicker||co.ticker||co.key;
     try{
       const r=await fetch(`https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&symbol=${encodeURIComponent(sym)}&token=${key}`,{signal:AbortSignal.timeout(8000)});
       if(!r.ok) return;
       const j=await r.json();
-      const next=((j&&j.earningsCalendar)||[]).map(e=>e&&e.date).filter(Boolean).sort()[0];
-      if(next && next!==co.earnings){ co.earnings=next; changed=true; }
+      const ev=((j&&j.earningsCalendar)||[]).filter(e=>e&&e.date).sort((a,b)=>a.date<b.date?-1:1)[0];
+      if(!ev) return;
+      const elbl=(ev.quarter&&ev.year)?`Q${ev.quarter} ${ev.year}`:'Resultados';
+      if(ev.date!==(_earnCache[co.key]&&_earnCache[co.key].date)){ _earnCache[co.key]={date:ev.date,elbl}; changed=true; }
+      if('earnings' in co){ co.earnings=ev.date; co.elbl=co.elbl||elbl; } // DASH_COMPANIES: mismo objeto, lo siguen leyendo otras vistas
     }catch(e){}
   }));
-  if(changed) renderDashboard();   // el guard evita recursión
+  if(changed){ renderDashboard(); if(typeof renderPortfolioSummary==='function') renderPortfolioSummary(); }   // el guard evita recursión
 }
 
 function renderDashboard(){
@@ -7531,7 +7539,8 @@ function renderDashboard(){
   let upcoming=[],upMacro=[];
   const earnEl=document.getElementById('dash-earnings-list');
   if(earnEl){
-    upcoming=DASH_COMPANIES.map(co=>({date:co.earnings,title:co.key+' — '+co.elbl,co}))
+    upcoming=getAllPortfolioCompanies().filter(co=>co.earnings)
+      .map(co=>({date:co.earnings,title:co.key+' — '+(co.elbl||'Resultados'),co}))
       .filter(e=>new Date(e.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,8);
     earnEl.innerHTML=upcoming.map(e=>{
       const d=new Date(e.date);
@@ -8205,9 +8214,10 @@ function getAllPortfolioCompanies(){
     const d=getImportedData(ticker);
     if(!d) continue;
     const _cat=catalogFor(ticker);
+    const _ce=(typeof _earnCache!=='undefined'&&_earnCache[ticker])||null; // fecha de resultados (fetchAllEarnings)
     base.push({key:ticker,name:d.name||ticker,ticker:d.ticker||ticker,
       fhTicker:d.ticker||ticker,color:(d.color&&d.color!=='#1e3a5f')?d.color:((_cat&&_cat.color)||d.color||'#1e3a5f'),
-      score:null,verdict:null,vc:null,earnings:null,elbl:null,drive:d.driveUrl||null,isNew:true});
+      score:null,verdict:null,vc:null,earnings:_ce?_ce.date:null,elbl:_ce?_ce.elbl:null,drive:d.driveUrl||null,isNew:true});
     keys.add(ticker);
   }
   return base.sort((a,b)=>(a.name||a.key).localeCompare(b.name||b.key,'es')); // orden alfabético
@@ -9113,9 +9123,9 @@ function renderHeroKPIs(rows,st){
   // con el logo de la empresa (resultados) o el icono de su categoría (macro) — mismos iconos
   // que ya usa la lista "Próximos eventos importantes" de Calendarios.
   const now=new Date();
-  const myKeys=new Set(rows.map(r=>r.co.key));
-  const nextEarn=(typeof DASH_COMPANIES!=='undefined'?DASH_COMPANIES:[])
-    .filter(c=>myKeys.has(c.key)).map(co=>({date:co.earnings,co}))
+  // Toda la cartera (fábrica + añadidas), no solo las 9 de fábrica — antes una empresa añadida
+  // (p.ej. Nebius) nunca podía salir aquí aunque tuviera resultados en breve.
+  const nextEarn=rows.filter(r=>r.co.earnings).map(r=>({date:r.co.earnings,co:r.co}))
     .filter(e=>new Date(e.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
   const nextMacro=(typeof MACRO_CAL!=='undefined'?MACRO_CAL:[])
     .filter(e=>new Date(e.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
@@ -9176,9 +9186,8 @@ function renderTodayPanel(rows){
   // 4ª columna: lo que no es solo precio — noticias frescas y resultados de los próximos 7 días,
   // para que esta sección sea el único sitio que hace falta mirar cada mañana.
   const now=new Date();
-  const myKeys=new Set(rows.map(r=>r.co.key));
-  const earnSoon=(typeof DASH_COMPANIES!=='undefined'?DASH_COMPANIES:[])
-    .filter(c=>myKeys.has(c.key)).map(co=>({date:co.earnings,co}))
+  // Toda la cartera (fábrica + añadidas) — mismo motivo que en renderHeroKPIs.
+  const earnSoon=rows.filter(r=>r.co.earnings).map(r=>({date:r.co.earnings,co:r.co}))
     .filter(e=>{const diff=Math.ceil((new Date(e.date)-now)/86400000);return diff>=0&&diff<=7;})
     .sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,3);
   let trCache={}; try{trCache=JSON.parse(localStorage.getItem('vi_news_es')||'{}');}catch(e){}
