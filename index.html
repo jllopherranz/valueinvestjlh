@@ -5183,6 +5183,24 @@ function rResumen(){
   ];
 
   // KPIs — datos actualizados y visuales
+  // Desglose año a año con la diferencia YoY de cada año, para el popup de detalle de cada KPI
+  // (fullArr = serie completa de 10 años; usa el año 4 como "anterior" del primer año mostrado).
+  const _yoyLines=(fullArr,fmtFn,ppMode)=>{
+    const s=(fullArr||[]).slice(5);
+    return s.map((v,i)=>{
+      const yr=co.years[5+i];
+      if(v==null) return `${yr}: s/d`;
+      const prev=i===0?fullArr[4]:s[i-1];
+      let yoyTxt=null;
+      if(prev!=null){
+        if(ppMode){ const d=v-prev; yoyTxt=(d>=0?'+':'')+d.toFixed(1)+'pp'; }
+        else if(prev!==0){ const d=(v-prev)/Math.abs(prev)*100; yoyTxt=(d>=0?'+':'')+d.toFixed(1)+'%'; }
+      }
+      const yoyNum=yoyTxt?parseFloat(yoyTxt):null;
+      const yoyCol=yoyNum==null?'var(--muted)':yoyNum>=0?'#16a34a':'#dc2626';
+      return `${yr}: <strong>${fmtFn(v)}</strong>${yoyTxt?` <span style="color:${yoyCol};font-weight:700;">(${yoyTxt})</span>`:''}`;
+    }).join('<br>');
+  };
   const kpiRows=[
     {key:'sales',icon:'📦',lbl:'Ventas',
      main:()=>''+curSymG()+N(co.sales[9])+'M',
@@ -5193,7 +5211,7 @@ function rResumen(){
      hist:()=>co.sales.slice(5),
      hist_fmt:v=>''+curSymG()+N(Math.round(v/1000))+'B',
      est:()=>co.pS.slice(0,3),
-     detail:()=>`Ventas ${_y9()}: ${curSymG()}${N(co.sales[9])}M. CAGR 10Y ${P(cagr(co.sales[9],co.sales[0],9))}. Último año: ${P(pct(co.sales[9],co.sales[8]))}. Estimaciones: ${co.pS.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
+     detail:()=>`<strong>Ventas ${_y9()}: ${curSymG()}${N(co.sales[9])}M</strong> · CAGR 10Y ${P(cagr(co.sales[9],co.sales[0],9))}<br><br>${_yoyLines(co.sales,v=>curSymG()+N(v)+'M')}<br><br>Estimado: ${co.pS.slice(0,3).map((v,i)=>`${co.pY[i]}E <strong>${curSymG()}${N(Math.round(v/1000))}B</strong>`).join(' · ')}`},
     {key:'fcf',icon:'💵',lbl:'Free Cash Flow',
      main:()=>''+curSymG()+N(co.fcf[9])+'M',
      pct_val:()=>co.fcfM[9],
@@ -5203,7 +5221,7 @@ function rResumen(){
      hist:()=>co.fcf.slice(5),
      hist_fmt:v=>v<0?'−'+curSymG()+N(Math.round(Math.abs(v)/1000))+'B':''+curSymG()+N(Math.round(v/1000))+'B',
      est:()=>co.pF.slice(0,3),
-     detail:()=>`FCF ${_y9()}: ${curSymG()}${N(co.fcf[9])}M. Margen FCF ${P(co.fcfM[9])} (sector ~${P(sectorRefFor(co).fcfMg)}). FCF/acción ${curSymG()}${N(co.fcfps[9],2)}. Est: ${co.pF.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
+     detail:()=>`<strong>FCF ${_y9()}: ${curSymG()}${N(co.fcf[9])}M</strong> · Margen ${P(co.fcfM[9])} (sector ~${P(sectorRefFor(co).fcfMg)}) · FCF/acción ${curSymG()}${N(co.fcfps[9],2)}<br><br>${_yoyLines(co.fcf,v=>v<0?'−'+curSymG()+N(Math.abs(v))+'M':curSymG()+N(v)+'M')}<br><br>Estimado: ${co.pF.slice(0,3).map((v,i)=>`${co.pY[i]}E <strong>${curSymG()}${N(Math.round(v/1000))}B</strong>`).join(' · ')}`},
     {key:'ebitda',icon:'🏭',lbl:'EBITDA',
      main:()=>''+curSymG()+N(co.ebitda[9])+'M',
      pct_val:()=>co.ebitdaM[9],
@@ -5213,37 +5231,40 @@ function rResumen(){
      hist:()=>co.ebitda.slice(5),
      hist_fmt:v=>''+curSymG()+N(Math.round(v/1000))+'B',
      est:()=>co.pEB.slice(0,3),
-     detail:()=>`EBITDA ${_y9()}: ${curSymG()}${N(co.ebitda[9])}M. Margen EBITDA ${P(co.ebitdaM[9])} vs sector ~${P(sectorRefFor(co).ebitdaMg)}. Est: ${co.pEB.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
+     detail:()=>`<strong>EBITDA ${_y9()}: ${curSymG()}${N(co.ebitda[9])}M</strong> · Margen ${P(co.ebitdaM[9])} vs sector ~${P(sectorRefFor(co).ebitdaMg)}<br><br>${_yoyLines(co.ebitda,v=>curSymG()+N(v)+'M')}<br><br>Estimado: ${co.pEB.slice(0,3).map((v,i)=>`${co.pY[i]}E <strong>${curSymG()}${N(Math.round(v/1000))}B</strong>`).join(' · ')}`},
     {key:'eps',icon:'📈',lbl:'EPS',
      main:()=>''+curSymG()+N(co.eps[9],2),
      pct_val:()=>pct(co.eps[9],co.eps[8]),
      pct_lbl:'YoY',
      sub:()=>'CAGR 10Y '+P(cagr(co.eps[9],co.eps[0],9)),
      c:'#7c3aed',
+     cu:'$',
      hist:()=>co.eps.slice(5),
      hist_fmt:v=>''+curSymG()+N(v,2),
      est:()=>co.pEPS.slice(0,3),
-     detail:()=>`EPS ${_y9()}: ${curSymG()}${N(co.eps[9],2)}. Crecimiento YoY ${P(pct(co.eps[9],co.eps[8]))}. CAGR 10Y ${P(cagr(co.eps[9],co.eps[0],9))}. Est: ${co.pEPS.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(v,2)}`).join(' · ')}.`},
+     detail:()=>`<strong>EPS ${_y9()}: ${curSymG()}${N(co.eps[9],2)}</strong> · CAGR 10Y ${P(cagr(co.eps[9],co.eps[0],9))}<br><br>${_yoyLines(co.eps,v=>curSymG()+N(v,2))}<br><br>Estimado: ${co.pEPS.slice(0,3).map((v,i)=>`${co.pY[i]}E <strong>${curSymG()}${N(v,2)}</strong>`).join(' · ')}`},
     {key:'roic',icon:'🎯',lbl:'ROIC',
      main:()=>P(co.roic[9]),
      pct_val:()=>co.roic[9]-co.wacc,
      pct_lbl:'vs WACC',
      sub:()=>vd.roicMomentum,
      c:co.roic[9]>=co.wacc+10?'#16a34a':co.roic[9]>=co.wacc?'#d97706':'#dc2626',
+     cu:'%',
      hist:()=>co.roic.slice(5),
      hist_fmt:v=>v+'%',
      est:null,
-     detail:()=>`ROIC ${P(co.roic[9])} vs WACC ${co.wacc}%. Spread ${(co.roic[9]-co.wacc)>=0?'+':''}${(co.roic[9]-co.wacc).toFixed(0)}pp. Trend 5Y: ${vd.roicTrend5>=0?'+':''}${vd.roicTrend5}pp (${vd.roicMomentum}). Historial: ${co.roic.slice(5).map((v,i)=>co.years[5+i]+' '+v+'%').join(' · ')}.`},
+     detail:()=>`<strong>ROIC ${P(co.roic[9])}</strong> vs WACC ${co.wacc}% · Spread ${(co.roic[9]-co.wacc)>=0?'+':''}${(co.roic[9]-co.wacc).toFixed(0)}pp · Trend 5Y ${vd.roicTrend5>=0?'+':''}${vd.roicTrend5}pp (${vd.roicMomentum})<br><br>${_yoyLines(co.roic,v=>v.toFixed(1)+'%',true)}`},
     {key:'evfcf',icon:'💎',lbl:'EV/FCF',
      main:()=>evfcfCurrent+'x',
      pct_val:()=>((evfcfCurrent-medEvFcf)/medEvFcf*100),
      pct_lbl:'vs med5Y',
      sub:()=>'Med 5Y: '+Math.round(medEvFcf)+'x · 10Y: '+Math.round(medEvFcf10)+'x',
      c:'#7c3aed',
+     cu:'x',
      hist:()=>co.hEvF.slice(5),
      hist_fmt:v=>v!=null?v+'x':'—',
      est:null,
-     detail:()=>`EV/FCF actual ${evfcfCurrent}x. Mediana 5Y ${Math.round(medEvFcf)}x, 10Y ${Math.round(medEvFcf10)}x. ${evfcfCurrent>medEvFcf?`Prima del ${((evfcfCurrent-medEvFcf)/medEvFcf*100).toFixed(0)}% sobre la media — el mercado exige crecimiento.`:'Descuento del '+Math.abs(((evfcfCurrent-medEvFcf)/medEvFcf*100).toFixed(0))+'% bajo la media — posible oportunidad.'}`},
+     detail:()=>`<strong>EV/FCF actual ${evfcfCurrent}x</strong> · Mediana 5Y ${Math.round(medEvFcf)}x · 10Y ${Math.round(medEvFcf10)}x<br>${evfcfCurrent>medEvFcf?`Prima del ${((evfcfCurrent-medEvFcf)/medEvFcf*100).toFixed(0)}% sobre la media — el mercado exige crecimiento.`:'Descuento del '+Math.abs(((evfcfCurrent-medEvFcf)/medEvFcf*100).toFixed(0))+'% bajo la media — posible oportunidad.'}<br><br>${_yoyLines(co.hEvF,v=>v.toFixed(1)+'x')}`},
   ];
 
   const kpiHtml=kpiRows.map(k=>{
@@ -5253,16 +5274,26 @@ function rResumen(){
     const pctColor=pctOk?'#16a34a':'#dc2626';
     const histData=k.hist();
     const estData=k.est?k.est():null;
-    // Mini sparkline bars
+    // Mini sparkline bars: color SIEMPRE por signo (antes el último año se pintaba del color del
+    // KPI aunque el valor fuera negativo, p.ej. un FCF en pérdidas salía en verde) + diferencia YoY
+    // de cada año sobre la barra, no solo el valor.
     const validHist=histData.filter(v=>v!=null&&v!==undefined);
     const maxV=Math.max(...validHist.map(Math.abs),1);
     const sparkBars=histData.map((v,i)=>{
       const isLast=i===histData.length-1;
+      const neg=v!=null&&v<0;
       const h=v!=null?Math.max(10,Math.round(Math.abs(v)/maxV*36)):10;
-      const c=isLast?k.c:v>=0?k.c+'99':'#dc262699';
+      const c=v==null?(_dm()?'#2a3a52':'#e0ddd8'):(neg?(isLast?'#dc2626':'#dc262699'):(isLast?k.c:k.c+'99'));
       const yr=String(co.years[5+i]).slice(2);
-      return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">
-        <div style="font-size:7px;color:${isLast?k.c:'var(--muted)'};font-weight:${isLast?'700':'400'};">${v!=null?k.hist_fmt(v):'—'}</div>
+      const prev=i>0?histData[i-1]:null;
+      let yoyTxt='',yoyCol='var(--muted)';
+      if(v!=null&&prev!=null&&prev!==0){
+        const d=(v-prev)/Math.abs(prev)*100;
+        yoyTxt=(d>=0?'+':'')+d.toFixed(0)+'%'; yoyCol=d>=0?'#16a34a':'#dc2626';
+      }
+      return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;">
+        <div style="font-size:7px;color:${isLast?(neg?'#dc2626':k.c):'var(--muted)'};font-weight:${isLast?'700':'400'};white-space:nowrap;">${v!=null?k.hist_fmt(v):'—'}</div>
+        <div style="font-size:6px;font-weight:700;color:${yoyCol};min-height:7px;line-height:1;">${yoyTxt}</div>
         <div style="width:100%;height:${h}px;background:${c};border-radius:2px 2px 0 0;"></div>
         <div style="font-size:7px;color:var(--muted);">${yr}</div>
       </div>`;
@@ -5276,6 +5307,10 @@ function rResumen(){
     };
     const kJson=JSON.stringify(kData).replace(/'/g,"\\'").replace(/"/g,'&quot;');
 
+    // Las barras son clicables aparte (stopPropagation) y abren el mismo gráfico ampliado
+    // (openMetricChart) que ya usa Centro de Datos y Análisis — mismo patrón, misma interacción.
+    const chartData=`data-cs="${histData.map(v=>v==null?'':v).join(',')}" data-cu="${k.cu||''}" data-cl="${k.lbl}" data-color="${k.c}"`;
+
     return`<div class="kpi2" id="kpi2-${k.key}" style="border-left-color:${k.c};cursor:pointer;"
       onclick="regKpi2('${k.key}',${JSON.stringify(kData).replace(/"/g,"'")});kpiEdu('${k.key}',event)">
       <div style="display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;">
@@ -5286,7 +5321,10 @@ function rResumen(){
           <div style="font-size:10px;font-weight:700;color:${pctColor};margin-top:2px;">${pctV>=0?'+':''}${pctV.toFixed(1)}% ${k.pct_lbl}</div>
           <div style="font-size:9px;color:var(--muted);margin-top:1px;">${k.sub()}</div>
         </div>
-        <div style="display:flex;align-items:flex-end;gap:2px;height:48px;min-width:70px;">${sparkBars}</div>
+        <div style="position:relative;" ${chartData} onclick="event.stopPropagation();openMetricChart(this)" title="Toca para ampliar el gráfico">
+          <span style="position:absolute;top:-10px;right:0;font-size:8px;color:var(--muted);">⤢</span>
+          <div style="display:flex;align-items:flex-end;gap:2px;height:48px;min-width:70px;">${sparkBars}</div>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -6640,8 +6678,9 @@ function showTip(id,el,extra){
   const tag=document.getElementById('tip-tag');tag.textContent=t.tag;tag.style.cssText=`background:${t.color}18;color:${t.color};`;
   document.getElementById('tip-def').textContent=t.def;
   const fBox=document.getElementById('tip-formula');fBox.textContent=t.formula;fBox.style.cssText=`background:${t.color}0e;color:${t.color};font-family:monospace;font-size:11px;padding:7px 11px;border-radius:7px;margin:8px 0;`;
-  // "extra" = situación concreta de ESTA empresa (viene de la tarjeta KPI). Si no, ejemplo genérico.
-  document.getElementById('tip-example').textContent=extra||(typeof t.example==='function'?t.example(co):t.example);
+  // "extra" = situación concreta de ESTA empresa (viene de la tarjeta KPI, puede traer <strong>/<br> propios).
+  // Si no, ejemplo genérico de TIPS (mismo contenido que ya se pinta con innerHTML en Academia).
+  document.getElementById('tip-example').innerHTML=extra||(typeof t.example==='function'?t.example(co):t.example);
   const benchRow=document.getElementById('tip-bench-row'),benchEl=document.getElementById('tip-bench');
   if(t.bench?.length){benchRow.style.display='block';benchEl.innerHTML=t.bench.map(b=>`<span style="padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;background:${b.bg};color:${b.c};margin:2px 3px 2px 0;display:inline-block;">${b.v} — ${b.label}</span>`).join('');}else{benchRow.style.display='none';}
   document.getElementById('tip-ref').textContent=t.ref;
