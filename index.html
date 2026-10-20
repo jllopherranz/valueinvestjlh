@@ -595,6 +595,11 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;padding-bottom:2px;gap:4px;}
   .tab{font-size:10px !important;padding:5px 9px !important;}
   .hdr-nav a,.hdr-nav button{font-size:10px !important;padding:4px 10px !important;}
+  /* ── Nav superior compacta: solo iconos, sin texto (Cartera/Seguimiento/Análisis/Privado/Noche) ── */
+  .co-btn-label{display:none;}
+  .co-btn{padding:7px !important;gap:0 !important;}
+  #co-dropdown .co-btn{padding:7px 12px !important;}
+  #co-dropdown .co-btn-label{display:inline;}
   .kpi-grid{grid-template-columns:1fr 1fr !important;}
   .chk2-grid{grid-template-columns:1fr !important;}
   .verdict-grid{grid-template-columns:1fr !important;}
@@ -732,9 +737,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <div class="brand"><span id="brand-ic"></span>Value<b>Invest</b> JLH</div>
       <div style="display:flex;gap:4px;position:relative;">
-        <button id="nav-dash" class="co-btn active" onclick="setView('dash')"><span id="nic-dash"></span>Cartera</button>
-        <button id="nav-watch" class="co-btn" onclick="setView('watch')"><span id="nic-watch"></span>Seguimiento</button>
-        <button id="nav-analysis" class="co-btn" onclick="toggleAnalysisMenu(event)"><span id="nic-anly"></span>Análisis</button>
+        <button id="nav-dash" class="co-btn active" onclick="setView('dash')" title="Cartera"><span id="nic-dash"></span><span class="co-btn-label">Cartera</span></button>
+        <button id="nav-watch" class="co-btn" onclick="setView('watch')" title="Seguimiento"><span id="nic-watch"></span><span class="co-btn-label">Seguimiento</span></button>
+        <button id="nav-analysis" class="co-btn" onclick="toggleAnalysisMenu(event)" title="Análisis"><span id="nic-anly"></span><span class="co-btn-label">Análisis</span></button>
         <div id="co-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:130;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:6px;min-width:210px;max-height:70vh;overflow:auto;">
           <div style="font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:2px 8px 6px;">Elige empresa</div>
           <div class="co-btns" id="co-btns"></div>
@@ -2364,6 +2369,8 @@ const _ICONS={
   chevron:'<path d="m6 9 6 6 6-6"/>',
   check:'<path d="M20 6 9 17l-5-5"/>',
   database:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v6a9 3 0 0 0 18 0V5"/><path d="M3 11v6a9 3 0 0 0 18 0v-6"/>',
+  lock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  unlock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
 };
 function svgIcon(name,cls){return `<svg class="ic${cls?' '+cls:''}" viewBox="0 0 24 24" aria-hidden="true">${_ICONS[name]||''}</svg>`;}
 function getLogoKey(c){return Object.keys(DB).find(k=>DB[k]===c)||'';}
@@ -2564,7 +2571,7 @@ function togglePrivado(){
 function _paintPrivadoBtn(){
   const b=document.getElementById('priv-toggle'); if(!b) return;
   const on=privado();
-  b.innerHTML=(typeof svgIcon==='function'?svgIcon(on?'eyeoff':'eye'):'')+'Privado';
+  b.innerHTML=(typeof svgIcon==='function'?svgIcon(on?'lock':'unlock'):'')+'<span class="co-btn-label">Privado</span>';
   b.classList.toggle('on',on);
   b.title=on
     ? 'Modo privado ACTIVADO: tus importes están ocultos. Pulsa para volver a verlos.'
@@ -10370,7 +10377,7 @@ async function refreshAllImports(auto){
   // Claro por defecto (institucional); modo noche solo si el usuario lo activa
   if(saved==='1') html.classList.add('dark');
   const _icon=n=>`<svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true">${n==='sun'?'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>':'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'}</svg>`;
-  const _paint=btn=>{if(btn)btn.innerHTML=_icon(html.classList.contains('dark')?'sun':'moon')+(html.classList.contains('dark')?'Claro':'Noche');};
+  const _paint=btn=>{if(!btn)return;const isDark=html.classList.contains('dark');btn.innerHTML=_icon(isDark?'sun':'moon')+'<span class="co-btn-label">'+(isDark?'Claro':'Noche')+'</span>';btn.title=isDark?'Modo claro':'Modo noche';};
   window._toggleDark=function(){
     const isDark=html.classList.toggle('dark');
     localStorage.setItem('vi_dark',isDark?'1':'0');
