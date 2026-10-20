@@ -5285,15 +5285,32 @@ function rResumen(){
     // KPI aunque el valor fuera negativo, p.ej. un FCF en pérdidas salía en verde) + diferencia YoY
     // de cada año sobre la barra, no solo el valor.
     const validHist=histData.filter(v=>v!=null&&v!==undefined);
-    const maxV=Math.max(...validHist.map(Math.abs),1);
+    // Gráfico divergente: positivos crecen hacia arriba desde la línea cero, negativos "cuelgan"
+    // hacia abajo desde esa misma línea — así un valor negativo se ve invertido, no solo en rojo.
+    const maxPosV=Math.max(0,...validHist.filter(v=>v>=0));
+    const maxNegV=Math.max(0,...validHist.filter(v=>v<0).map(v=>Math.abs(v)));
+    const barZoneH=52;
+    let posZoneH,negZoneH;
+    if(maxPosV>0&&maxNegV>0){
+      const r=Math.min(.7,Math.max(.3,maxPosV/(maxPosV+maxNegV)));
+      posZoneH=Math.round(barZoneH*r); negZoneH=barZoneH-posZoneH;
+    } else if(maxNegV>0){ posZoneH=0; negZoneH=barZoneH; }
+    else { posZoneH=barZoneH; negZoneH=0; }
+    const baseline=posZoneH; // px desde arriba de la zona de barras donde está el "0"
+    const mixed=maxPosV>0&&maxNegV>0;
     // Cada barra muestra el % interanual arriba (grande, el dato que se quiere ver "de un vistazo"),
     // el valor exacto queda en el title (hover/pulsación larga) para no competir por espacio.
     // Grid de columnas iguales (no flex) para que las barras queden perfectamente alineadas.
     const sparkBars=histData.map((v,i)=>{
       const isLast=i===histData.length-1;
       const neg=v!=null&&v<0;
-      const h=v!=null?Math.max(12,Math.round(Math.abs(v)/maxV*52)):12;
+      let barTop=baseline,barH=0;
+      if(v!=null){
+        if(v>=0){ barH=maxPosV>0?Math.max(3,Math.round(posZoneH*(v/maxPosV))):3; barTop=baseline-barH; }
+        else{ barH=maxNegV>0?Math.max(3,Math.round(negZoneH*(Math.abs(v)/maxNegV))):3; barTop=baseline; }
+      }
       const c=v==null?(_dm()?'#2a3a52':'#e0ddd8'):(neg?(isLast?'#dc2626':'#dc262699'):(isLast?k.c:k.c+'99'));
+      const rad=v!=null&&v<0?'0 0 2px 2px':'2px 2px 0 0';
       const yr=String(co.years[5+i]).slice(2);
       const prev=i>0?histData[i-1]:null;
       let yoyTxt='—',yoyCol='var(--muted)';
@@ -5302,9 +5319,13 @@ function rResumen(){
         yoyTxt=(d>=0?'+':'')+d.toFixed(0)+'%'; yoyCol=d>=0?'#16a34a':'#dc2626';
       }
       const titleAttr=v!=null?`${yr}: ${k.hist_fmt(v)}`:`${yr}: sin dato`;
+      const baselineLine=mixed?`<div style="position:absolute;left:-2px;right:-2px;top:${baseline}px;height:1px;background:${_dm()?'#3a475f':'#d8d5cf'};"></div>`:'';
       return`<div style="display:flex;flex-direction:column;align-items:center;gap:1px;" title="${titleAttr}">
         <div style="font-size:8px;font-weight:800;color:${yoyCol};line-height:1;white-space:nowrap;">${yoyTxt}</div>
-        <div style="width:100%;height:${h}px;background:${c};border-radius:2px 2px 0 0;margin-top:2px;"></div>
+        <div style="position:relative;width:100%;height:${barZoneH}px;margin-top:2px;">
+          ${baselineLine}
+          ${v!=null?`<div style="position:absolute;left:0;right:0;top:${barTop}px;height:${barH}px;background:${c};border-radius:${rad};"></div>`:''}
+        </div>
         <div style="font-size:7px;color:var(--muted);margin-top:1px;">${yr}</div>
       </div>`;
     }).join('');
