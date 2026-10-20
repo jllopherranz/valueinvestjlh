@@ -5286,23 +5286,26 @@ function rResumen(){
     // de cada año sobre la barra, no solo el valor.
     const validHist=histData.filter(v=>v!=null&&v!==undefined);
     const maxV=Math.max(...validHist.map(Math.abs),1);
+    // Cada barra muestra el % interanual arriba (grande, el dato que se quiere ver "de un vistazo"),
+    // el valor exacto queda en el title (hover/pulsación larga) para no competir por espacio.
+    // Grid de columnas iguales (no flex) para que las barras queden perfectamente alineadas.
     const sparkBars=histData.map((v,i)=>{
       const isLast=i===histData.length-1;
       const neg=v!=null&&v<0;
-      const h=v!=null?Math.max(10,Math.round(Math.abs(v)/maxV*36)):10;
+      const h=v!=null?Math.max(10,Math.round(Math.abs(v)/maxV*26)):10;
       const c=v==null?(_dm()?'#2a3a52':'#e0ddd8'):(neg?(isLast?'#dc2626':'#dc262699'):(isLast?k.c:k.c+'99'));
       const yr=String(co.years[5+i]).slice(2);
       const prev=i>0?histData[i-1]:null;
-      let yoyTxt='',yoyCol='var(--muted)';
+      let yoyTxt='—',yoyCol='var(--muted)';
       if(v!=null&&prev!=null&&prev!==0){
         const d=(v-prev)/Math.abs(prev)*100;
         yoyTxt=(d>=0?'+':'')+d.toFixed(0)+'%'; yoyCol=d>=0?'#16a34a':'#dc2626';
       }
-      return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;">
-        <div style="font-size:7px;color:${isLast?(neg?'#dc2626':k.c):'var(--muted)'};font-weight:${isLast?'700':'400'};white-space:nowrap;">${v!=null?k.hist_fmt(v):'—'}</div>
-        <div style="font-size:6px;font-weight:700;color:${yoyCol};min-height:7px;line-height:1;">${yoyTxt}</div>
-        <div style="width:100%;height:${h}px;background:${c};border-radius:2px 2px 0 0;"></div>
-        <div style="font-size:7px;color:var(--muted);">${yr}</div>
+      const titleAttr=v!=null?`${yr}: ${k.hist_fmt(v)}`:`${yr}: sin dato`;
+      return`<div style="display:flex;flex-direction:column;align-items:center;gap:1px;" title="${titleAttr}">
+        <div style="font-size:8px;font-weight:800;color:${yoyCol};line-height:1;white-space:nowrap;">${yoyTxt}</div>
+        <div style="width:100%;height:${h}px;background:${c};border-radius:2px 2px 0 0;margin-top:2px;"></div>
+        <div style="font-size:7px;color:var(--muted);margin-top:1px;">${yr}</div>
       </div>`;
     }).join('');
 
@@ -5330,7 +5333,7 @@ function rResumen(){
         </div>
         <div style="position:relative;" ${chartData} onclick="event.stopPropagation();openMetricChart(this)" title="Toca para ampliar el gráfico">
           <span style="position:absolute;top:-10px;right:0;font-size:8px;color:var(--muted);">⤢</span>
-          <div style="display:flex;align-items:flex-end;gap:2px;height:48px;min-width:70px;">${sparkBars}</div>
+          <div style="display:grid;grid-template-columns:repeat(${histData.length},1fr);align-items:end;gap:4px;height:48px;min-width:118px;">${sparkBars}</div>
         </div>
       </div>
     </div>`;
