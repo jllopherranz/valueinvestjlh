@@ -5661,10 +5661,9 @@ function rResumen(){
 function rGraficos(){
   const H='position:relative;height:220px;'; // mismo tamaño para todos
   const hasProj=co.pS&&co.pF&&co.pEPS;
-  const lastProjYr=hasProj?co.pY[co.pY.length-1]:co.years[9];
   return`
-  <div class="card"><div class="ctitle">Histórico y proyecciones — Ventas, FCF y EPS (${co.years[0]}–${lastProjYr}${hasProj?'e':''})</div><div style="${H}"><canvas id="c-hist"></canvas></div><div class="chart-note">Ventas y FCF en ${curSymG()}M (eje izq) · EPS en ${curSymG()} (eje der)${hasProj?' · años "e" = proyección de tu Excel (barras más claras, línea discontinua)':''}</div></div>
-  <div class="card"><div class="ctitle">Márgenes históricos y proyectados — EBITDA %, EBIT % y FCF %</div><div style="${H}"><canvas id="c-mg"></canvas></div>${hasProj?'<div class="chart-note">Años "e" = proyección · EBIT estimado con el ratio EBIT/EBITDA actual sobre el EBITDA proyectado</div>':''}</div>
+  <div class="card"><div class="ctitle">Ventas, FCF y EPS</div><div style="${H}"><canvas id="c-hist"></canvas></div><div class="chart-note">Ventas/FCF en ${curSymG()}M (izq) · EPS en ${curSymG()} (der)${hasProj?' · "e" = proyección':''}</div></div>
+  <div class="card"><div class="ctitle">Márgenes (EBITDA, EBIT, FCF)</div><div style="${H}"><canvas id="c-mg"></canvas></div>${hasProj?'<div class="chart-note" title="Margen EBIT proyectado = EBITDA de tu hoja × ratio EBIT/EBITDA actual">"e" = proyección (EBIT estimado ⓘ)</div>':''}</div>
   <div class="card"><div class="ctitle">ROIC vs WACC (${co.wacc}%) — Creación de valor</div><div style="${H}"><canvas id="c-roic"></canvas></div><div class="chart-note">Verde = ROIC > WACC (crea valor) · Rojo = destruye valor</div></div>
   <div class="card"><div class="ctitle">💹 Múltiplos históricos — EV/FCF y PER</div><div style="${H}"><canvas id="c-mult"></canvas></div><div class="chart-note">Línea punteada = mediana histórica</div></div>`;
 }
