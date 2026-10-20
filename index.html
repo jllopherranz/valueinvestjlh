@@ -424,7 +424,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   .kgrid{grid-template-columns:repeat(2,1fr);}
   .valgrid{grid-template-columns:repeat(2,1fr);}
   .price-group{gap:5px;}
-  .price-inp{width:75px;font-size:16px;}
+  .price-inp{width:96px;font-size:16px;text-align:right;}
   .hdr{padding:8px 12px;}
   .cnt{padding:10px 12px;}
   .stress-grid{grid-template-columns:repeat(2,1fr);}
@@ -629,7 +629,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   .price-box{border:none;background:transparent;padding:0;text-align:right;min-width:0 !important;}
   .price-lbl{font-size:0 !important;margin:0;justify-content:flex-end;gap:3px;}
   .price-lbl .price-live-badge,.price-lbl #hdr-sim-flag{font-size:8px !important;}
-  .price-inp{width:66px;font-size:15px;}
+  .price-inp{width:88px;font-size:15px;text-align:right;}
   .price-change{font-size:9px;margin-top:0;min-height:0;}
   /* ── Cartera/Seguimiento en móvil: columnas más estrechas y menos espacio entre ellas,
      para que quepan más columnas visibles sin tener que hacer scroll horizontal ── */
@@ -739,9 +739,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
           <div style="font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:2px 8px 6px;">Elige empresa</div>
           <div class="co-btns" id="co-btns"></div>
         </div>
-        <button id="priv-toggle" class="co-btn" onclick="togglePrivado()" title="Modo privado: oculta tu dinero y deja solo las rentabilidades"></button>
-        <button id="dark-toggle" class="co-btn" onclick="_toggleDark()"></button>
       </div>
+      <button id="priv-toggle" class="co-btn" onclick="togglePrivado()" title="Modo privado: oculta tu dinero y deja solo las rentabilidades"></button>
+      <button id="dark-toggle" class="co-btn" onclick="_toggleDark()"></button>
     </div>
     <!-- Fila 2: empresa (nombre · precio compañía · market cap) ........ precio live -->
     <div id="hdr-co-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
