@@ -5292,7 +5292,7 @@ function rResumen(){
     const sparkBars=histData.map((v,i)=>{
       const isLast=i===histData.length-1;
       const neg=v!=null&&v<0;
-      const h=v!=null?Math.max(10,Math.round(Math.abs(v)/maxV*26)):10;
+      const h=v!=null?Math.max(12,Math.round(Math.abs(v)/maxV*52)):12;
       const c=v==null?(_dm()?'#2a3a52':'#e0ddd8'):(neg?(isLast?'#dc2626':'#dc262699'):(isLast?k.c:k.c+'99'));
       const yr=String(co.years[5+i]).slice(2);
       const prev=i>0?histData[i-1]:null;
@@ -5333,7 +5333,7 @@ function rResumen(){
         </div>
         <div style="position:relative;" ${chartData} onclick="event.stopPropagation();openMetricChart(this)" title="Toca para ampliar el gráfico">
           <span style="position:absolute;top:-10px;right:0;font-size:8px;color:var(--muted);">⤢</span>
-          <div style="display:grid;grid-template-columns:repeat(${histData.length},1fr);align-items:end;gap:4px;height:48px;min-width:118px;">${sparkBars}</div>
+          <div style="display:grid;grid-template-columns:repeat(${histData.length},1fr);align-items:end;gap:4px;height:74px;min-width:118px;">${sparkBars}</div>
         </div>
       </div>
     </div>`;
