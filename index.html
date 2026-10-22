@@ -842,18 +842,27 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 
   <!-- ═══ CARTERA (tabla rica unificada en el Dashboard) ═══ -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px;flex-wrap:wrap;gap:10px;">
-    <div>
-      <div style="font-size:15px;font-weight:600;color:var(--text);letter-spacing:.01em;">Mi cartera <span onclick="showCarteraHelp()" title="¿Qué significa cada columna?" style="cursor:pointer;font-size:10px;color:var(--blue);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 8px;font-weight:600;vertical-align:middle;">¿Qué significan los datos?</span></div>
+    <div style="display:flex;align-items:center;gap:7px;">
+      <div style="font-size:15px;font-weight:600;color:var(--text);letter-spacing:.01em;">Mi cartera</div>
+      <span onclick="showCarteraHelp()" title="¿Qué significa cada columna? Pulsa para ver" style="cursor:pointer;font-size:10px;color:var(--blue);border:1px solid var(--border);border-radius:50%;width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">ⓘ</span>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <!-- Solo la acción que se usa espontáneamente queda fuera; el resto (mantenimiento ocasional:
+         importar, sincronizar, auto-sync, restaurar, copia) vive en el menú "⋯ Gestionar" para no
+         ocupar una fila entera (en móvil, cada botón caía en su propia línea). -->
+    <div style="display:flex;gap:8px;align-items:center;position:relative;">
       <button class="co-btn co-btn-primary" onclick="openImportModal('NUEVA')"><span id="aic-add"></span>Añadir empresa</button>
-      <button class="co-btn" onclick="openImportModal(null)"><span id="aic-imp"></span>Importar Excel</button>
-      <button id="btn-refresh-imports" class="co-btn" onclick="refreshAllImports()"><span id="aic-sync"></span>Sincronizar con hojas<span id="sync-check" style="display:inline-flex;align-items:center;margin-left:2px;"></span></button>
-      <button id="btn-autosync" class="cart-chip" onclick="toggleAutoSync()">⏱ Auto: no</button>
-      <select id="autosync-hour" class="pf-cur" style="display:none;" onchange="setAutoSyncHour(this.value)" title="Hora a la que se sincroniza sola cada día"></select>
-      <button id="btn-restore-hidden" class="co-btn" style="display:none;" onclick="restoreHidden()"><span id="aic-restore"></span>Restaurar ocultas</button>
-      <button class="co-btn" onclick="openBackupModal()" title="Copia tus empresas y precios de compra a otro dispositivo (móvil). Tus datos se guardan solo en este navegador."><span id="aic-backup"></span>Copia / Pasar al móvil</button>
-      <span id="dash-prices-ts" style="font-size:9px;color:var(--muted);">—</span>
+      <button class="co-btn" onclick="toggleCarteraMenu(event)" title="Importar, sincronizar, copia de seguridad…">⋯ Gestionar</button>
+      <div id="cartera-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:130;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:7px;min-width:235px;">
+        <button class="co-btn" style="width:100%;justify-content:flex-start;margin-bottom:4px;" onclick="openImportModal(null)"><span id="aic-imp"></span>Importar Excel</button>
+        <button id="btn-refresh-imports" class="co-btn" style="width:100%;justify-content:flex-start;margin-bottom:4px;" onclick="refreshAllImports()"><span id="aic-sync"></span>Sincronizar con hojas<span id="sync-check" style="display:inline-flex;align-items:center;margin-left:2px;"></span></button>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <button id="btn-autosync" class="cart-chip" style="flex:1;" onclick="toggleAutoSync()">⏱ Auto: no</button>
+          <select id="autosync-hour" class="pf-cur" style="display:none;" onchange="setAutoSyncHour(this.value)" title="Hora a la que se sincroniza sola cada día"></select>
+        </div>
+        <button id="btn-restore-hidden" class="co-btn" style="width:100%;justify-content:flex-start;display:none;margin-bottom:4px;" onclick="restoreHidden()"><span id="aic-restore"></span>Restaurar ocultas</button>
+        <button class="co-btn" style="width:100%;justify-content:flex-start;" onclick="openBackupModal()" title="Copia tus empresas y precios de compra a otro dispositivo (móvil). Tus datos se guardan solo en este navegador."><span id="aic-backup"></span>Copia / Pasar al móvil</button>
+        <div style="font-size:9px;color:var(--muted);text-align:right;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">Última actualización: <span id="dash-prices-ts">—</span></div>
+      </div>
     </div>
   </div>
 
@@ -3128,6 +3137,16 @@ function toggleAnalysisMenu(ev){
 document.addEventListener('click',e=>{
   const d=document.getElementById('co-dropdown');
   if(d&&d.style.display==='block'&&!d.contains(e.target)&&e.target.id!=='nav-analysis') d.style.display='none';
+});
+// Menú "⋯ Gestionar" de Mi cartera (Importar/Sincronizar/Auto/Restaurar/Copia) — mismo patrón que el desplegable de empresa
+function toggleCarteraMenu(ev){
+  if(ev) ev.stopPropagation();
+  const d=document.getElementById('cartera-menu');
+  if(d) d.style.display=(d.style.display==='block')?'none':'block';
+}
+document.addEventListener('click',e=>{
+  const d=document.getElementById('cartera-menu');
+  if(d&&d.style.display==='block'&&!d.contains(e.target)&&!(e.target.closest&&e.target.closest('[onclick*="toggleCarteraMenu"]'))) d.style.display='none';
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -9116,22 +9135,29 @@ function renderHeroKPIs(rows,st){
     }
   }
 
-  // En zona de compra: precio hoy en o por debajo del precio de entrada al 15% anual
-  const zona=rows.filter(r=>r.m.price!=null&&r.m.price15!=null&&r.m.price<=r.m.price15*1.03);
-
-  // Próximo evento: el que llegue antes entre un resultado de tu cartera y un evento macro,
-  // con el logo de la empresa (resultados) o el icono de su categoría (macro) — mismos iconos
-  // que ya usa la lista "Próximos eventos importantes" de Calendarios.
+  // "En zona de compra" se quitó de aquí (y de «Qué mirar hoy»): solo miraba precio vs. un único
+  // objetivo a 5 años, sin margen de seguridad, ROIC ni MOAT — ya existe un criterio mejor (el
+  // mismo Veredicto 0-100 de la tabla y de «Comparativa entre tus empresas»). Esta 3ª tarjeta pasa
+  // a resumir resultados + noticias (lo que antes vivía solo en la 4ª columna de «Qué mirar hoy»,
+  // ahora más destacada ahí abajo).
   const now=new Date();
-  // Toda la cartera (fábrica + añadidas), no solo las 9 de fábrica — antes una empresa añadida
-  // (p.ej. Nebius) nunca podía salir aquí aunque tuviera resultados en breve.
-  const nextEarn=rows.filter(r=>r.co.earnings).map(r=>({date:r.co.earnings,co:r.co}))
-    .filter(e=>new Date(e.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
+  const earnSoonCount=rows.filter(r=>r.co.earnings).filter(r=>{const diff=Math.ceil((new Date(r.co.earnings)-now)/86400000);return diff>=0&&diff<=7;}).length;
+  const freshNewsCount=(typeof _dashAllNews!=='undefined'?_dashAllNews:[]).reduce((a,g)=>a+g.items.filter(c=>c.fresh).length,0);
+  const destacadosCount=earnSoonCount+freshNewsCount;
+
+  // Próximo evento: el que llegue antes entre un resultado de tu cartera y un evento macro. Si
+  // varias empresas reportan el mismo día (p.ej. hoy), se agrupan todas — antes solo salía la
+  // primera alfabéticamente y las demás desaparecían de esta tarjeta.
+  // Toda la cartera (fábrica + añadidas), no solo las 9 de fábrica — una empresa añadida (p.ej.
+  // Nebius) también puede salir aquí si tiene resultados en breve.
+  const earnCandidates=rows.filter(r=>r.co.earnings).map(r=>({date:r.co.earnings,co:r.co}))
+    .filter(e=>new Date(e.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const nextEarnGroup=earnCandidates.length?earnCandidates.filter(e=>e.date===earnCandidates[0].date):[];
   const nextMacro=(typeof MACRO_CAL!=='undefined'?MACRO_CAL:[])
     .filter(e=>new Date(e.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
   const MACRO_ICONS={'#1e3a5f':'🏦','#0891b2':'🏛️','#dc2626':'📈','#d97706':'👷','#7c3aed':'📋'};
   let nextEvt=null;
-  if(nextEarn&&(!nextMacro||new Date(nextEarn.date)<=new Date(nextMacro.date))) nextEvt={type:'earn',date:nextEarn.date,co:nextEarn.co};
+  if(nextEarnGroup.length&&(!nextMacro||new Date(nextEarnGroup[0].date)<=new Date(nextMacro.date))) nextEvt={type:'earn',date:nextEarnGroup[0].date,cos:nextEarnGroup.map(e=>e.co)};
   else if(nextMacro) nextEvt={type:'macro',date:nextMacro.date,title:nextMacro.title,icon:MACRO_ICONS[nextMacro.c]||'📋'};
 
   const card=(lbl,val,sub,valColor,onclick)=>`<div class="hero-kpi"${onclick?` style="cursor:pointer;" onclick="${onclick}"`:''}>`
@@ -9147,20 +9173,22 @@ function renderHeroKPIs(rows,st){
     + card('Rentabilidad total',
         sinPos?'—':pct(st.pnlPct),
         sinPos?'':'vs. tu precio de coste', sinPos?null:col(st.pnlPct))
-    // El detalle (qué empresas) vive en «Qué mirar hoy», justo debajo — aquí solo el total,
-    // para no repetir la misma lista dos veces en la primera pantalla.
-    + card('En zona de compra', String(zona.length),
-        zona.length?'ver cuáles en «Qué mirar hoy» ↓':'ninguna hoy',
-        zona.length?'var(--amber)':null, 'scrollToToday()')
+    + card('Resultados y noticias', String(destacadosCount),
+        destacadosCount?'ver detalle en «Qué mirar hoy» ↓':'nada destacado hoy',
+        destacadosCount?'var(--blue)':null, 'scrollToToday()')
     + card('Próximo evento',
         nextEvt?(()=>{
-          const logo=nextEvt.type==='earn'?logoUrlFor(nextEvt.co.key):null;
-          const ico=nextEvt.type==='earn'
-            ?(logo?`<img src="${logo}" onerror="this.style.display='none'" style="width:20px;height:20px;border-radius:5px;object-fit:contain;flex-shrink:0;"/>`
-                  :`<span class="hero-kpi-logo-fallback" style="background:${nextEvt.co.color||'#1e3a5f'};">${nextEvt.co.key.substring(0,2)}</span>`)
-            :`<span style="font-size:17px;flex-shrink:0;">${nextEvt.icon}</span>`;
-          const txt=nextEvt.type==='earn'?nextEvt.co.key+' reporta':nextEvt.title;
-          return `<span style="display:flex;align-items:center;gap:8px;">${ico}<span>${txt}</span></span>`;
+          if(nextEvt.type==='earn'){
+            const cos=nextEvt.cos;
+            const logo=logoUrlFor(cos[0].key);
+            const ico=logo?`<img src="${logo}" onerror="this.style.display='none'" style="width:20px;height:20px;border-radius:5px;object-fit:contain;flex-shrink:0;"/>`
+                          :`<span class="hero-kpi-logo-fallback" style="background:${cos[0].color||'#1e3a5f'};">${cos[0].key.substring(0,2)}</span>`;
+            const extra=cos.length>1?`<span style="font-size:9px;font-weight:700;color:var(--muted);background:var(--surface2);border-radius:8px;padding:1px 6px;flex-shrink:0;">+${cos.length-1}</span>`:'';
+            const names=cos.map(c=>c.key);
+            const lbl=(names.length<=3?names.join(', '):names.slice(0,2).join(', ')+' y '+(names.length-2)+' más')+(cos.length>1?' reportan':' reporta');
+            return `<span style="display:flex;align-items:center;gap:7px;">${ico}${extra}<span>${lbl}</span></span>`;
+          }
+          return `<span style="display:flex;align-items:center;gap:8px;"><span style="font-size:17px;flex-shrink:0;">${nextEvt.icon}</span><span>${nextEvt.title}</span></span>`;
         })():'—',
         nextEvt?`en ${Math.max(0,Math.ceil((new Date(nextEvt.date)-now)/86400000))} días · ${new Date(nextEvt.date).toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}`:'sin eventos próximos');
 }
@@ -9174,8 +9202,10 @@ function scrollToToday(){
 }
 function renderTodayPanel(rows){
   const el=document.getElementById('cartera-today'); if(!el) return;
-  const zona=rows.filter(r=>r.m.price!=null&&r.m.price15!=null&&r.m.price<=r.m.price15*1.03)
-    .sort((a,b)=>(b.m.mds15??-1e9)-(a.m.mds15??-1e9));
+  // "En zona de compra" se quitó: solo miraba precio vs. un único objetivo a 5 años, sin margen
+  // de seguridad, ROIC ni MOAT — el Veredicto 0-100 de la tabla (y «Comparativa entre tus
+  // empresas») ya responde "qué comprar hoy" con criterio real. El hueco libre va a la columna de
+  // resultados y noticias, que pasa a mostrar más elementos.
   const caras=rows.filter(r=>r.m.mds!=null&&r.m.mds<-10).sort((a,b)=>(a.m.mds)-(b.m.mds));
   const caidas=rows.filter(r=>r.m.weeklyPct!=null&&r.m.weeklyPct<=-7).sort((a,b)=>a.m.weeklyPct-b.m.weeklyPct);
   const item=(r,txt,c,tip)=>`<a class="today-item" title="${tip||''}" onclick="setView('analysis');setTimeout(()=>{if(DB['${r.co.key}'])switchCo('${r.co.key}');},80);">
@@ -9183,17 +9213,17 @@ function renderTodayPanel(rows){
       <span class="today-n" title="${r.co.name}">${shortCoName(r.co.name)}</span>
       <span class="today-v" style="color:${c};">${txt}</span></a>`;
 
-  // 4ª columna: lo que no es solo precio — noticias frescas y resultados de los próximos 7 días,
-  // para que esta sección sea el único sitio que hace falta mirar cada mañana.
+  // Resultados próximos + noticias frescas — ahora la columna "fuerte" del panel (ver más
+  // elementos de cada una, ya que dejó de compartir sitio con "en zona de compra").
   const now=new Date();
   // Toda la cartera (fábrica + añadidas) — mismo motivo que en renderHeroKPIs.
   const earnSoon=rows.filter(r=>r.co.earnings).map(r=>({date:r.co.earnings,co:r.co}))
     .filter(e=>{const diff=Math.ceil((new Date(e.date)-now)/86400000);return diff>=0&&diff<=7;})
-    .sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,3);
+    .sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,5);
   let trCache={}; try{trCache=JSON.parse(localStorage.getItem('vi_news_es')||'{}');}catch(e){}
   const newsToday=(typeof _dashAllNews!=='undefined'?_dashAllNews:[])
     .flatMap(g=>g.items.filter(c=>c.fresh).map(c=>({co:g.co,n:c.n,impact:c.impact})))
-    .sort((a,b)=>(b.n.datetime||0)-(a.n.datetime||0)).slice(0,4);
+    .sort((a,b)=>(b.n.datetime||0)-(a.n.datetime||0)).slice(0,6);
   const dLblShort=d=>{const diff=Math.ceil((d-now)/86400000);return diff<=0?'HOY':diff===1?'mañana':'en '+diff+'d';};
   const IMPACT_COL={pos:'var(--green)',neg:'var(--red)',neu:'var(--muted)'};
   const newsItems=[
@@ -9205,29 +9235,18 @@ function renderTodayPanel(rows){
   ];
 
   const listas=[
-    {t:'En zona de compra',s:'precio ≤ tu entrada para +15% anual',c:'var(--green)',
-     // El badge muestra la rentabilidad anual esperada a 5 años (más útil que el margen sobre
-     // el precio de entrada, que ya es el motivo por el que la empresa está en esta lista) — el
-     // precio objetivo a 5 años se ve al pasar el ratón.
-     items:zona.map(r=>{
-       const retColor=r.m.cagr5==null?'var(--muted)':r.m.cagr5>=15?'var(--green)':r.m.cagr5>=8?'var(--amber)':'var(--red)';
-       const txt=r.m.cagr5!=null?(r.m.cagr5>=0?'+':'')+r.m.cagr5.toFixed(0)+'%/año':'—';
-       const tip=r.m.obj5!=null?`Objetivo a 5 años: ${curSymOf(r.co.key)}${r.m.obj5>=1000?new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(r.m.obj5):r.m.obj5.toFixed(2)}`:'';
-       return item(r,txt,retColor,tip);
-     }),
-     vacio:'Ninguna a precio de entrada hoy.'},
     {t:'Por encima del objetivo',s:'cotizan por encima de tu precio objetivo',c:'var(--red)',
      items:caras.map(r=>item(r,r.m.mds.toFixed(0)+'% MdS','var(--red)')),
      vacio:'Ninguna claramente por encima.'},
     {t:'Caídas de la semana',s:'−7% o más en 5 sesiones',c:'var(--amber)',
      items:caidas.map(r=>item(r,r.m.weeklyPct.toFixed(1)+'%','var(--red)')),
      vacio:'Sin caídas fuertes esta semana.'},
-    {t:'Noticias y resultados',s:'lo fresco de hoy + próximos 7 días',c:'var(--blue)',
+    {t:'Resultados y noticias destacadas',s:'próximos 7 días + lo fresco de hoy',c:'var(--blue)',
      items:newsItems,
      vacio:'Nada destacado por ahora.'},
   ];
   const open=_secOpen('today');
-  const totalItems=zona.length+caras.length+caidas.length+earnSoon.length+newsToday.length;
+  const totalItems=caras.length+caidas.length+earnSoon.length+newsToday.length;
   const grid=listas.map(l=>`<div class="today-col">
       <div class="today-t" style="border-color:${l.c};">${l.t} <span style="font-weight:700;color:var(--muted);">${l.items.length}</span><span>${l.s}</span></div>
       ${l.items.length?l.items.join(''):`<div class="today-empty">${l.vacio}</div>`}
