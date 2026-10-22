@@ -311,6 +311,11 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 /* ── EVENTS ── */
 .ev-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media(max-width:900px){.ev-grid{grid-template-columns:1fr;}}
+/* Las 4 secciones inferiores del dashboard (comparativa, growth/value, noticias, calendarios) en
+   cuadrícula 2x2 en vez de apiladas a ancho completo: menos scroll para ver qué hay en cada una. */
+.dash-bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;margin-bottom:12px;}
+.dash-bottom-grid>.card{margin-bottom:0;}
+@media(max-width:900px){.dash-bottom-grid{grid-template-columns:1fr;}}
 .dash-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;}
 /* Cabeceras de las secciones plegables del dashboard (comparativa, growth/value, noticias, calendarios):
    título normal (no versalitas) en negrita con su icono delante, más legible que .dash-sec-title al ser
@@ -909,45 +914,48 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   </div>
   <div id="cartera-mult-grid" style="display:none;"></div>
 
-  <!-- ── Comparativa cruzada: ¿cuál es la mejor de las que puedo comprar hoy? ── -->
-  <div id="dash-cross" style="margin-bottom:12px;"></div>
+  <!-- ── 4 secciones secundarias en cuadrícula 2x2: menos scroll para ver qué hay en cada una ── -->
+  <div class="dash-bottom-grid">
+    <!-- ── Comparativa cruzada: ¿cuál es la mejor de las que puedo comprar hoy? ── -->
+    <div id="dash-cross"></div>
 
-  <!-- ── Comparador Growth vs Value de la cartera ── -->
-  <div id="dash-style-compare" style="margin-bottom:12px;"></div>
+    <!-- ── Comparador Growth vs Value de la cartera ── -->
+    <div id="dash-style-compare"></div>
 
-  <!-- ── Noticias del mercado (titulares reales) ── -->
-  <!-- Colapsada por defecto (ver _secOpen/toggleSec): arranca cerrada en el HTML y _restoreFold('news')
-       la reabre en cada renderDashboard() si el usuario la dejó abierta la última vez. -->
-  <div class="card" style="margin-bottom:12px;">
-    <div class="sec-fold" onclick="toggleSec('news')">
-      <div class="sec-title-big" style="margin:0;">📰 Noticias del mercado <span id="news-summary" style="font-weight:600;color:var(--muted);">cargando…</span></div>
-      <span class="sec-chev" id="chev-news">▼ mostrar</span>
-    </div>
-    <div id="body-news" style="display:none;">
-      <div style="display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:10px 0 10px;">
-        <span id="news-filter"></span>
-        <button onclick="fetchDashNews()" style="font-size:10px;padding:3px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--sub);cursor:pointer;font-weight:600;">↻ Actualizar</button>
+    <!-- ── Noticias del mercado (titulares reales) ── -->
+    <!-- Colapsada por defecto (ver _secOpen/toggleSec): arranca cerrada en el HTML y _restoreFold('news')
+         la reabre en cada renderDashboard() si el usuario la dejó abierta la última vez. -->
+    <div class="card">
+      <div class="sec-fold" onclick="toggleSec('news')">
+        <div class="sec-title-big" style="margin:0;">📰 Noticias del mercado <span id="news-summary" style="font-weight:600;color:var(--muted);">cargando…</span></div>
+        <span class="sec-chev" id="chev-news">▼ mostrar</span>
       </div>
-      <div id="dash-news-list"><!-- JS: titulares --></div>
-    </div>
-  </div>
-
-  <!-- ── Calendarios: próximos resultados + eventos importantes (dos columnas cuadradas) ── -->
-  <!-- Mismo patrón de plegado que noticias; cal-summary se rellena en renderDashboard(). -->
-  <div class="card" style="margin-bottom:12px;">
-    <div class="sec-fold" onclick="toggleSec('cal')">
-      <div class="sec-title-big" style="margin:0;">🗓️ Calendarios <span id="cal-summary" style="font-weight:600;color:var(--muted);">cargando…</span></div>
-      <span class="sec-chev" id="chev-cal">▼ mostrar</span>
-    </div>
-    <div id="body-cal" style="display:none;">
-      <div class="dash-cal-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch;margin-top:10px;">
-        <div class="card card-sm">
-          <div class="dash-sec-title">Próximos resultados</div>
-          <div id="dash-earnings-list"><!-- JS --></div>
+      <div id="body-news" style="display:none;">
+        <div style="display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:10px 0 10px;">
+          <span id="news-filter"></span>
+          <button onclick="fetchDashNews()" style="font-size:10px;padding:3px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--sub);cursor:pointer;font-weight:600;">↻ Actualizar</button>
         </div>
-        <div class="card card-sm">
-          <div class="dash-sec-title">🗓️ Próximos eventos importantes</div>
-          <div id="dash-macro-list"><!-- JS --></div>
+        <div id="dash-news-list"><!-- JS: titulares --></div>
+      </div>
+    </div>
+
+    <!-- ── Calendarios: próximos resultados + eventos importantes (dos columnas cuadradas) ── -->
+    <!-- Mismo patrón de plegado que noticias; cal-summary se rellena en renderDashboard(). -->
+    <div class="card">
+      <div class="sec-fold" onclick="toggleSec('cal')">
+        <div class="sec-title-big" style="margin:0;">🗓️ Calendarios <span id="cal-summary" style="font-weight:600;color:var(--muted);">cargando…</span></div>
+        <span class="sec-chev" id="chev-cal">▼ mostrar</span>
+      </div>
+      <div id="body-cal" style="display:none;">
+        <div class="dash-cal-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch;margin-top:10px;">
+          <div class="card card-sm">
+            <div class="dash-sec-title">Próximos resultados</div>
+            <div id="dash-earnings-list"><!-- JS --></div>
+          </div>
+          <div class="card card-sm">
+            <div class="dash-sec-title">🗓️ Próximos eventos importantes</div>
+            <div id="dash-macro-list"><!-- JS --></div>
+          </div>
         </div>
       </div>
     </div>
@@ -8348,6 +8356,18 @@ function carteraMetrics(co){
           roic5,fcfM,ndEbitda,salesG5,origen,impAge};
 }
 function pegColor(peg){return peg==null?'#9a958e':peg<1?'#16a34a':peg<=2?'#eab308':'#dc2626';}
+// Barra divergente (centrada en 0%) para leer el margen de seguridad de un vistazo en la tabla,
+// en vez de solo un número de color: verde a la derecha (barato), rojo a la izquierda (caro).
+function mdsBar(mds){
+  if(mds==null) return '';
+  const col=mds>=15?'#16a34a':mds>=0?'#d97706':'#dc2626';
+  const half=Math.min(50,Math.abs(mds)/50*50); // ±50% MdS llena la mitad de la barra
+  const side=mds>=0?`left:50%;width:${half}%;`:`right:50%;width:${half}%;`;
+  return `<div style="width:56px;height:4px;border-radius:2px;background:var(--surface2);margin:4px 0 0 auto;position:relative;overflow:hidden;" title="Margen de seguridad: ${mds>=0?'+':''}${mds.toFixed(0)}%">
+    <div style="position:absolute;top:0;bottom:0;${side}background:${col};"></div>
+    <div style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--border);"></div>
+  </div>`;
+}
 function pegBar(peg,per,g){
   if(peg==null) return '<span style="color:#9a958e;font-size:11px;" title="Sin BPA o crecimiento ≤ 0">—</span>';
   const col=pegColor(peg), pos=Math.min(100,Math.max(2,peg/2*100)); // PEG 1→50%, 2→100%
@@ -8834,6 +8854,7 @@ function renderCartera(){
   <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">
     <div id="cobjevf-${k}" style="font-size:13px;font-weight:600;color:var(--text);">${fmt(m.objEVF,k)}</div>
     <div class="c-sub" id="cmds-${k}" style="color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</div>
+    <div id="cmdsbar-${k}">${mdsBar(m.mds)}</div>
   </td>
   <td style="text-align:right;">
     <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'var(--text)'};">${fmt(m.price15,k)}</div>
@@ -9047,12 +9068,19 @@ function renderPortfolioSummary(){
     +`<div class="pf-sub">${sub||''}</div></div>`;
 
   const sinPos=st.inv.length===0;
-  const tiles=sinPos
-    ? `<div style="grid-column:1/-1;font-size:11.5px;color:var(--sub);padding:6px 2px;">
-         Aún no has guardado ninguna posición. Pulsa <b>«+ coste»</b> en cualquier empresa para indicar tu
-         precio medio de compra y el número de acciones — a partir de ahí verás aquí el valor de tu cartera,
-         la ganancia, el peso de cada posición y si bates al S&amp;P 500.</div>`
-    : (privado()
+  // Sin posiciones no hay nada que mostrar todavía: una línea compacta en vez de toda la tarjeta
+  // (cabecera plegable + grid de tiles), que antes ocupaba una fila entera solo para decir esto.
+  if(sinPos){
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--sub);padding:2px 0;">
+      <span style="font-size:15px;flex-shrink:0;">💼</span>
+      <span>Aún no has guardado ninguna posición. Pulsa <b>«+ coste»</b> en cualquier empresa para ver aquí el valor
+      de tu cartera, la ganancia y la concentración.</span>
+    </div>`;
+    renderHeroKPIs(rows,st);
+    renderTodayPanel(rows);
+    return;
+  }
+  const tiles=(privado()
         ? tile('Posiciones abiertas', String(st.inv.length), 'modo privado: importes ocultos')
         : tile('Valor de la cartera', st.totalMkt>0?fmtBase(st.totalMkt,0):'—',
                st.totalMkt>0?('coste '+fmtBase(st.totalCost,0))
@@ -9094,8 +9122,8 @@ function renderPortfolioSummary(){
   const avisoHtml=avisos.length?`<div class="pf-warn">⚠ ${avisos.join(' · ')}</div>`:'';
 
   const open=_secOpen('resumen');
-  const resumenChip=sinPos?'':(privado()?`<span class="pf-hchip">${st.inv.length} posic.</span>`
-        :(st.totalMkt>0?`<span class="pf-hchip">${fmtBase(st.totalMkt,0)} · <b style="color:${st.pnl>=0?'var(--green)':'var(--red)'};">${pct(st.pnlPct)}</b></span>`:''));
+  const resumenChip=privado()?`<span class="pf-hchip">${st.inv.length} posic.</span>`
+        :(st.totalMkt>0?`<span class="pf-hchip">${fmtBase(st.totalMkt,0)} · <b style="color:${st.pnl>=0?'var(--green)':'var(--red)'};">${pct(st.pnlPct)}</b></span>`:'');
   el.innerHTML=`<div class="pf-head">
       <div class="sec-fold" style="flex:1;" onclick="toggleSec('resumen')">
         <div class="dash-sec-title" style="margin:0;">Resumen de mi cartera ${resumenChip}</div>
@@ -9626,6 +9654,7 @@ function updateCarteraRow(key){
   if(p('cweek-'+key)){const c=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';p('cweek-'+key).innerHTML=m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—';p('cweek-'+key).style.color=c;}
   if(p('cobjevf-'+key)) p('cobjevf-'+key).textContent=fmt(m.objEVF);
   if(p('cmds-'+key)){p('cmds-'+key).textContent=m.mds!=null?sp(m.mds,0)+' MdS':'—';p('cmds-'+key).style.color=mdsCol(m.mds);}
+  if(p('cmdsbar-'+key)) p('cmdsbar-'+key).innerHTML=mdsBar(m.mds);
   if(p('c15-'+key)){const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);p('c15-'+key).textContent=fmt(m.price15);p('c15-'+key).style.color=inZone?'#16a34a':'var(--text)';}
   if(p('cmds15-'+key)){p('cmds15-'+key).textContent=m.mds15!=null?sp(m.mds15,0)+' MdS':'—';p('cmds15-'+key).style.color=mdsCol(m.mds15);}
   if(p('cobj5-'+key)) p('cobj5-'+key).textContent=fmt(m.obj5);
