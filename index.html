@@ -7877,11 +7877,15 @@ async function fetchDashNews(){
     if(fresh.length&&!top.includes(fresh[0])){ if(top.length>=6) top.pop(); top.unshift(fresh[0]); }
     top.forEach(c=>{c.fresh=_hrs(c)<=FRESH_H;});
     g.fresh=top.filter(c=>c.fresh).length;
+    g.maxScore=Math.max(...top.map(c=>c.score));      // mejor puntuación real del grupo (antes de que el "bump" de frescura reordene items[0])
     g.items=top;
     return g;
   });
-  // Empresas ordenadas ALFABÉTICAMENTE (siempre en el mismo sitio, fácil de encontrar)
-  groups.sort((a,b)=>(a.co.name||a.co.key).localeCompare(b.co.name||b.co.key,'es'));
+  // Empresas ordenadas por LA NOTICIA MÁS IMPORTANTE primero (mismo score de scoreNews que ya
+  // decide qué titular se ve dentro de cada tarjeta) — antes era alfabético, así que una empresa
+  // con un titular clave podía quedar perdida al final solo por su nombre. Alfabético queda de
+  // desempate para que el orden no salte sin motivo entre actualizaciones con score empatado.
+  groups.sort((a,b)=>b.maxScore-a.maxScore||(a.co.name||a.co.key).localeCompare(b.co.name||b.co.key,'es'));
   _dashAllNews=groups;    // caché sin filtrar: cambiar el filtro rápido (Últimas/Importantes) no pide red
   _dashNewsTs=Date.now();
   await _renderNewsGroups();
