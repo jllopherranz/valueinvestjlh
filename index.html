@@ -562,19 +562,38 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .val-endlbl{position:absolute;top:50%;transform:translateY(-50%);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
 .val-endlbl.lo{left:-2px;color:var(--red);}
 .val-endlbl.hi{right:-2px;color:var(--green);text-align:right;}
-.val-dot{position:absolute;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;cursor:pointer;z-index:2;}
+/* El punto (.pt) tiene que quedar ANCLADO sobre la barra, con el tallo+icono creciendo hacia
+   fuera desde ahí — no todo el bloque centrado como conjunto sobre la línea. Centrando el bloque
+   entero (como estaba antes, con translateY(-50%) sobre toda la altura pt+tallo+icono), el punto
+   acababa lejos de la barra, cayendo justo dentro del rango vertical del icono de la OTRA fila —
+   confirmado: con el centrado antiguo, el pt de una fila "down" caía a 16px de la barra, dentro
+   del propio icono de una fila "up" cercana. Aquí solo el PT se centra en la línea (margin-top/
+   bottom negativo = la mitad de su propia altura); tallo e icono crecen desde ahí hacia un lado. */
+.val-dot{position:absolute;top:50%;transform:translateX(-50%);margin-top:-4.5px;display:flex;flex-direction:column;align-items:center;cursor:pointer;z-index:2;}
 .val-dot .pt{width:9px;height:9px;border-radius:50%;border:2px solid var(--surface2);box-shadow:0 1px 3px rgba(0,0,0,.25);flex-shrink:0;}
 .val-dot .stem{width:1px;height:13px;background:var(--border);}
 .val-dot .ic,.val-dot .ic-fb{width:19px;height:19px;border-radius:6px;flex-shrink:0;object-fit:contain;background:var(--surface);border:2px solid;box-shadow:0 1px 4px rgba(0,0,0,.18);}
 .val-dot .ic-fb{display:flex;align-items:center;justify-content:center;color:#fff;font-size:7px;font-weight:800;}
-.val-dot.up{flex-direction:column-reverse;bottom:50%;top:auto;transform:translate(-50%,50%);}
+.val-dot.up{flex-direction:column-reverse;bottom:50%;top:auto;transform:translateX(-50%);margin-top:0;margin-bottom:-4.5px;}
 /* Móvil: el track mide muchos menos píxeles pero el icono no encogía con él — con varias
    empresas en una banda de score estrecha, los iconos de 19px se solapaban (ver PR del mapa de
-   valoración). Encogerlos en pantalla estrecha reduce cuánto espacio en píxeles pide cada empresa. */
+   valoración). Reducción gradual en dos escalones (no un único salto a 14px, que quedaba
+   demasiado pequeño para leer/tocar en el móvil real) — cada tamaño de pantalla pide solo lo
+   necesario para caber, sin pasarse de pequeño. */
 @media (max-width:480px){
+  .val-dot{margin-top:-4px;}
+  .val-dot.up{margin-top:0;margin-bottom:-4px;}
+  .val-dot .pt{width:8px;height:8px;}
+  .val-dot .stem{height:11px;}
+  .val-dot .ic,.val-dot .ic-fb{width:17px;height:17px;border-radius:5px;}
+  .val-dot .ic-fb{font-size:6.5px;}
+}
+@media (max-width:360px){
+  .val-dot{margin-top:-3.5px;}
+  .val-dot.up{margin-top:0;margin-bottom:-3.5px;}
   .val-dot .pt{width:7px;height:7px;}
   .val-dot .stem{height:9px;}
-  .val-dot .ic,.val-dot .ic-fb{width:14px;height:14px;border-radius:5px;}
+  .val-dot .ic,.val-dot .ic-fb{width:15px;height:15px;border-radius:5px;}
   .val-dot .ic-fb{font-size:6px;}
 }
 .val-dot:hover .val-tip{display:block;}
