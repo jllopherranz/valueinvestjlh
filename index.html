@@ -993,7 +993,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <!-- ── Noticias del mercado (titulares reales) ── -->
   <!-- Colapsada por defecto (ver _secOpen/toggleSec): arranca cerrada en el HTML y _restoreFold('news')
        la reabre en cada renderDashboard() si el usuario la dejó abierta la última vez. -->
-  <div class="card" style="margin-bottom:12px;">
+  <div class="card" id="dash-news-card" style="margin-bottom:12px;">
     <div class="sec-fold" onclick="toggleSec('news')">
       <div class="sec-title-big" style="margin:0;">📰 Noticias del mercado <span id="news-summary" style="font-weight:600;color:var(--muted);">cargando…</span></div>
       <span class="sec-chev" id="chev-news">▼ mostrar</span>
@@ -9024,8 +9024,12 @@ function _paintSortIndicators(){
 // Chips de filtro rápido encima de la tabla
 function _paintFilterChips(FILTERS,hidden){
   const el=document.getElementById('cartera-filters'); if(!el) return;
-  el.innerHTML=Object.keys(FILTERS).map(f=>
-    `<button class="cart-chip${f===_cartFilter?' on':''}" onclick="filterCartera('${f}')">${FILTERS[f].lbl}</button>`).join('')
+  // Un desplegable en vez de un botón por filtro (eran 4 chips mutuamente excluyentes ocupando
+  // toda una fila) — "Calidad del negocio" se queda como botón aparte porque no filtra filas,
+  // cambia qué columnas se ven, así que no pega con el resto de opciones del desplegable.
+  el.innerHTML=`<select onchange="filterCartera(this.value)" style="font-size:10.5px;font-weight:700;padding:5px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--sub);cursor:pointer;">
+      ${Object.keys(FILTERS).map(f=>`<option value="${f}"${f===_cartFilter?' selected':''}>${FILTERS[f].lbl}</option>`).join('')}
+    </select>`
     +`<button class="cart-chip${_cartCalidad?' on':''}" onclick="toggleCalidad()" title="Muestra ROIC, margen de caja, deuda y crecimiento: la calidad del negocio antes que el precio">⚙ Calidad del negocio</button>`
     +(hidden?`<span style="font-size:9.5px;color:var(--muted);font-weight:600;">${hidden} oculta(s) por el filtro</span>`:'');
 }
@@ -9292,6 +9296,14 @@ function scrollToToday(){
   const el=document.getElementById('cartera-today');
   if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
 }
+// Desde "Noticias destacadas" (resumen de lo más relevante) a la sección completa "Noticias del
+// mercado" (todas las empresas, sin filtrar por relevancia) — la abre si estaba plegada.
+function scrollToMarketNews(){
+  const body=document.getElementById('body-news');
+  if(body&&body.style.display==='none') toggleSec('news');
+  const el=document.getElementById('dash-news-card');
+  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
 // ── Mapa de valoración: cartera + seguimiento en el eje Veredicto 0-100 (Evitar↔Comprar) ──
 // Sustituye "en zona de compra" (solo precio, quitado) y "por encima del objetivo" (un único
 // %, sin ajustar por riesgo): ambas preguntas se resuelven con calcVerdict(), el mismo score
@@ -9423,23 +9435,32 @@ function renderTodayPanel(rows){
     .slice(0,6);
   const dLblShort=d=>{const diff=Math.ceil((d-now)/86400000);return diff<=0?'HOY':diff===1?'mañana':'en '+diff+'d';};
   const IMPACT_COL={pos:'var(--green)',neg:'var(--red)',neu:'var(--muted)'};
+  // Igual que Caídas/Subidas: plegable con toggleSec, por si no quieres verlas siempre — pero
+  // aquí sí suele haber contenido útil, así que arrancan ABIERTAS por defecto (defOpen=true).
+  const foldCard=(id,title,count,sub,bodyHtml,wide)=>{
+    const fOpen=_secOpen(id,true);
+    return `<div class="today-col${wide?' news-wide':''}">
+      <div class="sec-fold" onclick="toggleSec('${id}')">
+        <div class="today-t" style="border-color:var(--blue);margin-bottom:0;">${title} <span style="font-weight:700;color:var(--muted);">${count}</span><span>${sub}</span></div>
+        <span class="sec-chev" id="chev-${id}">${fOpen?'▲ ocultar':'▼ mostrar'}</span>
+      </div>
+      <div id="body-${id}" style="display:${fOpen?'block':'none'};margin-top:${fOpen?'6px':'0'};">${bodyHtml}</div>
+    </div>`;
+  };
   // Dos tarjetas separadas en vez de una sola mezclando calendario de resultados (texto corto,
   // "Reporta en 4d") con titulares de noticias (texto largo): juntas, forzaban a cortar el
   // titular a 40 caracteres para caber en la misma columna estrecha que Caídas/Subidas.
-  const earnCard=`<div class="today-col">
-      <div class="today-t" style="border-color:var(--blue);">Próximos resultados <span style="font-weight:700;color:var(--muted);">${earnSoon.length}</span><span>en los próximos 7 días</span></div>
-      ${earnSoon.length?earnSoon.map(e=>item({co:e.co},'Reporta '+dLblShort(new Date(e.date)),'var(--blue)')).join(''):`<div class="today-empty">Nadie reporta esta semana.</div>`}
-    </div>`;
-  const newsCard=`<div class="today-col news-wide">
-      <div class="today-t" style="border-color:var(--blue);">Noticias destacadas <span style="font-weight:700;color:var(--muted);">${newsToday.length}</span><span>lo más relevante de los últimos días</span></div>
-      ${newsToday.length?newsToday.map(c=>{
+  const earnCard=foldCard('earnsoon','Próximos resultados',earnSoon.length,'en los próximos 7 días',
+    earnSoon.length?earnSoon.map(e=>item({co:e.co},'Reporta '+dLblShort(new Date(e.date)),'var(--blue)')).join(''):`<div class="today-empty">Nadie reporta esta semana.</div>`);
+  const newsBody=(newsToday.length?newsToday.map(c=>{
         const head=trCache[c.n.headline]||c.n.headline;
         return `<a class="today-news-item" onclick="setView('analysis');setTimeout(()=>{if(DB['${c.co.key}'])switchCo('${c.co.key}');},80);">
           <span class="today-nh-head"><span class="today-k" style="color:${c.co.color};">${c.co.key}</span>
           <span class="today-n" style="flex:0;white-space:nowrap;" title="${c.co.name}">${shortCoName(c.co.name)}</span></span>
           <span class="today-nh" style="color:${IMPACT_COL[c.impact]||'var(--muted)'};">${head}</span></a>`;
-      }).join(''):`<div class="today-empty">Nada destacado por ahora.</div>`}
-    </div>`;
+      }).join(''):`<div class="today-empty">Nada destacado por ahora.</div>`)
+    +`<span class="val-expand" onclick="scrollToMarketNews()">ver todas las noticias del mercado →</span>`;
+  const newsCard=foldCard('newsdestacadas','Noticias destacadas',newsToday.length,'lo más relevante de los últimos días',newsBody,true);
   const valMapHtml=buildValuationMap(rows);
   const open=_secOpen('today');
   const totalItems=caidas.length+subidas.length+earnSoon.length+newsToday.length;
