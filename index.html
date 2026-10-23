@@ -10016,8 +10016,24 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
 
   // Años REALES leídos de la cabecera de 1.IS (cada empresa puede ir desfasada: NVIDIA reporta
   // hasta 2026 y proyecta 2027e-2031e; el resto hasta 2025 + 2026e-2030e). Antes estaban hardcodeados.
-  const _parseYr=v=>{const m=String(v==null?'':v).match(/(\d{4})/);return m?+m[1]:null;};
-  const _yrHdr=(is.find(r=>r&&Number(r[1])>=2000&&Number(r[1])<2100))||[];
+  // La cabecera puede venir como año suelto (2025), como fecha completa de texto (10/10/2025,
+  // si Google Sheets formatea esa columna como fecha) o como número de serie de Excel (raw:true
+  // no formatea fechas: una celda-fecha llega como entero tipo 45940, no como "10/10/2025").
+  const _excelSerialToYear=n=>{const d=new Date(Date.UTC(1899,11,30)+n*86400000);const y=d.getUTCFullYear();return(y>=2000&&y<2100)?y:null;};
+  const _parseYr=v=>{
+    if(v==null) return null;
+    if(v instanceof Date){const y=v.getUTCFullYear();return(y>=2000&&y<2100)?y:null;}
+    if(typeof v==='number'){
+      if(v>=2000&&v<2100) return Math.trunc(v);           // año suelto: 2025
+      if(v>20000&&v<100000) return _excelSerialToYear(v); // fecha como serie de Excel: 45940 → 2025
+      return null;
+    }
+    const m=String(v).match(/(\d{4})/);                   // fecha como texto: "10/10/2025" → 2025
+    if(!m) return null;
+    const y=+m[1];
+    return(y>=2000&&y<2100)?y:null;
+  };
+  const _yrHdr=(is.find(r=>r&&_parseYr(r[1])!=null))||[];
   let _years=_yrHdr.slice(1,11).map(_parseYr);
   let _pY=_yrHdr.slice(11,16).map(_parseYr);
   if(_years.length<10||_years.some(y=>!y)) _years=[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025];
