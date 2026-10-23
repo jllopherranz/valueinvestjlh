@@ -537,6 +537,44 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .today-n{font-size:10.5px;color:var(--sub);font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .today-v{font-size:11px;font-weight:700;}
 .today-empty{font-size:10px;color:var(--muted);padding:5px 0;}
+/* ═══ MAPA DE VALORACIÓN (dentro de Qué mirar hoy) ═══
+   Un único eje "Evitar ↔ Comprar" con el Veredicto 0-100 (mismo score que la tabla y
+   «Comparativa entre tus empresas»): sustituye "en zona de compra" (solo precio) y "por
+   encima del objetivo" (un único %) por un criterio compuesto real. Dos líneas independientes
+   — cartera y seguimiento — para ver si algo vigilado ya entró en zona de compra. */
+.val-map-wrap{background:var(--surface2);border-radius:12px;padding:12px 14px;margin-bottom:10px;}
+.val-map-t{font-size:11px;font-weight:700;color:var(--text);}
+.val-map-s{font-size:9.5px;color:var(--muted);margin:1px 0 8px;}
+.val-track-lbl{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;font-weight:700;color:var(--text);margin:12px 0 2px;}
+.val-track-lbl:first-of-type{margin-top:0;}
+.val-track-lbl span{font-size:9px;font-weight:600;color:var(--muted);}
+.val-track-outer{position:relative;padding:28px 8px;}
+.val-track{position:absolute;left:8px;right:8px;top:50%;height:7px;border-radius:5px;background:linear-gradient(90deg,var(--red),var(--amber) 50%,var(--green));transform:translateY(-50%);}
+.val-endlbl{position:absolute;top:50%;transform:translateY(-50%);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+.val-endlbl.lo{left:-2px;color:var(--red);}
+.val-endlbl.hi{right:-2px;color:var(--green);text-align:right;}
+.val-dot{position:absolute;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;cursor:pointer;z-index:2;}
+.val-dot .pt{width:9px;height:9px;border-radius:50%;border:2px solid var(--surface2);box-shadow:0 1px 3px rgba(0,0,0,.25);flex-shrink:0;}
+.val-dot .stem{width:1px;height:13px;background:var(--border);}
+.val-dot .ic,.val-dot .ic-fb{width:19px;height:19px;border-radius:6px;flex-shrink:0;object-fit:contain;background:var(--surface);border:2px solid;box-shadow:0 1px 4px rgba(0,0,0,.18);}
+.val-dot .ic-fb{display:flex;align-items:center;justify-content:center;color:#fff;font-size:7px;font-weight:800;}
+.val-dot.up{flex-direction:column-reverse;bottom:50%;top:auto;transform:translate(-50%,50%);}
+.val-dot:hover .val-tip{display:block;}
+.val-tip{display:none;position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:#111827;color:#fff;font-size:9.5px;padding:5px 8px;border-radius:6px;white-space:nowrap;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.25);}
+.val-dot.up .val-tip{bottom:auto;top:calc(100% + 5px);}
+.val-tip b{display:block;font-size:10.5px;}
+.val-callouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:4px;}
+.val-callout{background:var(--surface);border-radius:9px;padding:8px 10px;}
+.val-callout-t{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
+.val-row{display:flex;align-items:center;gap:7px;padding:2px 0;font-size:10.5px;cursor:pointer;}
+.val-row:hover .nm{color:var(--blue);}
+.val-row b{flex-shrink:0;min-width:36px;}
+.val-row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sub);}
+.val-row .sc{font-weight:700;flex-shrink:0;}
+.val-expand{font-size:9.5px;color:var(--blue);font-weight:700;cursor:pointer;margin-top:8px;display:inline-block;}
+.val-watch-alert{display:flex;align-items:flex-start;gap:7px;background:color-mix(in srgb,var(--green) 12%,var(--surface));border:1.5px solid color-mix(in srgb,var(--green) 35%,transparent);border-radius:9px;padding:7px 10px;margin-top:8px;font-size:10.5px;color:var(--text);line-height:1.5;cursor:pointer;}
+.val-detail-tbl{width:100%;font-size:10.5px;border-collapse:collapse;margin-top:8px;}
+.val-detail-tbl td{padding:3px 4px;border-top:1px solid var(--border);}
 .cartera-co-name{font-size:11.5px;font-weight:700;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;}
 .cartera-ticker{font-size:9.5px;color:var(--muted);font-weight:600;margin-top:0;line-height:1.3;white-space:nowrap;}
 .cartera-sector{font-size:10px;color:var(--sub);}
@@ -9200,21 +9238,98 @@ function scrollToToday(){
   const el=document.getElementById('cartera-today');
   if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
 }
+// ── Mapa de valoración: cartera + seguimiento en el eje Veredicto 0-100 (Evitar↔Comprar) ──
+// Sustituye "en zona de compra" (solo precio, quitado) y "por encima del objetivo" (un único
+// %, sin ajustar por riesgo): ambas preguntas se resuelven con calcVerdict(), el mismo score
+// de la columna "Veredicto" de la tabla y de "Comparativa entre tus empresas" (retorno 5Y +
+// MOAT + ROIC + MdS 1 año). Dos líneas independientes para ver si algo en seguimiento ya entró
+// en zona de compra sin mezclarlo con tus posiciones reales.
+function _valTier(score){ return score>=65?'var(--green)':score>=45?'var(--amber)':'var(--red)'; }
+// Reparte los puntos en dos filas (tallo arriba/abajo) SOLO cuando dos quedarían a menos de 6
+// puntos de distancia en el eje 0-100 — si hay sitio de sobra, todos van en la fila base.
+function _valLayout(list){
+  const sorted=[...list].sort((a,b)=>a.score-b.score);
+  let lastDown=-999,lastUp=-999;
+  return sorted.map(r=>{
+    let row='down';
+    if(r.score-lastDown<6){ row='up'; if(r.score-lastUp<6) row='down'; }
+    if(row==='down') lastDown=r.score; else lastUp=r.score;
+    return {r,row};
+  });
+}
+function _valDotHtml(r,row){
+  const k=r.co.key, logo=logoUrlFor(k)||'', fb=logoFallback(k)||'';
+  const tierC=_valTier(r.score);
+  const mdsTxt=r.m.mds!=null?((r.m.mds>=0?'+':'')+r.m.mds.toFixed(0)+'% MdS'):'';
+  return `<div class="val-dot ${row}" style="left:${Math.max(2,Math.min(98,r.score))}%;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);">
+    <div class="pt" style="background:${tierC};"></div><div class="stem"></div>
+    <img class="ic" style="border-color:${tierC};" loading="lazy" src="${logo}"
+      onerror="if(!this.dataset.fb&&'${fb}'){this.dataset.fb='1';this.src='${fb}';}else{this.onerror=null;this.outerHTML='<div class=\\'ic-fb\\' style=\\'background:${r.co.color||'#1e3a5f'};border-color:${tierC};\\'>${k.substring(0,2)}</div>';}"/>
+    <div class="val-tip"><b>${r.co.name}</b>Score ${r.score}/100${mdsTxt?' · '+mdsTxt:''}</div>
+  </div>`;
+}
+function _valTrackHtml(list,lbl,sub){
+  const laid=_valLayout(list);
+  return `<div class="val-track-lbl">${lbl}<span>${sub}</span></div>
+    <div class="val-track-outer">
+      <span class="val-endlbl lo">← Evitar</span><span class="val-endlbl hi">Comprar →</span>
+      <div class="val-track"></div>${laid.map(({r,row})=>_valDotHtml(r,row)).join('')}
+    </div>`;
+}
+let _valMapOpen=false;
+function toggleValMapDetail(){
+  _valMapOpen=!_valMapOpen;
+  const d=document.getElementById('val-detail'); if(d) d.style.display=_valMapOpen?'block':'none';
+  const l=document.getElementById('val-expand-lbl'); if(l) l.textContent=_valMapOpen?'ocultar detalle ↑':'ver todas con su score y MdS exacto →';
+}
+function buildValuationMap(rows){
+  const withScore=rows.filter(r=>r.m.price!=null).map(r=>{
+    const v=verdictFor(r.co.key,r.m.price);
+    return v?Object.assign({},r,{score:v.totalScore}):null;
+  }).filter(Boolean);
+  if(!withScore.length) return '';
+  const invested=withScore.filter(r=>r.m.buyPrice!=null);
+  const watched=withScore.filter(r=>r.m.buyPrice==null);
+
+  const rowHtml=r=>`<div class="val-row" onclick="setView('analysis');setTimeout(()=>{if(DB['${r.co.key}'])switchCo('${r.co.key}');},80);">
+    <b style="color:${r.co.color};">${r.co.key}</b><span class="nm">${shortCoName(r.co.name)}</span>
+    <span class="sc" style="color:${_valTier(r.score)};">${r.score}/100</span></div>`;
+  const callouts=invested.length?`<div class="val-callouts">
+    <div class="val-callout"><div class="val-callout-t" style="color:var(--red);">Más flojas de tu cartera hoy</div>${[...invested].sort((a,b)=>a.score-b.score).slice(0,3).map(rowHtml).join('')}</div>
+    <div class="val-callout"><div class="val-callout-t" style="color:var(--green);">Mejor oportunidad de tu cartera hoy</div>${[...invested].sort((a,b)=>b.score-a.score).slice(0,3).map(rowHtml).join('')}</div>
+  </div>`:'';
+
+  const oportunidadesSeg=watched.filter(r=>r.score>=65).sort((a,b)=>b.score-a.score);
+  const watchAlert=oportunidadesSeg.length?`<div class="val-watch-alert" onclick="setView('analysis');setTimeout(()=>{if(DB['${oportunidadesSeg[0].co.key}'])switchCo('${oportunidadesSeg[0].co.key}');},80);">
+    ⭐ <span>${oportunidadesSeg.map(r=>`<b>${r.co.key}</b> (${shortCoName(r.co.name)}, ${r.score}/100)`).join(', ')} ${oportunidadesSeg.length===1?'ya está':'ya están'} en zona de compra, en seguimiento</span></div>`:'';
+
+  const all=[...invested,...watched].sort((a,b)=>b.score-a.score);
+  const detailRows=all.map(r=>`<tr><td style="color:${r.co.color};font-weight:700;">${r.co.key}</td><td>${shortCoName(r.co.name)}</td>
+    <td style="font-size:9px;color:var(--muted);">${r.m.buyPrice!=null?'cartera':'seguimiento'}</td>
+    <td style="text-align:right;color:${_valTier(r.score)};font-weight:700;">${r.score}/100</td>
+    <td style="text-align:right;color:${r.m.mds==null?'var(--muted)':r.m.mds>=0?'var(--green)':'var(--red)'};">${r.m.mds!=null?((r.m.mds>=0?'+':'')+r.m.mds.toFixed(0)+'%'):'—'}</td></tr>`).join('');
+
+  return `<div class="val-map-wrap">
+    <div class="val-map-t">Mapa de valoración</div>
+    <div class="val-map-s">Dónde está cada empresa entre "evitar" y "comprar" — mismo criterio que la tabla</div>
+    ${invested.length?_valTrackHtml(invested,'💼 Mi cartera',invested.length+' con posición abierta'):''}
+    ${callouts}
+    ${watched.length?_valTrackHtml(watched,'👀 En seguimiento',watched.length+' analizada'+(watched.length===1?'':'s')+', aún sin posición'):''}
+    ${watchAlert}
+    <span class="val-expand" id="val-expand-lbl" onclick="toggleValMapDetail()">ver todas con su score y MdS exacto →</span>
+    <div id="val-detail" style="display:none;overflow-x:auto;"><table class="val-detail-tbl"><tbody>${detailRows}</tbody></table></div>
+  </div>`;
+}
+
 function renderTodayPanel(rows){
   const el=document.getElementById('cartera-today'); if(!el) return;
-  // "En zona de compra" se quitó: solo miraba precio vs. un único objetivo a 5 años, sin margen
-  // de seguridad, ROIC ni MOAT — el Veredicto 0-100 de la tabla (y «Comparativa entre tus
-  // empresas») ya responde "qué comprar hoy" con criterio real. El hueco libre va a la columna de
-  // resultados y noticias, que pasa a mostrar más elementos.
-  const caras=rows.filter(r=>r.m.mds!=null&&r.m.mds<-10).sort((a,b)=>(a.m.mds)-(b.m.mds));
   const caidas=rows.filter(r=>r.m.weeklyPct!=null&&r.m.weeklyPct<=-7).sort((a,b)=>a.m.weeklyPct-b.m.weeklyPct);
   const item=(r,txt,c,tip)=>`<a class="today-item" title="${tip||''}" onclick="setView('analysis');setTimeout(()=>{if(DB['${r.co.key}'])switchCo('${r.co.key}');},80);">
       <span class="today-k" style="color:${r.co.color};">${r.co.key}</span>
       <span class="today-n" title="${r.co.name}">${shortCoName(r.co.name)}</span>
       <span class="today-v" style="color:${c};">${txt}</span></a>`;
 
-  // Resultados próximos + noticias frescas — ahora la columna "fuerte" del panel (ver más
-  // elementos de cada una, ya que dejó de compartir sitio con "en zona de compra").
+  // Resultados próximos + noticias frescas.
   const now=new Date();
   // Toda la cartera (fábrica + añadidas) — mismo motivo que en renderHeroKPIs.
   const earnSoon=rows.filter(r=>r.co.earnings).map(r=>({date:r.co.earnings,co:r.co}))
@@ -9235,9 +9350,6 @@ function renderTodayPanel(rows){
   ];
 
   const listas=[
-    {t:'Por encima del objetivo',s:'cotizan por encima de tu precio objetivo',c:'var(--red)',
-     items:caras.map(r=>item(r,r.m.mds.toFixed(0)+'% MdS','var(--red)')),
-     vacio:'Ninguna claramente por encima.'},
     {t:'Caídas de la semana',s:'−7% o más en 5 sesiones',c:'var(--amber)',
      items:caidas.map(r=>item(r,r.m.weeklyPct.toFixed(1)+'%','var(--red)')),
      vacio:'Sin caídas fuertes esta semana.'},
@@ -9245,8 +9357,9 @@ function renderTodayPanel(rows){
      items:newsItems,
      vacio:'Nada destacado por ahora.'},
   ];
+  const valMapHtml=buildValuationMap(rows);
   const open=_secOpen('today');
-  const totalItems=caras.length+caidas.length+earnSoon.length+newsToday.length;
+  const totalItems=caidas.length+earnSoon.length+newsToday.length;
   const grid=listas.map(l=>`<div class="today-col">
       <div class="today-t" style="border-color:${l.c};">${l.t} <span style="font-weight:700;color:var(--muted);">${l.items.length}</span><span>${l.s}</span></div>
       ${l.items.length?l.items.join(''):`<div class="today-empty">${l.vacio}</div>`}
@@ -9256,7 +9369,10 @@ function renderTodayPanel(rows){
       <div class="dash-sec-title" style="margin:0;">Qué mirar hoy <span style="font-weight:600;color:var(--muted);font-size:10px;">${totalItems} señal${totalItems===1?'':'es'}</span></div>
       <span class="sec-chev" id="chev-today">${open?'▲ ocultar':'▼ mostrar'}</span>
     </div>
-    <div class="today-grid" id="body-today" style="display:${open?'grid':'none'};margin-top:${open?'10px':'0'};">${grid}</div>
+    <div id="body-today" style="display:${open?'block':'none'};margin-top:${open?'10px':'0'};">
+      ${valMapHtml}
+      <div class="today-grid">${grid}</div>
+    </div>
   </div>`;
 }
 
