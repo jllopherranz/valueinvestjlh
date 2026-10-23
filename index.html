@@ -536,6 +536,15 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .today-k{font-size:9.5px;font-weight:700;min-width:44px;}
 .today-n{font-size:10.5px;color:var(--sub);font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .today-v{font-size:11px;font-weight:700;}
+.today-col.news-wide{margin-top:10px;}
+/* Titulares de noticias: en vez de embutirlos en la misma fila que ticker+nombre (obligaba a
+   cortar a 40 caracteres para no desbordar), van en su propia línea sin truncar — con toda la
+   tarjeta a ancho completo (news-wide) hay sitio de sobra para leerlos enteros. */
+.today-news-item{display:flex;flex-direction:column;gap:1px;padding:5px 0;border-top:.5px solid var(--border);cursor:pointer;text-decoration:none;}
+.today-news-item:first-of-type{border-top:none;}
+.today-news-item .today-nh-head{display:flex;align-items:center;gap:6px;}
+.today-news-item:hover .today-nh{color:var(--blue);}
+.today-nh{font-size:11.5px;color:var(--text);line-height:1.4;}
 .today-empty{font-size:10px;color:var(--muted);padding:5px 0;}
 /* ═══ MAPA DE VALORACIÓN (dentro de Qué mirar hoy) ═══
    Un único eje "Evitar ↔ Comprar" con el Veredicto 0-100 (mismo score que la tabla y
@@ -559,6 +568,15 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .val-dot .ic,.val-dot .ic-fb{width:19px;height:19px;border-radius:6px;flex-shrink:0;object-fit:contain;background:var(--surface);border:2px solid;box-shadow:0 1px 4px rgba(0,0,0,.18);}
 .val-dot .ic-fb{display:flex;align-items:center;justify-content:center;color:#fff;font-size:7px;font-weight:800;}
 .val-dot.up{flex-direction:column-reverse;bottom:50%;top:auto;transform:translate(-50%,50%);}
+/* Móvil: el track mide muchos menos píxeles pero el icono no encogía con él — con varias
+   empresas en una banda de score estrecha, los iconos de 19px se solapaban (ver PR del mapa de
+   valoración). Encogerlos en pantalla estrecha reduce cuánto espacio en píxeles pide cada empresa. */
+@media (max-width:480px){
+  .val-dot .pt{width:7px;height:7px;}
+  .val-dot .stem{height:9px;}
+  .val-dot .ic,.val-dot .ic-fb{width:14px;height:14px;border-radius:5px;}
+  .val-dot .ic-fb{font-size:6px;}
+}
 .val-dot:hover .val-tip{display:block;}
 .val-tip{display:none;position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:#111827;color:#fff;font-size:9.5px;padding:5px 8px;border-radius:6px;white-space:nowrap;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.25);}
 .val-dot.up .val-tip{bottom:auto;top:calc(100% + 5px);}
@@ -9262,14 +9280,13 @@ function scrollToToday(){
 // MOAT + ROIC + MdS 1 año). Dos líneas independientes para ver si algo en seguimiento ya entró
 // en zona de compra sin mezclarlo con tus posiciones reales.
 function _valTier(score){ return score>=65?'var(--green)':score>=45?'var(--amber)':'var(--red)'; }
-// Reparte los puntos en dos filas (tallo arriba/abajo) SOLO cuando dos quedarían a menos de 6
-// puntos de distancia en el eje 0-100 — si hay sitio de sobra, todos van en la fila base.
+// Reparte los puntos en dos filas (tallo arriba/abajo): cada uno va a la fila con más hueco libre
+// respecto al último punto puesto en ella (óptimo relativo con solo 2 filas — ver _valFixDotRows
+// para por qué esto NO basta por sí solo en pantallas estrechas).
 function _valLayout(list){
   const sorted=[...list].sort((a,b)=>a.score-b.score);
   let lastDown=-999,lastUp=-999;
   return sorted.map(r=>{
-    // Va a la fila con más hueco libre respecto al último punto puesto en ella — así, ante 3+
-    // empresas apiñadas, se reparten alternando en vez de apilarse las dos últimas en la misma fila.
     const row=(r.score-lastDown)>=(r.score-lastUp)?'down':'up';
     if(row==='down') lastDown=r.score; else lastUp=r.score;
     return {r,row};
@@ -9387,24 +9404,29 @@ function renderTodayPanel(rows){
     .slice(0,6);
   const dLblShort=d=>{const diff=Math.ceil((d-now)/86400000);return diff<=0?'HOY':diff===1?'mañana':'en '+diff+'d';};
   const IMPACT_COL={pos:'var(--green)',neg:'var(--red)',neu:'var(--muted)'};
-  const newsItems=[
-    ...earnSoon.map(e=>item({co:e.co},'Reporta '+dLblShort(new Date(e.date)),'var(--blue)')),
-    ...newsToday.map(c=>{
-      const head=trCache[c.n.headline]||c.n.headline;
-      return item({co:c.co},head.length>42?head.slice(0,40)+'…':head,IMPACT_COL[c.impact]||'var(--muted)');
-    }),
-  ];
-
-  const newsCard=`<div class="today-col">
-      <div class="today-t" style="border-color:var(--blue);">Resultados y noticias destacadas <span style="font-weight:700;color:var(--muted);">${newsItems.length}</span><span>próximos 7 días + lo fresco de hoy</span></div>
-      ${newsItems.length?newsItems.join(''):`<div class="today-empty">Nada destacado por ahora.</div>`}
+  // Dos tarjetas separadas en vez de una sola mezclando calendario de resultados (texto corto,
+  // "Reporta en 4d") con titulares de noticias (texto largo): juntas, forzaban a cortar el
+  // titular a 40 caracteres para caber en la misma columna estrecha que Caídas/Subidas.
+  const earnCard=`<div class="today-col">
+      <div class="today-t" style="border-color:var(--blue);">Próximos resultados <span style="font-weight:700;color:var(--muted);">${earnSoon.length}</span><span>en los próximos 7 días</span></div>
+      ${earnSoon.length?earnSoon.map(e=>item({co:e.co},'Reporta '+dLblShort(new Date(e.date)),'var(--blue)')).join(''):`<div class="today-empty">Nadie reporta esta semana.</div>`}
+    </div>`;
+  const newsCard=`<div class="today-col news-wide">
+      <div class="today-t" style="border-color:var(--blue);">Noticias destacadas <span style="font-weight:700;color:var(--muted);">${newsToday.length}</span><span>lo más relevante de los últimos días</span></div>
+      ${newsToday.length?newsToday.map(c=>{
+        const head=trCache[c.n.headline]||c.n.headline;
+        return `<a class="today-news-item" onclick="setView('analysis');setTimeout(()=>{if(DB['${c.co.key}'])switchCo('${c.co.key}');},80);">
+          <span class="today-nh-head"><span class="today-k" style="color:${c.co.color};">${c.co.key}</span>
+          <span class="today-n" style="flex:0;white-space:nowrap;" title="${c.co.name}">${shortCoName(c.co.name)}</span></span>
+          <span class="today-nh" style="color:${IMPACT_COL[c.impact]||'var(--muted)'};">${head}</span></a>`;
+      }).join(''):`<div class="today-empty">Nada destacado por ahora.</div>`}
     </div>`;
   const valMapHtml=buildValuationMap(rows);
   const open=_secOpen('today');
   const totalItems=caidas.length+subidas.length+earnSoon.length+newsToday.length;
   const grid=weekMoverCard('weekdown','Caídas de la semana','var(--red)',caidas,'Sin caídas fuertes esta semana.')
     +weekMoverCard('weekup','Subidas de la semana','var(--green)',subidas,'Sin subidas fuertes esta semana.')
-    +newsCard;
+    +earnCard;
   el.innerHTML=`<div class="card" style="padding:10px 14px;">
     <div class="sec-fold" onclick="toggleSec('today')">
       <div class="dash-sec-title" style="margin:0;">Qué mirar hoy <span style="font-weight:600;color:var(--muted);font-size:10px;">${totalItems} señal${totalItems===1?'':'es'}</span></div>
@@ -9413,6 +9435,7 @@ function renderTodayPanel(rows){
     <div id="body-today" style="display:${open?'block':'none'};margin-top:${open?'10px':'0'};">
       ${valMapHtml}
       <div class="today-grid">${grid}</div>
+      ${newsCard}
     </div>
   </div>`;
 }
