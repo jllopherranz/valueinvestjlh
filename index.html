@@ -9352,9 +9352,18 @@ function renderTodayPanel(rows){
     .filter(e=>{const diff=Math.ceil((new Date(e.date)-now)/86400000);return diff>=0&&diff<=7;})
     .sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,5);
   let trCache={}; try{trCache=JSON.parse(localStorage.getItem('vi_news_es')||'{}');}catch(e){}
+  // "Fresco" (36h, c.fresh) es la ventana que usa el badge "NUEVO" de Noticias del mercado —
+  // demasiado estrecha para esta tarjeta: casi cualquier día queda vacía aunque sí haya noticia
+  // relevante de los últimos días. Aquí usamos una ventana algo más amplia (4 días) PERO
+  // ordenando por relevancia (el mismo score de scoreNews, no por fecha) y con un tope bajo —
+  // así sale "lo más importante de los últimos días", no un titular suelto de cada empresa.
+  const NEWS_DESTACADAS_H=96;
+  const _nHrs=c=>c.n.datetime?(Date.now()-c.n.datetime*1000)/3600000:1e9;
   const newsToday=(typeof _dashAllNews!=='undefined'?_dashAllNews:[])
-    .flatMap(g=>g.items.filter(c=>c.fresh).map(c=>({co:g.co,n:c.n,impact:c.impact})))
-    .sort((a,b)=>(b.n.datetime||0)-(a.n.datetime||0)).slice(0,6);
+    .flatMap(g=>g.items.map(c=>({co:g.co,n:c.n,impact:c.impact,score:c.score})))
+    .filter(c=>_nHrs(c)<=NEWS_DESTACADAS_H)
+    .sort((a,b)=>(b.score||0)-(a.score||0)||(b.n.datetime||0)-(a.n.datetime||0))
+    .slice(0,6);
   const dLblShort=d=>{const diff=Math.ceil((d-now)/86400000);return diff<=0?'HOY':diff===1?'mañana':'en '+diff+'d';};
   const IMPACT_COL={pos:'var(--green)',neg:'var(--red)',neu:'var(--muted)'};
   const newsItems=[
