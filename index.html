@@ -9324,10 +9324,26 @@ function buildValuationMap(rows){
 function renderTodayPanel(rows){
   const el=document.getElementById('cartera-today'); if(!el) return;
   const caidas=rows.filter(r=>r.m.weeklyPct!=null&&r.m.weeklyPct<=-7).sort((a,b)=>a.m.weeklyPct-b.m.weeklyPct);
+  const subidas=rows.filter(r=>r.m.weeklyPct!=null&&r.m.weeklyPct>=7).sort((a,b)=>b.m.weeklyPct-a.m.weeklyPct);
   const item=(r,txt,c,tip)=>`<a class="today-item" title="${tip||''}" onclick="setView('analysis');setTimeout(()=>{if(DB['${r.co.key}'])switchCo('${r.co.key}');},80);">
       <span class="today-k" style="color:${r.co.color};">${r.co.key}</span>
       <span class="today-n" title="${r.co.name}">${shortCoName(r.co.name)}</span>
       <span class="today-v" style="color:${c};">${txt}</span></a>`;
+  // Caídas/Subidas: igual que «Noticias del mercado» — plegadas por defecto (solo el contador a
+  // la vista), para que no sumen peso visual cuando no hay nada que mirar; se abren con un clic
+  // y recuerdan la preferencia (toggleSec genérico, mismo mecanismo que Noticias/Calendarios).
+  const weekMoverCard=(id,title,color,list,vacio)=>{
+    const wOpen=_secOpen(id,false);
+    return `<div class="today-col">
+      <div class="sec-fold" onclick="toggleSec('${id}')">
+        <div class="today-t" style="border-color:${color};margin-bottom:0;">${title} <span style="font-weight:700;color:var(--muted);">${list.length}</span><span>±7% o más en 5 sesiones</span></div>
+        <span class="sec-chev" id="chev-${id}">${wOpen?'▲ ocultar':'▼ mostrar'}</span>
+      </div>
+      <div id="body-${id}" style="display:${wOpen?'block':'none'};margin-top:${wOpen?'6px':'0'};">
+        ${list.length?list.map(r=>item(r,(r.m.weeklyPct>=0?'+':'')+r.m.weeklyPct.toFixed(1)+'%',color)).join(''):`<div class="today-empty">${vacio}</div>`}
+      </div>
+    </div>`;
+  };
 
   // Resultados próximos + noticias frescas.
   const now=new Date();
@@ -9349,21 +9365,16 @@ function renderTodayPanel(rows){
     }),
   ];
 
-  const listas=[
-    {t:'Caídas de la semana',s:'−7% o más en 5 sesiones',c:'var(--amber)',
-     items:caidas.map(r=>item(r,r.m.weeklyPct.toFixed(1)+'%','var(--red)')),
-     vacio:'Sin caídas fuertes esta semana.'},
-    {t:'Resultados y noticias destacadas',s:'próximos 7 días + lo fresco de hoy',c:'var(--blue)',
-     items:newsItems,
-     vacio:'Nada destacado por ahora.'},
-  ];
+  const newsCard=`<div class="today-col">
+      <div class="today-t" style="border-color:var(--blue);">Resultados y noticias destacadas <span style="font-weight:700;color:var(--muted);">${newsItems.length}</span><span>próximos 7 días + lo fresco de hoy</span></div>
+      ${newsItems.length?newsItems.join(''):`<div class="today-empty">Nada destacado por ahora.</div>`}
+    </div>`;
   const valMapHtml=buildValuationMap(rows);
   const open=_secOpen('today');
-  const totalItems=caidas.length+earnSoon.length+newsToday.length;
-  const grid=listas.map(l=>`<div class="today-col">
-      <div class="today-t" style="border-color:${l.c};">${l.t} <span style="font-weight:700;color:var(--muted);">${l.items.length}</span><span>${l.s}</span></div>
-      ${l.items.length?l.items.join(''):`<div class="today-empty">${l.vacio}</div>`}
-    </div>`).join('');
+  const totalItems=caidas.length+subidas.length+earnSoon.length+newsToday.length;
+  const grid=weekMoverCard('weekdown','Caídas de la semana','var(--red)',caidas,'Sin caídas fuertes esta semana.')
+    +weekMoverCard('weekup','Subidas de la semana','var(--green)',subidas,'Sin subidas fuertes esta semana.')
+    +newsCard;
   el.innerHTML=`<div class="card" style="padding:10px 14px;">
     <div class="sec-fold" onclick="toggleSec('today')">
       <div class="dash-sec-title" style="margin:0;">Qué mirar hoy <span style="font-weight:600;color:var(--muted);font-size:10px;">${totalItems} señal${totalItems===1?'':'es'}</span></div>
