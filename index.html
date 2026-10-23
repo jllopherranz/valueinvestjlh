@@ -8946,7 +8946,7 @@ function renderCartera(){
     ||vacio;
   _refreshRestoreBtn();
   _paintFilterChips(FILTERS,hidden);
-  renderPortfolioSummary();
+  renderPortfolioSummary(ranked);   // reutiliza el veredicto ya calculado arriba, no lo repite
 
   // Estado de importación resumido en el botón Sincronizar: check verde si todo OK, aviso si faltan
   const chk=document.getElementById('sync-check');
@@ -9077,9 +9077,11 @@ function portfolioStats(rows){
     sectors, top, spW};
 }
 
-function renderPortfolioSummary(){
+function renderPortfolioSummary(precomputed){
   const el=document.getElementById('cartera-summary'); if(!el) return;
-  const rows=getAllPortfolioCompanies().map(co=>({co,m:carteraMetrics(co)}));
+  // Si renderCartera() ya calculó el veredicto de cada empresa (ranked, con r.m.score), lo
+  // reutilizamos aquí en vez de recorrer calcVerdict() una segunda vez por empresa.
+  const rows=precomputed||getAllPortfolioCompanies().map(co=>({co,m:carteraMetrics(co)}));
   const st=portfolioStats(rows);
   const bc=baseCur();
   const col=v=>v==null?'var(--muted)':v>=0?'var(--green)':'var(--red)';
@@ -9255,8 +9257,9 @@ function _valLayout(list){
   const sorted=[...list].sort((a,b)=>a.score-b.score);
   let lastDown=-999,lastUp=-999;
   return sorted.map(r=>{
-    let row='down';
-    if(r.score-lastDown<6){ row='up'; if(r.score-lastUp<6) row='down'; }
+    // Va a la fila con más hueco libre respecto al último punto puesto en ella — así, ante 3+
+    // empresas apiñadas, se reparten alternando en vez de apilarse las dos últimas en la misma fila.
+    const row=(r.score-lastDown)>=(r.score-lastUp)?'down':'up';
     if(row==='down') lastDown=r.score; else lastUp=r.score;
     return {r,row};
   });
@@ -9287,9 +9290,12 @@ function toggleValMapDetail(){
   const l=document.getElementById('val-expand-lbl'); if(l) l.textContent=_valMapOpen?'ocultar detalle ↑':'ver todas con su score y MdS exacto →';
 }
 function buildValuationMap(rows){
+  // Si ya trae r.m.score (renderCartera lo calcula una vez para toda la cartera) lo reutilizamos;
+  // solo llamamos a verdictFor() aquí cuando este rows viene sin calcular (p.ej. renderPortfolioSummary
+  // invocada sin precomputed, caso menos frecuente).
   const withScore=rows.filter(r=>r.m.price!=null).map(r=>{
-    const v=verdictFor(r.co.key,r.m.price);
-    return v?Object.assign({},r,{score:v.totalScore}):null;
+    const score=r.m.score!=null?r.m.score:(()=>{const v=verdictFor(r.co.key,r.m.price);return v?v.totalScore:null;})();
+    return score!=null?Object.assign({},r,{score}):null;
   }).filter(Boolean);
   if(!withScore.length) return '';
   const invested=withScore.filter(r=>r.m.buyPrice!=null);
