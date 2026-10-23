@@ -7776,6 +7776,17 @@ function newsSim(a,b){
   if(m<5) return ov>=0.8?ov:0;   // textos muy cortos: exige coincidencia casi total para no unir por azar
   return ov;
 }
+// Un resultado trimestral, fusión o cambio de guidance lo cubren varios medios el mismo día, cada
+// uno con su propio titular ("Los ingresos superan..." / "Las acciones suben un 3%...") — apenas
+// comparten palabras, así que newsSim() no los une. Si son de la MISMA empresa, caen dentro de 48h
+// y ambos coinciden en el mismo tipo de evento de peso alto (≥28 en NEWS_EVENTS), es el mismo hecho.
+const SAME_EVENT_MIN_W=28;
+function sameHighValueEvent(a,b){
+  if(a.co.key!==b.co.key) return false;
+  if(Math.abs((a.n.datetime||0)-(b.n.datetime||0))>48*3600) return false;
+  const ha=a.n.headline||'',hb=b.n.headline||'';
+  return NEWS_EVENTS.some(ev=>ev.w>=SAME_EVENT_MIN_W&&ev.re.test(ha)&&ev.re.test(hb));
+}
 // Traduce un único titular (fallback cuando falla el lote)
 async function _translateOne(text){
   try{
@@ -7859,7 +7870,7 @@ async function fetchDashNews(){
   all.sort((a,b)=>a.rank-b.rank||b.score-a.score||(b.n.datetime||0)-(a.n.datetime||0));
   const kept=[];
   for(const c of all){
-    const dup=kept.find(x=>newsSim(x.tok,c.tok)>=0.5);
+    const dup=kept.find(x=>newsSim(x.tok,c.tok)>=0.5||sameHighValueEvent(x,c));
     if(dup){ dup.score=Math.max(dup.score,c.score); continue; }  // ya tenemos la mejor versión de este hecho
     kept.push(c);
   }
