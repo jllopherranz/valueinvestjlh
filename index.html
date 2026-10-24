@@ -6528,22 +6528,26 @@ function rDatosAnalisis(){
      ${b.items.map((it,ii)=>{const m=stM[it.status];const cu=/Margen|ROIC|Tendencia/.test(it.label)?'%':/EPS|Beneficio/.test(it.label)?'$':'M';
        const dataAttrs=it.series?`data-cs="${it.series.map(v=>v==null?'':v).join(',')}" data-cu="${cu}" data-cl="${it.label}" data-color="${it.color||m.c}"`:'';
        const sectorHtml=it.sectorField?_sectorBarHtml(it.sectorField,it.sectorValue,it.sectorUnit,it.sectorInvert):'';
-       const open=ii===0;   // el primer ítem de cada sección empieza abierto; el resto, cerrado
-       return`<div ${dataAttrs} style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">
+       const open=ii===0;   // el primer ítem de cada sección empieza abierto (análisis+sector); el resto, cerrado
+       // 3 zonas de clic independientes: título → SOLO «Qué es» (definición); resto de la fila →
+       // Vigilar + comparativa sectorial; gráfico → modal ampliado (ya existente, sin cambios).
+       return`<div class="danItem" ${dataAttrs} style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">
        <div onclick="const b=this.nextElementSibling;const o=b.style.display==='block';b.style.display=o?'none':'block';this.querySelector('.danchev').textContent=o?'▾':'▴';" style="display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;padding:9px 0;align-items:center;cursor:pointer;">
          <span style="font-size:17px;">${it.icon}</span>
          <div style="min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-           <span style="font-size:12px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};">${it.label}</span>
+           <span style="font-size:12px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};cursor:pointer;text-decoration:underline dotted;" title="Qué es esta métrica" onclick="event.stopPropagation();const q=this.closest('.danItem').querySelector('.danQueEs');q.style.display=q.style.display==='block'?'none':'block';">${it.label}</span>
            <span style="font-size:12px;font-weight:600;color:${it.color||m.c};">${it.value}</span>
            <span style="font-size:9px;font-weight:700;background:${m.bg};color:${m.c};border:1px solid ${m.bd};padding:1px 7px;border-radius:8px;">${m.l}</span>
          </div>
-         <div style="text-align:right;min-width:42px;" ${it.series?`onclick="event.stopPropagation();openMetricChart(this.closest('[data-cs]'))" title="Toca para ampliar el gráfico"`:''}>${it.series?spark(it.series,it.color||m.c):''}</div>
+         <div style="text-align:right;min-width:42px;" ${it.series?`onclick="event.stopPropagation();openMetricChart(this.closest('.danItem'))" title="Toca para ampliar el gráfico"`:''}>${it.series?spark(it.series,it.color||m.c):''}</div>
          <span class="danchev" style="font-size:9px;color:var(--muted);">${open?'▴':'▾'}</span>
        </div>
        <div style="display:${open?'block':'none'};padding:0 0 10px 25px;">
-         <div style="font-size:10px;color:var(--sub);line-height:1.5;"><b style="color:${_dm()?'#e2e8f0':'#1a1814'};">Qué es:</b> ${it.why}</div>
-         <div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.5;">👁 <b>Vigilar:</b> ${it.watch}${it.bench?` · <span style="color:#16a34a;font-weight:600;">Ref: ${it.bench}</span>`:''}</div>
+         <div style="font-size:10px;color:var(--muted);line-height:1.5;">👁 <b>Vigilar:</b> ${it.watch}${it.bench?` · <span style="color:#16a34a;font-weight:600;">Ref: ${it.bench}</span>`:''}</div>
          ${sectorHtml}
+       </div>
+       <div class="danQueEs" style="display:none;padding:0 0 8px 25px;">
+         <div style="font-size:10px;color:var(--sub);line-height:1.5;"><b style="color:${_dm()?'#e2e8f0':'#1a1814'};">Qué es:</b> ${it.why}</div>
        </div>
      </div>`;}).join('')}
    </div>`).join('')}
