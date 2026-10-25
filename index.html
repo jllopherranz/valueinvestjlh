@@ -6432,6 +6432,32 @@ function _sectorBarHtml(field,value,unit,invertGood){
     <div style="font-size:10px;font-weight:700;margin-top:4px;color:${isGood?'#16a34a':'#dc2626'};">${diff>=0?'+':''}${fmt(diff)} ${isGood?'por encima':'por debajo'} de la referencia del sector</div>
   </div>`;
 }
+// Popup con el comentario completo de una partida (Qué es + Vigilar + comparativa sectorial),
+// al pulsar su tarjeta — _danItems se reconstruye en cada render de rDatosAnalisis().
+let _danItems=[];
+function openDanPopup(el){
+  const it=_danItems[+el.dataset.danid]; if(!it) return;
+  let modal=document.getElementById('dan-popup');
+  if(!modal){
+    modal=document.createElement('div'); modal.id='dan-popup';
+    modal.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;align-items:center;justify-content:center;padding:16px;';
+    modal.addEventListener('click',e=>{if(e.target===modal)closeDanPopup();});
+    modal.innerHTML=`<div style="background:${_dm()?'#161b27':'#fff'};border-radius:14px;padding:16px 18px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.25);position:relative;">
+      <button onclick="closeDanPopup()" style="position:absolute;top:10px;right:10px;border:none;background:${_dm()?'#2a3a52':'#f0ede8'};border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;color:var(--muted);">✕</button>
+      <div id="dan-popup-body"></div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  document.getElementById('dan-popup-body').innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;padding-right:24px;"><span style="font-size:20px;">${it.icon}</span><span style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${it.label}</span></div>
+    <div style="font-size:16px;font-weight:700;color:${it.color||it.m.c};margin-bottom:6px;">${it.value}</div>
+    <span style="font-size:9px;font-weight:700;background:${it.m.bg};color:${it.m.c};border:1px solid ${it.m.bd};padding:2px 8px;border-radius:8px;">${it.m.l}</span>
+    <div style="font-size:11.5px;color:${_dm()?'#c5ccd6':'#4b5563'};line-height:1.6;margin-top:10px;"><b style="color:${_dm()?'#e2e8f0':'#1a1814'};">Qué es:</b> ${it.why}</div>
+    <div style="font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:6px;">👁 <b>Vigilar:</b> ${it.watch}${it.bench?` · <span style="color:#16a34a;font-weight:600;">Ref: ${it.bench}</span>`:''}</div>
+    ${it.sectorHtml||''}`;
+  modal.style.display='flex';
+}
+function closeDanPopup(){const m=document.getElementById('dan-popup'); if(m) m.style.display='none';}
 // ── DATOS Y ANÁLISIS — fusiona lo que eran "Centro de datos" + "Análisis": secciones tipo
 // Excel (Crecimiento · Rentabilidad · Flujo de caja · Balance y valoración), cada partida con
 // semáforo + tendencia + comparativa sectorial, desplegable para ver el porqué sin saturar.
@@ -6480,7 +6506,7 @@ function rDatosAnalisis(){
   ];
   const all=blocks.flatMap(b=>b.items);
   const pos=cnt(all,a=>a.status==='pos'),warn=cnt(all,a=>a.status==='warn'),neg=cnt(all,a=>a.status==='neg');
-  const stM={pos:{c:'#16a34a',bg:'#f0fdf4',bd:'#bbf7d0',l:'✓ Fuerte'},warn:{c:'#d97706',bg:'#fffbeb',bd:'#fde68a',l:'→ Vigilar'},neg:{c:'#dc2626',bg:'#fef2f2',bd:'#fecaca',l:'⚠ Red flag'}};
+  const stM={pos:{c:'#16a34a',bg:'#f0fdf4',bd:'#bbf7d0',l:'✓ Fuerte'},warn:{c:'#d97706',bg:'#fffbeb',bd:'#fde68a',l:'→ Vigilar'},neg:{c:'#dc2626',bg:'#fef2f2',bd:'#fecaca',l:'⚠ Negativo'}};
   return`
    ${estimatedBanner()}
    ${co.spinoffNote?`<div style="background:linear-gradient(90deg,#fef3c7,#fffbeb);border:1.5px solid #f59e0b;border-radius:12px;padding:11px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;"><span style="font-size:18px;flex-shrink:0;"></span><div><div style="font-size:11px;font-weight:600;color:#92400e;margin-bottom:2px;">Cambio estructural — léelo antes de juzgar el histórico</div><div style="font-size:11px;color:#78350f;line-height:1.5;">${co.spinoffNote} Los años en pérdidas/FCF negativo y los múltiplos antiguos corresponden a la empresa COMBINADA, no al negocio actual: pondera más los últimos años y la mediana 5Y.</div></div></div>`:''}
@@ -6525,34 +6551,34 @@ function rDatosAnalisis(){
        </div>
      </div>
    </div>`;})()}
-   ${blocks.map(b=>`<div class="card" style="margin-bottom:10px;">
+   ${(()=>{_danItems=[];return blocks.map(b=>`<div class="card" style="margin-bottom:10px;">
      <div class="ctitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">${b.title}<span style="font-size:9px;font-weight:600;color:var(--muted);background:#f0ede8;padding:2px 7px;border-radius:8px;white-space:nowrap;">hoja ${b.sheet}</span></div>
-     ${b.items.map((it,ii)=>{const m=stM[it.status];const cu=/Margen|ROIC|Tendencia/.test(it.label)?'%':/EPS|Beneficio/.test(it.label)?'$':'M';
-       const dataAttrs=it.series?`data-cs="${it.series.map(v=>v==null?'':v).join(',')}" data-cu="${cu}" data-cl="${it.label}" data-color="${it.color||m.c}"`:'';
+     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
+     ${b.items.map(it=>{const m=stM[it.status];
        const sectorHtml=it.sectorField?_sectorBarHtml(it.sectorField,it.sectorValue,it.sectorUnit,it.sectorInvert):'';
-       const open=ii===0;   // el primer ítem de cada sección empieza abierto (análisis+sector); el resto, cerrado
-       // 3 zonas de clic independientes: título → SOLO «Qué es» (definición); resto de la fila →
-       // Vigilar + comparativa sectorial; gráfico → modal ampliado (ya existente, sin cambios).
-       return`<div class="danItem" ${dataAttrs} style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">
-       <div onclick="const b=this.nextElementSibling;const o=b.style.display==='block';b.style.display=o?'none':'block';this.querySelector('.danchev').textContent=o?'▾':'▴';" style="display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;padding:9px 0;align-items:center;cursor:pointer;">
-         <span style="font-size:17px;">${it.icon}</span>
-         <div style="min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-           <span style="font-size:12px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};cursor:pointer;text-decoration:underline dotted;" title="Qué es esta métrica" onclick="event.stopPropagation();const q=this.closest('.danItem').querySelector('.danQueEs');q.style.display=q.style.display==='block'?'none':'block';">${it.label}</span>
-           <span style="font-size:12px;font-weight:600;color:${it.color||m.c};">${it.value}</span>
-           <span style="font-size:9px;font-weight:700;background:${m.bg};color:${m.c};border:1px solid ${m.bd};padding:1px 7px;border-radius:8px;">${m.l}</span>
+       const idx=_danItems.length; _danItems.push(Object.assign({},it,{m,sectorHtml}));
+       // YoY real (último año vs anterior), aparte de cualquier tendencia a 5 años que ya lleve it.value.
+       let yoyTxt='',yoyCol='var(--muted)';
+       if(it.series){
+         const vals=it.series; const last=vals[vals.length-1],prev=vals[vals.length-2];
+         if(last!=null&&prev!=null){
+           const isPP=/Margen|ROIC|Tendencia/.test(it.label);
+           if(isPP){ const d=last-prev; yoyTxt=(d>=0?'+':'')+d.toFixed(1)+'pp'; yoyCol=d>=0?'#16a34a':'#dc2626'; }
+           else if(prev!==0){ const d=(last/prev-1)*100; yoyTxt=(d>=0?'+':'')+d.toFixed(1)+'%'; yoyCol=d>=0?'#16a34a':'#dc2626'; }
+         }
+       }
+       return`<div data-danid="${idx}" onclick="openDanPopup(this)" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 10px;cursor:pointer;">
+         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;">
+           <span style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">${it.label}</span>
+           <span style="font-size:12px;flex-shrink:0;">${it.icon}</span>
          </div>
-         <div style="text-align:right;min-width:42px;" ${it.series?`onclick="event.stopPropagation();openMetricChart(this.closest('.danItem'))" title="Toca para ampliar el gráfico"`:''}>${it.series?spark(it.series,it.color||m.c):''}</div>
-         <span class="danchev" style="font-size:9px;color:var(--muted);">${open?'▴':'▾'}</span>
-       </div>
-       <div style="display:${open?'block':'none'};padding:0 0 10px 25px;">
-         <div style="font-size:10px;color:var(--muted);line-height:1.5;">👁 <b>Vigilar:</b> ${it.watch}${it.bench?` · <span style="color:#16a34a;font-weight:600;">Ref: ${it.bench}</span>`:''}</div>
-         ${sectorHtml}
-       </div>
-       <div class="danQueEs" style="display:none;padding:0 0 8px 25px;">
-         <div style="font-size:10px;color:var(--sub);line-height:1.5;"><b style="color:${_dm()?'#e2e8f0':'#1a1814'};">Qué es:</b> ${it.why}</div>
-       </div>
-     </div>`;}).join('')}
-   </div>`).join('')}
+         <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};margin-top:2px;line-height:1.3;">${it.value}</div>
+         <span style="font-size:9px;font-weight:700;background:${m.bg};color:${m.c};border:1px solid ${m.bd};padding:1px 7px;border-radius:8px;display:inline-block;margin-top:5px;">${m.l}</span>
+         ${yoyTxt?`<div style="font-size:9.5px;font-weight:700;color:${yoyCol};margin-top:3px;">${yoyTxt} vs año anterior</div>`:''}
+         ${it.series?`<div style="margin-top:6px;">${spark(it.series,it.color||m.c)}</div>`:''}
+       </div>`;}).join('')}
+     </div>
+   </div>`).join('');})()}
    ${rCentroDatosLiveShell()}
    <div class="card">
      <div class="sec-fold" onclick="toggleSec('danhist')">
