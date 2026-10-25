@@ -6466,6 +6466,10 @@ function rDatosAnalisis(){
   const yr=co.years, N0=v=>N(Math.round(v));
   const cnt=(arr,f)=>arr.filter(f).length;
   const spark=(series,color)=>{const a=(series||[]).slice(-6);const vals=a.filter(v=>v!=null);if(!vals.length)return'';const mx=Math.max(...vals.map(v=>Math.abs(v)),1);return'<div style="display:flex;align-items:flex-end;gap:2px;height:24px;justify-content:flex-end;">'+a.map(v=>{const h=v!=null?Math.max(2,Math.round(Math.abs(v)/mx*24)):2;const c=v==null?'#e0ddd8':v<0?'#dc2626':color;return`<div style="width:6px;height:${h}px;background:${c};border-radius:1px;"></div>`;}).join('')+'</div>';};
+  // Igual que spark() pero las barras se reparten a lo ancho del contenedor (flex:1) en vez de
+  // quedar pegadas a la derecha con ancho fijo — para las tarjetas de Datos y Análisis, donde el
+  // gráfico debe ocupar todo el ancho disponible, de margen a margen.
+  const sparkFull=(series,color)=>{const a=(series||[]).slice(-6);const vals=a.filter(v=>v!=null);if(!vals.length)return'';const mx=Math.max(...vals.map(v=>Math.abs(v)),1);return'<div style="display:flex;align-items:flex-end;gap:3px;height:30px;width:100%;">'+a.map(v=>{const h=v!=null?Math.max(2,Math.round(Math.abs(v)/mx*30)):2;const c=v==null?'#e0ddd8':v<0?'#dc2626':color;return`<div style="flex:1;min-width:3px;height:${h}px;background:${c};border-radius:1px;"></div>`;}).join('')+'</div>';};
   // métricas
   const salesG5=cagr(co.sales[9],co.sales[4],5), salesYoY=pct(co.sales[9],co.sales[8]);
   const ebMT=co.ebitdaM[9]-co.ebitdaM[4], ebitMT=co.ebitM[9]-co.ebitM[4];
@@ -6568,14 +6572,14 @@ function rDatosAnalisis(){
          }
        }
        return`<div data-danid="${idx}" onclick="openDanPopup(this)" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 10px;cursor:pointer;">
-         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;">
-           <span style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">${it.label}</span>
-           <span style="font-size:12px;flex-shrink:0;">${it.icon}</span>
+         <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+           <span style="font-size:11px;flex-shrink:0;">${it.icon}</span>
+           <span style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;flex:1;min-width:0;">${it.label}</span>
+           <span style="font-size:8.5px;font-weight:700;background:${m.bg};color:${m.c};border:1px solid ${m.bd};padding:1px 6px;border-radius:8px;flex-shrink:0;white-space:nowrap;">${m.l}</span>
          </div>
-         <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};margin-top:2px;line-height:1.3;">${it.value}</div>
-         <span style="font-size:9px;font-weight:700;background:${m.bg};color:${m.c};border:1px solid ${m.bd};padding:1px 7px;border-radius:8px;display:inline-block;margin-top:5px;">${m.l}</span>
-         ${yoyTxt?`<div style="font-size:9.5px;font-weight:700;color:${yoyCol};margin-top:3px;">${yoyTxt} vs año anterior</div>`:''}
-         ${it.series?`<div style="margin-top:6px;">${spark(it.series,it.color||m.c)}</div>`:''}
+         <div style="font-size:11px;font-weight:700;color:${m.c};margin-top:4px;line-height:1.3;">${it.value}</div>
+         ${yoyTxt?`<div style="font-size:9.5px;font-weight:700;color:${yoyCol};margin-top:2px;">${yoyTxt} vs año anterior</div>`:''}
+         ${it.series?`<div style="margin-top:6px;">${sparkFull(it.series,it.color||m.c)}</div>`:''}
        </div>`;}).join('')}
      </div>
    </div>`).join('');})()}
