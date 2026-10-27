@@ -9452,7 +9452,7 @@ function renderTodayPanel(rows){
     +`<span class="val-expand" onclick="scrollToMarketNews()">ver todas las noticias del mercado →</span>`;
   const newsCard=foldCard('newsdestacadas','Noticias destacadas',newsToday.length,'lo más relevante de los últimos días',newsBody,true);
   const valMapHtml=buildValuationMap(rows);
-  const open=_secOpen('today');
+  const open=_secOpen('today',false);
   const totalItems=caidas.length+subidas.length+earnSoon.length+newsToday.length;
   const grid=weekMoverCard('weekdown','Caídas de la semana','var(--red)',caidas,'Sin caídas fuertes esta semana.')
     +weekMoverCard('weekup','Subidas de la semana','var(--green)',subidas,'Sin subidas fuertes esta semana.')
