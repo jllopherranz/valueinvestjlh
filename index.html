@@ -9245,7 +9245,7 @@ function renderTodayPanel(rows){
      items:newsItems,
      vacio:'Nada destacado por ahora.'},
   ];
-  const open=_secOpen('today');
+  const open=_secOpen('today',false);
   const totalItems=caras.length+caidas.length+earnSoon.length+newsToday.length;
   const grid=listas.map(l=>`<div class="today-col">
       <div class="today-t" style="border-color:${l.c};">${l.t} <span style="font-weight:700;color:var(--muted);">${l.items.length}</span><span>${l.s}</span></div>
