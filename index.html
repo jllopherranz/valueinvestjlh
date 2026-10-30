@@ -280,7 +280,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .fh-banner-inp:focus{border-color:#f59e0b;}
 /* ── DASHBOARD TILES ── */
 /* ── TICKER BAR ── */
-.mkt-bar{background:var(--surface2);overflow:hidden;margin:8px -20px -10px;height:54px;border-top:1px solid var(--border);position:relative;}
+.mkt-bar{background:var(--surface2);overflow:hidden;margin:8px -20px -10px;height:66px;border-top:1px solid var(--border);position:relative;}
 .mkt-bar::before,.mkt-bar::after{content:'';position:absolute;top:0;bottom:0;width:48px;z-index:2;pointer-events:none;}
 .mkt-bar::before{left:0;background:linear-gradient(90deg,var(--surface2),transparent);}
 .mkt-bar::after{right:0;background:linear-gradient(270deg,var(--surface2),transparent);}
@@ -292,6 +292,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .mkt-name{font-size:8.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:3px;}
 .mkt-val{font-size:15px;font-weight:700;color:var(--text);line-height:1;letter-spacing:-.3px;}
 .mkt-chg{font-size:10px;font-weight:600;margin-top:3px;}
+.mkt-52h{font-size:8.5px;font-weight:600;margin-top:2px;color:var(--muted);opacity:.75;}
 .mkt-sep{display:none;}
 /* ── COMPANY TABLE dashboard ── */
 .dash-co-tbl{width:100%;border-collapse:collapse;}
@@ -430,11 +431,12 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   .stress-grid{grid-template-columns:repeat(2,1fr);}
   .ficha-stat-strip{grid-template-columns:repeat(3,1fr);}
   .ficha-h1{font-size:20px;}
-  .mkt-bar{margin:6px -12px -8px;height:50px;}
+  .mkt-bar{margin:6px -12px -8px;height:60px;}
   .mkt-item{min-width:88px;padding:0 14px;}
   .mkt-val{font-size:13px;}
   .mkt-name{font-size:7.5px;}
   .mkt-chg{font-size:9px;}
+  .mkt-52h{font-size:7.5px;}
   .mkt-bar::before,.mkt-bar::after{width:24px;}
 }
 
@@ -859,9 +861,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <!-- Ticker mercado — integrado en el header -->
   <div class="mkt-bar" id="dash-mkt-bar">
     <div class="mkt-outer" id="mkt-outer">
-      <div class="mkt-item"><div class="mkt-name">S&P 500</div><div class="mkt-val" id="dm-sp500">—</div><div class="mkt-chg" id="dc-sp500">—</div></div>
-      <div class="mkt-item"><div class="mkt-name">Nasdaq 100</div><div class="mkt-val" id="dm-ndx">—</div><div class="mkt-chg" id="dc-ndx">—</div></div>
-      <div class="mkt-item"><div class="mkt-name">Dow Jones</div><div class="mkt-val" id="dm-dow">—</div><div class="mkt-chg" id="dc-dow">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">S&P 500</div><div class="mkt-val" id="dm-sp500">—</div><div class="mkt-chg" id="dc-sp500">—</div><div class="mkt-52h" id="d52-sp500">&nbsp;</div></div>
+      <div class="mkt-item"><div class="mkt-name">Nasdaq 100</div><div class="mkt-val" id="dm-ndx">—</div><div class="mkt-chg" id="dc-ndx">—</div><div class="mkt-52h" id="d52-ndx">&nbsp;</div></div>
+      <div class="mkt-item"><div class="mkt-name">Dow Jones</div><div class="mkt-val" id="dm-dow">—</div><div class="mkt-chg" id="dc-dow">—</div><div class="mkt-52h" id="d52-dow">&nbsp;</div></div>
       <div class="mkt-item">
         <div class="mkt-name">VIX <span id="vix-lbl" style="font-size:7px;padding:1px 3px;border-radius:3px;background:rgba(128,128,128,.2);"></span></div>
         <div class="mkt-val" id="dm-vix">—</div>
@@ -870,8 +872,8 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
         <div class="mkt-name">Sentimiento <span id="fg-lbl" style="font-size:7px;padding:1px 3px;border-radius:3px;background:rgba(128,128,128,.2);"></span></div>
         <div class="mkt-val" id="dm-fg">—</div>
       </div>
-      <div class="mkt-item"><div class="mkt-name">Bitcoin</div><div class="mkt-val" id="dm-btc">—</div><div class="mkt-chg" id="dc-btc">—</div></div>
-      <div class="mkt-item"><div class="mkt-name">Oro</div><div class="mkt-val" id="dm-gold">—</div><div class="mkt-chg" id="dc-gold">—</div></div>
+      <div class="mkt-item"><div class="mkt-name">Bitcoin</div><div class="mkt-val" id="dm-btc">—</div><div class="mkt-chg" id="dc-btc">—</div><div class="mkt-52h" id="d52-btc">&nbsp;</div></div>
+      <div class="mkt-item"><div class="mkt-name">Oro</div><div class="mkt-val" id="dm-gold">—</div><div class="mkt-chg" id="dc-gold">—</div><div class="mkt-52h" id="d52-gold">&nbsp;</div></div>
       <div class="mkt-item"><div class="mkt-name">EUR/USD</div><div class="mkt-val" id="dm-eur">—</div><div class="mkt-chg" id="dc-eur">—</div></div>
       <div class="mkt-item"><div class="mkt-name">T-Note 10Y</div><div class="mkt-val" id="dm-tnote">—</div><div class="mkt-chg" id="dc-tnote">—</div></div>
       <div class="mkt-item"><div class="mkt-name">Euríbor 12M</div><div class="mkt-val" id="dm-euribor">—</div><div class="mkt-chg" id="dc-euribor" style="font-size:9px;opacity:.6;font-weight:600;">hipotecas</div></div>
@@ -8036,7 +8038,7 @@ function _newsAge(date){
 // (p.ej. si están todos caídos o bloqueados en la red del usuario) — se pinta atenuado y se
 // sustituye por el dato fresco en cuanto llega alguno.
 function _mktCacheGet(id){ try{return JSON.parse(localStorage.getItem('vi_mkt_'+id)||'null');}catch(e){return null;} }
-function _mktCacheSet(id,c,dp){ try{localStorage.setItem('vi_mkt_'+id,JSON.stringify({c,dp,ts:Date.now()}));}catch(e){} }
+function _mktCacheSet(id,c,dp,fromHigh){ try{localStorage.setItem('vi_mkt_'+id,JSON.stringify({c,dp,fromHigh,ts:Date.now()}));}catch(e){} }
 
 async function fetchDashPrices(){
   const ts=document.getElementById('dash-prices-ts'); if(ts) ts.textContent='Actualizando...';
@@ -8048,7 +8050,7 @@ async function fetchDashPrices(){
     {id:'tnote',t:'^TNX'},{id:'oil',t:'CL=F'},
   ];
   // Mientras llega el dato fresco, pinta el último conocido (atenuado) en vez de dejar "—"
-  mktMap.forEach(m=>{ const c=_mktCacheGet(m.id); if(c) updateDashMktTile(m.id,c.c,c.dp,0,true); });
+  mktMap.forEach(m=>{ const c=_mktCacheGet(m.id); if(c) updateDashMktTile(m.id,c.c,c.dp,0,true,c.fromHigh); });
   // Pedir los 9 índices a la vez satura el proxy gratuito (corsproxy.io): algunos vuelven con
   // "demasiadas peticiones" según el orden de llegada y no según el ticker — unas veces falla
   // Nasdaq, otras el EUR/USD. Escalonar el disparo ~150ms entre cada uno reparte la carga, y los
@@ -8056,7 +8058,7 @@ async function fetchDashPrices(){
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const fetchOneMkt=async m=>{
     const q=await fetchQuoteYF(m.t);
-    if(q&&q.c){ updateDashMktTile(m.id,q.c,(q.dp??0),0,false); _mktCacheSet(m.id,q.c,q.dp??0); return true; }
+    if(q&&q.c){ updateDashMktTile(m.id,q.c,(q.dp??0),0,false,q.fromHigh); _mktCacheSet(m.id,q.c,q.dp??0,q.fromHigh); return true; }
     return false;
   };
   const firstPass=await Promise.allSettled(mktMap.map((m,i)=>sleep(i*150).then(()=>fetchOneMkt(m))));
@@ -8184,9 +8186,10 @@ async function fetchWeeklyChange(key,fhTicker,apiKey,currentPrice){
   }catch{}
 }
 
-function updateDashMktTile(id,price,pct,change,stale){
+function updateDashMktTile(id,price,pct,change,stale,fromHigh){
   const pEl=document.getElementById('dm-'+id);
   const cEl=document.getElementById('dc-'+id);
+  const hEl=document.getElementById('d52-'+id);
   if(!pEl) return;
   const fmt=v=>{
     if(id==='btc') return '$'+new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(v);
@@ -8202,6 +8205,13 @@ function updateDashMktTile(id,price,pct,change,stale){
     cEl.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';
     cEl.style.color=pct>=0?'var(--green)':'var(--red)';
     cEl.style.opacity=stale?'.5':'';
+  }
+  if(hEl){
+    if(fromHigh!=null){
+      // fromHigh es siempre ≤0 (precio vs su propio máximo de 52 semanas); 0% = está en máximos
+      hEl.textContent=(fromHigh>=-0.05?'en máx. 52s':'máx 52s '+fromHigh.toFixed(1)+'%');
+      hEl.style.opacity=stale?'.4':'.75';
+    } else if(!stale){ hEl.textContent=' '; }
   }
   if(id==='vix'){
     const vixReal=price; // VXX no es exactamente VIX pero es buen proxy
@@ -9515,7 +9525,11 @@ function _parseYF(data){
   if(div!==1){ c/=div; if(pc) pc/=div; if(oldest) oldest/=div; }
   const dp=pc?(c-pc)/pc*100:0;
   const wp=oldest?(c-oldest)/oldest*100:null;
-  return (c>0)?{c,dp,wp,cur,sym:meta.symbol||null,exch:meta.fullExchangeName||meta.exchangeName||null}:null;
+  // Máximo de 52 semanas: Yahoo lo trae ya calculado en la misma respuesta, sin pedir histórico aparte
+  let h52=meta.fiftyTwoWeekHigh||null;
+  if(h52&&div!==1) h52/=div;
+  const fromHigh=(h52&&c>0)?(c-h52)/h52*100:null;
+  return (c>0)?{c,dp,wp,cur,fromHigh,sym:meta.symbol||null,exch:meta.fullExchangeName||meta.exchangeName||null}:null;
 }
 async function fetchQuoteYF(ticker){
   const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
