@@ -2516,6 +2516,18 @@ function estimatedBanner(){
     </div>
   </div>`;
 }
+// Banco/aseguradora/financiera importada con la plantilla v2024.1: no tiene EBIT/EBITDA/FCF/ROIC
+// (el apalancamiento es el negocio), así que DCF, EV/FCF, EV/EBITDA, EV/EBIT y el Moat por ROIC
+// no se calculan con datos reales para esta empresa — mejor avisar que mostrarlos en silencio.
+function financialBanner(){
+  if(!co||!co.isFinancial) return '';
+  return `<div style="background:${_dm()?'#0c1832':'#eff6ff'};border:1.5px solid #3b82f6;border-radius:10px;padding:9px 13px;margin-bottom:10px;display:flex;gap:9px;align-items:flex-start;">
+    <span style="font-size:16px;flex-shrink:0;">🏦</span>
+    <div style="font-size:11px;color:${_dm()?'#93c5fd':'#1e40af'};line-height:1.5;">
+      <b>${co.name} es una financiera (plantilla v2024.1).</b> DCF, EV/FCF, EV/EBITDA, EV/EBIT y el Moat por ROIC no se calculan de forma fiable para bancos/aseguradoras/tarjetas — su negocio es el apalancamiento, no generan FCF comparable al de una empresa industrial. Los números de esas pestañas usan supuestos genéricos; no te fíes de ellos. En su lugar mira ROA, ROE, Deuda/Equity, Book Value y PER de tu Excel, debajo.
+    </div>
+  </div>`;
+}
 let curTab='resumen';let charts={};
 
 // ── HELPERS ──
@@ -5367,7 +5379,10 @@ function rResumen(){
      detail:()=>`<strong>EV/FCF actual ${evfcfCurrent}x</strong> · Mediana 5Y ${Math.round(medEvFcf)}x · 10Y ${Math.round(medEvFcf10)}x<br>${evfcfCurrent>medEvFcf?`Prima del ${((evfcfCurrent-medEvFcf)/medEvFcf*100).toFixed(0)}% sobre la media — el mercado exige crecimiento.`:'Descuento del '+Math.abs(((evfcfCurrent-medEvFcf)/medEvFcf*100).toFixed(0))+'% bajo la media — posible oportunidad.'}<br><br>${_yoyLines(co.hEvF,v=>v.toFixed(1)+'x')}`},
   ];
 
-  const kpiHtml=kpiRows.map(k=>{
+  // FCF/EBITDA/ROIC/EV-FCF no existen para una financiera (ver financialBanner) — se quedarían en
+  // null/Infinity. Esos datos reales (ROA/ROE/Deuda-Equity/PER) ya se muestran arriba en su propia tarjeta.
+  const kpiRowsShown=co.isFinancial?kpiRows.filter(k=>['sales','eps'].includes(k.key)):kpiRows;
+  const kpiHtml=kpiRowsShown.map(k=>{
     const mainVal=k.main();
     const pctV=k.pct_val();
     const pctOk=k.key==='evfcf'?pctV<=0:pctV>=0;
@@ -5442,7 +5457,7 @@ function rResumen(){
         <div>
           <div class="kpi2-lbl">${k.lbl}</div>
           <div style="font-size:18px;font-weight:600;color:${k.c};line-height:1.1;">${mainVal}</div>
-          <div style="font-size:10px;font-weight:700;color:${pctColor};margin-top:2px;">${pctV>=0?'+':''}${pctV.toFixed(1)}% ${k.pct_lbl}</div>
+          <div style="font-size:10px;font-weight:700;color:${pctColor};margin-top:2px;">${pctV==null?'—':(pctV>=0?'+':'')+pctV.toFixed(1)+'%'} ${k.pct_lbl}</div>
           <div style="font-size:9px;color:var(--muted);margin-top:1px;">${k.sub()}</div>
         </div>
         <div style="position:relative;" ${chartData} onclick="event.stopPropagation();openMetricChart(this)" title="Toca para ampliar el gráfico">
@@ -5467,7 +5482,9 @@ function rResumen(){
   }).join('');
 
   // ── Puntos críticos a vigilar (sector-específicos)
-  const criticalPoints = [
+  // Todos estos puntos se basan en ROIC/FCF/EV-FCF/Deuda Neta — sin sentido para una financiera
+  // (que no tiene esas métricas): co.roic[9]/co.netDebt[9] etc. son null y darían falsas alarmas.
+  const criticalPoints = co.isFinancial ? [] : [
     co.roic[9] < co.wacc ? {icon:'🚨', txt:`ROIC ${P(co.roic[9])} < WACC ${co.wacc}% — destruye valor para el accionista`} : null,
     vd.euforiaPenalty >= 15 ? {icon:'🚨', txt:`EV/FCF ${evfcfCurrent}x vs med5Y ${medEvFcf}x (+${Math.round((evfcfCurrent-medEvFcf)/medEvFcf*100)}%) — valoración exigente`} : null,
     vd.roicTrend5 <= -5 ? {icon:'⚠️', txt:`ROIC cayendo ${vd.roicTrend5}pp en 5 años — erosión del negocio`} : null,
@@ -5489,6 +5506,26 @@ function rResumen(){
     return`
   <div><!-- resumen layout -->
     ${estimatedBanner()}
+    ${financialBanner()}
+    ${co.isFinancial?(()=>{
+      const lastOf=a=>{const v=(a||[]).filter(x=>x!=null);return v.length?v[v.length-1]:null;};
+      const tiles=[
+        {lbl:'ROA',v:lastOf(co.roa),fmt:v=>P(v)},
+        {lbl:'ROE',v:lastOf(co.roe),fmt:v=>P(v)},
+        {lbl:'Deuda/Equity',v:lastOf(co.debtEquity),fmt:v=>v.toFixed(1)+'x'},
+        {lbl:'Book Value/acc.',v:co.bookValuePS,fmt:v=>curSymG()+N(v,2)},
+        {lbl:'PER LTM',v:co.perLTM,fmt:v=>v.toFixed(1)+'x'},
+        {lbl:'PER NTM',v:co.perNTM,fmt:v=>v.toFixed(1)+'x'},
+        {lbl:'PER Objetivo',v:co.perObjetivo,fmt:v=>v.toFixed(1)+'x'},
+      ].filter(t=>t.v!=null);
+      if(!tiles.length) return '';
+      return `<div class="card" style="margin-bottom:10px;">
+        <div class="ctitle">Datos de tu hoja (plantilla financiera)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;">
+          ${tiles.map(t=>`<div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:8px;padding:7px 3px;text-align:center;"><div style="font-size:8px;color:var(--muted);text-transform:uppercase;">${t.lbl}</div><div style="font-size:14px;font-weight:600;color:var(--text);margin-top:2px;">${t.fmt(t.v)}</div></div>`).join('')}
+        </div>
+      </div>`;
+    })():''}
 
     <!-- ══ BANNER EMPRESA (sobrio, acento en color corporativo) ══ -->
     <div class="card" style="margin-bottom:10px;border-left:3px solid ${co.color};display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 16px;">
@@ -5580,11 +5617,16 @@ function rResumen(){
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
         <div class="ctitle" style="margin-bottom:0;">Métricas clave <span style="font-size:9px;font-weight:400;color:var(--muted);">— clic en cada métrica: qué es + su contexto en esta empresa</span></div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;">
-          ${[{l:'CAGR V.',v:P(cagr(co.sales[9],co.sales[0],9)),c:'#2563eb',ref:`>${sectorRef.cagr}% bueno`},
+          ${(co.isFinancial?[
+             {l:'CAGR V.',v:P(cagr(co.sales[9],co.sales[0],9)),c:'#2563eb',ref:'crecimiento de ventas 10Y'},
+             {l:'ROA',v:(()=>{const v=(co.roa||[]).filter(x=>x!=null).pop();return v!=null?P(v):'—';})(),c:'#2563eb',ref:'Return on Assets'},
+             {l:'ROE',v:(()=>{const v=(co.roe||[]).filter(x=>x!=null).pop();return v!=null?P(v):'—';})(),c:'#16a34a',ref:'Return on Equity'},
+             {l:'Deuda/Equity',v:(()=>{const v=(co.debtEquity||[]).filter(x=>x!=null).pop();return v!=null?v.toFixed(1)+'x':'—';})(),c:'#64748b',ref:'apalancamiento — normal en financieras'}
+          ]:[{l:'CAGR V.',v:P(cagr(co.sales[9],co.sales[0],9)),c:'#2563eb',ref:`>${sectorRef.cagr}% bueno`},
              {l:'FCF Mg',v:P(co.fcfM[9]),c:'#16a34a',ref:`>${sectorRef.fcfMg}% sector`},
              {l:'ROIC',v:P(co.roic[9]),c:co.roic[9]>=co.wacc?'#16a34a':'#dc2626',ref:`>${sectorRef.roicRef}% sector`},
              {l:'ND/EBITDA',v:(co.netDebt[9]/co.ebitda[9]).toFixed(1)+'x',c:co.netDebt[9]<0?'#16a34a':co.netDebt[9]/co.ebitda[9]<2?'#d97706':'#dc2626',ref:'<2x sano'}
-          ].map(t=>`<span title="Referencia: ${t.ref}" style="background:${t.c}15;color:${t.c};border:1px solid ${t.c}30;padding:2px 8px;border-radius:12px;font-size:9px;font-weight:700;cursor:help;">${t.l}: ${t.v}</span>`).join('')}
+          ]).map(t=>`<span title="Referencia: ${t.ref}" style="background:${t.c}15;color:${t.c};border:1px solid ${t.c}30;padding:2px 8px;border-radius:12px;font-size:9px;font-weight:700;cursor:help;">${t.l}: ${t.v}</span>`).join('')}
         </div>
       </div>
       <div class="kpi-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
@@ -5602,8 +5644,8 @@ function rResumen(){
       </div>
     </div>
 
-    <!-- ══ BLOQUE 2b: ESTILO DE INVERSIÓN (Growth / Value / Calidad) ══ -->
-    ${(()=>{const st=classifyStyle();const bar=(lbl,v,c,hint)=>`<div style="margin-bottom:5px;"><div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;"><span>${lbl}</span><span style="color:${c};">${v}/100</span></div><div style="height:6px;background:${_dm()?'#2a3a52':'#ececec'};border-radius:10px;overflow:hidden;"><div style="height:100%;width:${v}%;background:${c};border-radius:10px;"></div></div><div style="font-size:8px;color:var(--muted);margin-top:1px;">${hint}</div></div>`;
+    <!-- ══ BLOQUE 2b: ESTILO DE INVERSIÓN (Growth / Value / Calidad) — usa ROIC/FCF, no aplica a financieras ══ -->
+    ${co.isFinancial?'':(()=>{const st=classifyStyle();const bar=(lbl,v,c,hint)=>`<div style="margin-bottom:5px;"><div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;"><span>${lbl}</span><span style="color:${c};">${v}/100</span></div><div style="height:6px;background:${_dm()?'#2a3a52':'#ececec'};border-radius:10px;overflow:hidden;"><div style="height:100%;width:${v}%;background:${c};border-radius:10px;"></div></div><div style="font-size:8px;color:var(--muted);margin-top:1px;">${hint}</div></div>`;
       return`<div class="card" style="margin-bottom:10px;border-left:4px solid ${st.color};">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
         <div class="ctitle" style="margin-bottom:0;">Estilo de inversión <span data-tip="estilo" style="cursor:pointer;color:${st.color};font-weight:700;border:1px solid ${st.color}55;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;">i</span></div>
@@ -5631,6 +5673,15 @@ function rResumen(){
       </div>
     </div>`;})()}
 
+    ${co.isFinancial ? `
+    <!-- ══ BLOQUE 3/4/5 (financiera): veredicto EV/FCF, checklist y target 5Y no aplican a financieras — ver banner arriba ══ -->
+    <div class="card" style="margin-bottom:10px;padding:14px 16px;background:${_dm()?'#0c1832':'#eff6ff'};border:1px solid #93c5fd;">
+      <div style="font-size:9px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;">Sin veredicto automático</div>
+      <div style="font-size:11px;color:${_dm()?'#93c5fd':'#1e40af'};line-height:1.6;">
+        El veredicto, la checklist y el target a 5 años de esta pestaña se calculan con EV/FCF, ROIC y EBITDA — métricas que una financiera no genera (ver aviso arriba). ValueInvest JLH aún no tiene un modelo de valoración dedicado a financieras (ROE/ROA/Book Value/PER). Usa los datos de tu hoja en la tarjeta de arriba para tu propio juicio.
+      </div>
+    </div>
+    ` : `
     <!-- ══ BLOQUE 3: VEREDICTO + BARRA PRECIO ══ -->
     <div class="card" style="margin-bottom:10px;background:${vd.verdictBg};border-color:${vd.verdictColor}60;border-width:2px;position:relative;">
       ${!_priceLive?`<div style="position:absolute;inset:0;background:rgba(255,255,255,.9);z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:inherit;text-align:center;padding:10px;"><div style="font-size:24px;">⏳</div><div style="font-size:13px;font-weight:600;color:#1e3a5f;margin-top:6px;">Calculando veredicto…</div><div style="font-size:10px;color:var(--muted);margin-top:3px;">Esperando el precio en vivo para no valorar con datos desactualizados</div></div>`:''}
@@ -5742,6 +5793,7 @@ function rResumen(){
         </div>
       </div>
     </div>
+    `}
 
     <!-- ══ BLOQUE 6: GRÁFICO COTIZACIÓN ══ -->
     <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
@@ -5989,6 +6041,10 @@ function setEscProb(k,v){
 }
 
 function rValoracion(){
+  // Toda esta pestaña (veredicto, DCF, múltiplos EV/FCF-EBITDA-EBIT, escenarios, precio objetivo)
+  // se construye sobre FCF/EBITDA/EBIT, que una financiera no genera (array vacío → NaN/Infinity
+  // en cascada). Sin motor de valoración dedicado a financieras, mejor no mostrar nada de esto.
+  if(co.isFinancial) return `${financialBanner()}<div class="card" style="padding:16px;"><div style="font-size:12px;color:var(--sub);line-height:1.7;">Esta pestaña (veredicto, DCF, múltiplos EV/FCF · EV/EBITDA · EV/EBIT, escenarios y precio objetivo) se calcula a partir de FCF, EBITDA y EBIT — métricas que una financiera no genera (su negocio es el apalancamiento). Para no enseñar números sin sentido, se deja vacía.<br><br>Los datos reales de tu Excel para ${co.name} (ROA, ROE, Deuda/Equity, Book Value, PER LTM/NTM/Objetivo) están en la pestaña <b>Resumen</b>.</div></div>`;
   const vd=calcVerdict(),vc=vd.verdictColor;
   const dcf=calcDCF(),ud=(dcf-price)/price*100;
   const isM=calcISModel();
@@ -6022,6 +6078,7 @@ function rValoracion(){
   setTimeout(renderAnalystRecs,60);     // distribución de recomendaciones (Finnhub): también por red
   return`<div>
   ${estimatedBanner()}
+  ${financialBanner()}
   <div id="cons-diff"></div>
   <div id="analyst-rec-box"></div>
   ${rEscenarios()}
@@ -6255,8 +6312,11 @@ function rProyecciones(){
   </div>`;
 }
 function rMoat(){
+  // ROIC/FCF/Deuda-EBITDA vienen null/NaN para una financiera: varios criterios caerían a un
+  // score fijo bajo (p.ej. 25, 12) en vez de marcarse "sin evaluar" — un MOAT falsamente débil.
+  if(co.isFinancial) return `${financialBanner()}<div class="card" style="padding:16px;"><div style="font-size:12px;color:var(--sub);line-height:1.7;">El MOAT se calcula con ROIC, margen FCF y Deuda/EBITDA — métricas que una financiera no genera. Con datos nulos varios criterios caerían a una puntuación baja por defecto en vez de "sin evaluar", dando un MOAT falso. Se deja vacío para no inducir a error.</div></div>`;
   const m=calcMoat();
-  return`<div class="card" style="background:${m.color}07;border-color:${m.color}35;margin-bottom:14px;"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;"><div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;">Puntuación MOAT Global</div><div style="display:flex;align-items:baseline;gap:10px;"><div style="font-size:56px;font-weight:600;color:${m.color};line-height:1">${m.overall??'—'}</div><div><div style="font-size:12px;color:var(--muted)">/100</div><div style="font-size:16px;font-weight:700;color:${m.color}">${m.label}</div></div></div></div><div style="min-width:220px;flex:1;max-width:300px;"><div class="moat-bar-wrap"><div class="moat-fill" style="width:${m.overall??0}%;background:linear-gradient(90deg,#d97706,${m.color});"></div></div>
+  return`${financialBanner()}<div class="card" style="background:${m.color}07;border-color:${m.color}35;margin-bottom:14px;"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;"><div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;">Puntuación MOAT Global</div><div style="display:flex;align-items:baseline;gap:10px;"><div style="font-size:56px;font-weight:600;color:${m.color};line-height:1">${m.overall??'—'}</div><div><div style="font-size:12px;color:var(--muted)">/100</div><div style="font-size:16px;font-weight:700;color:${m.color}">${m.label}</div></div></div></div><div style="min-width:220px;flex:1;max-width:300px;"><div class="moat-bar-wrap"><div class="moat-fill" style="width:${m.overall??0}%;background:linear-gradient(90deg,#d97706,${m.color});"></div></div>
     <p style="font-size:12px;color:var(--sub);line-height:1.65;margin-top:8px;">Media ponderada de los criterios <strong>que se han podido evaluar</strong> (${m.pesoEvaluado}% del peso total).</p>
     <button class="cart-chip" style="margin-top:6px;" onclick="editMoatQual()">✍️ Valorar el foso a mano</button></div></div>
     ${m.sinEvaluar.length?`<div style="margin-top:10px;padding:9px 13px;background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--amber) 35%,transparent);border-radius:9px;font-size:11.5px;color:var(--sub);line-height:1.55;"><b>Sin evaluar (${m.sinEvaluar.length}):</b> ${m.sinEvaluar.map(i=>i.n).join(' · ')}. No puntúan y su peso se reparte entre el resto — antes recibían un valor por defecto que inflaba o hundía la nota sin avisar.</div>`:''}</div>
@@ -6268,12 +6328,14 @@ function rMoat(){
 // DCF — Enhanced with Reverse DCF + Stress Test cards
 // ═══════════════════════════════════════════════════════════════════
 function rDCF(){
+  // El DCF descuenta FCF — inexistente para una financiera (co.fcf/co.netDebt quedan null).
+  if(co.isFinancial) return `${financialBanner()}<div class="card" style="padding:16px;"><div style="font-size:12px;color:var(--sub);line-height:1.7;">El DCF descuenta Free Cash Flow a 10 años — una financiera no genera FCF comparable al de una empresa industrial. Se deja vacío en vez de mostrar un valor sin sentido.</div></div>`;
   const dcf=calcDCF(),ud=(dcf-price)/price*100;
   const rev=calcReverseDCF(),stress=calcStressDCF();
   const revColor=rev.diff>10?'#dc2626':rev.diff>2?'#d97706':'#16a34a';
   const stressColor=stress.impact<-30?'#dc2626':stress.impact<-15?'#d97706':'#16a34a';
 
-  return`<div class="two-col">
+  return`${financialBanner()}<div class="two-col">
   <div>
     <!-- DCF PARAMS (moved from Valoracion) -->
     <div class="card" style="margin-bottom:12px;">
@@ -10007,6 +10069,17 @@ async function doImport(){
       if(result.hPER?.some(v=>v!=null)) d.hPER=result.hPER;
       if(result.hEvEbitda?.some(v=>v!=null)) d.hEvEbitda=result.hEvEbitda;
       if(result.hEvEbit?.some(v=>v!=null)) d.hEvEbit=result.hEvEbit;
+      if(result.isFinancial) d.isFinancial=true;
+      if(result.ebt?.some(v=>v!=null)) d.ebt=result.ebt;
+      if(result.roa?.some(v=>v!=null)) d.roa=result.roa;
+      if(result.roe?.some(v=>v!=null)) d.roe=result.roe;
+      if(result.debtEquity?.some(v=>v!=null)) d.debtEquity=result.debtEquity;
+      if(result.bookValuePS!=null) d.bookValuePS=result.bookValuePS;
+      if(result.marketCapSnap!=null) d.marketCapSnap=result.marketCapSnap;
+      if(result.perLTM!=null) d.perLTM=result.perLTM;
+      if(result.perNTM!=null) d.perNTM=result.perNTM;
+      if(result.perObjetivo!=null) d.perObjetivo=result.perObjetivo;
+      if(result.buyPriceFor15!=null) d.buyPriceFor15=result.buyPriceFor15;
       // NO recalculamos: usamos las medianas de TU hoja (columna Q) leídas por parseExcelData
     } else {
       // Empresa NUEVA: crear entrada DB completa con las medianas de tu hoja
@@ -10025,7 +10098,14 @@ async function doImport(){
 function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   if(typeof XLSX==='undefined') throw new Error('SheetJS no cargado.');
   const wb=XLSX.read(new Uint8Array(arrayBuffer),{type:'array'});
-  const gs=n=>wb.Sheets[n]?XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:null,raw:true}):null;
+  // Normaliza tildes/mayúsculas: la plantilla v2024.1 (financieras) nombra la hoja
+  // "4.Valoración" (con tilde) donde la plantilla clásica usa "4.Valoracion" (sin tilde).
+  const _norm=s=>String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+  const gs=n=>{
+    if(wb.Sheets[n]) return XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:null,raw:true});
+    const found=wb.SheetNames.find(sn=>_norm(sn)===_norm(n));
+    return found?XLSX.utils.sheet_to_json(wb.Sheets[found],{header:1,defval:null,raw:true}):null;
+  };
   const is=gs('1.IS'),fcfS=gs('2.FCF'),roicS=gs('3.ROIC'),valS=gs('4.Valoracion');
   if(!is||!valS) throw new Error('Hojas "1.IS" y "4.Valoracion" no encontradas.');
 
@@ -10077,6 +10157,9 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   };
   const nums=(row,start,n)=>row?Array.from({length:n},(_,i)=>toNum(row[start+i])):Array(n).fill(null);
   const pct=arr=>arr.map(v=>v!=null?+(v*100).toFixed(2):null);
+  // Primer valor numérico tras la celda de etiqueta (columna A): algunas filas de la plantilla
+  // financiera dejan huecos antes del valor (p.ej. "Precio por acción actual" cae en la columna D, no B).
+  const firstNum=row=>{ if(!row) return null; for(let i=1;i<row.length;i++){ const v=toNum(row[i]); if(v!=null) return v; } return null; };
 
   // Años REALES leídos de la cabecera de 1.IS (cada empresa puede ir desfasada: NVIDIA reporta
   // hasta 2026 y proyecta 2027e-2031e; el resto hasta 2025 + 2026e-2030e). Antes estaban hardcodeados.
@@ -10100,7 +10183,20 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   let epsRow=null;
   for(let i=0;i<is.length;i++){const c=is[i]?.[0];if(c&&/^EPS\b/i.test(String(c).trim())){epsRow=is[i];break;}}
   if(!epsRow) epsRow=findRow(is,'EPS',2);
+  if(!epsRow) epsRow=findRow(is,'Earnings Per Share'); // plantilla financiera: "Earnings Per Share (Diluted)"
   const sharesRow=findRow(is,'Fully diluted shares');
+  // ── Plantilla v2024.1 (financieras: bancos, aseguradoras, tarjetas...) ──
+  // No tienen EBIT/EBITDA/FCF/ROIC con sentido (el apalancamiento es el negocio), así que
+  // "1.IS" trae en su lugar EBT, ROA, ROE y Deuda/Equity. Si no hay hojas "2.FCF"/"3.ROIC"
+  // Y aparece una fila ROE, es la plantilla financiera.
+  const ebtRow=findRow(is,'Earnings Before Taxes')||findRow(is,'EBT');
+  const roaRow=findRow(is,'ROA');
+  const roeRow=findRow(is,'ROE');
+  const deRow=findRow(is,'Deuda / Equity')||findRow(is,'Debt / Equity')||findRow(is,'Deuda/Equity');
+  const isFinancial=!fcfS&&!roicS&&!!(roaRow||roeRow);
+  const ebt=nums(ebtRow,1,10);
+  const roaFin=pct(nums(roaRow,1,10)), roeFin=pct(nums(roeRow,1,10));
+  const debtEquity=nums(deRow,1,10); // ratio (no es %), p.ej. 7.6x
 
   const sales=nums(salesRow,1,10), pS=nums(salesRow,11,5);
   const ebitda=nums(ebitdaRow,1,10), pEB=nums(ebitdaRow,11,5);
@@ -10171,7 +10267,21 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   const netDebt=nums(ndRow,1,10), pND=nums(ndRow,11,5);
 
   const priceRow=findRow(valS,'Precio por acción actual')||findRow(valS,'Precio actual');
-  const price=toNum(priceRow?.[1]);
+  const price=firstNum(priceRow);
+
+  // ── Plantilla financiera: Book Value, Market cap y PER LTM/NTM/Objetivo (en vez de EV/FCF, EV/EBITDA, EV/EBIT) ──
+  const bookValuePS=firstNum(findRow(valS,'Book Value por acción')||findRow(valS,'Book Value'));
+  const marketCapSnap=firstNum(findRow(valS,'Market cap'));
+  const buyPriceFor15=firstNum(findRow(valS,'Precio de compra para retorno anual'));
+  let perLTM=null,perNTM=null,perObjetivo=null;
+  {
+    let mSecIdx=-1;
+    for(let i=0;i<valS.length;i++){ if(valS[i]?.[0]&&_norm(valS[i][0]).includes('multiplos de valoracion')){mSecIdx=i;break;} }
+    if(mSecIdx>=0){
+      const rPer=findRow(valS,'PER',mSecIdx+1);
+      perLTM=toNum(rPer?.[1]); perNTM=toNum(rPer?.[2]); perObjetivo=toNum(rPer?.[3]);
+    }
+  }
 
   // Median multiples (col index 16 = column Q)
   const medFrom=(row,col=16)=>{const v=toNum(row?.[col]);return v==null?null:+v.toFixed(2);};
@@ -10234,6 +10344,7 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
     price,shares,sharesHist,
     capex,cfo,sbc,workingCap,taxRate,dividends,grossProfit,investedCap,totalDebt,cashEq,rnd,
     camposHoja,
+    isFinancial,ebt,roa:roaFin,roe:roeFin,debtEquity,bookValuePS,marketCapSnap,perLTM,perNTM,perObjetivo,buyPriceFor15,
     years:_years,
     sales,ebitda,ebitdaM,ebit,ebitM,netIncome,eps,fcf,fcfM,fcfps,roic,netDebt,
     pY:_pY,pS,pEB,pF,pEPS,pND,pShares,
@@ -10283,6 +10394,9 @@ function buildDbEntryFromImport(r){
     taxRate:r.taxRate||[],dividends:r.dividends||[],grossProfit:r.grossProfit||[],
     investedCap:r.investedCap||[],totalDebt:r.totalDebt||[],cashEq:r.cashEq||[],rnd:r.rnd||[],
     camposHoja:r.camposHoja||{},
+    isFinancial:!!r.isFinancial,ebt:r.ebt||[],roa:r.roa||[],roe:r.roe||[],debtEquity:r.debtEquity||[],
+    bookValuePS:r.bookValuePS??null,marketCapSnap:r.marketCapSnap??null,
+    perLTM:r.perLTM??null,perNTM:r.perNTM??null,perObjetivo:r.perObjetivo??null,buyPriceFor15:r.buyPriceFor15??null,
     wacc:10,sectorAvgEbitdaM:Math.round(ebitdaM9)||25,sectorAvgFcfM:Math.round(last(r.fcfM)||20),sectorAvgROIC:Math.round(last(r.roic)||15),
     earningsDate:'',earningsLabel:'Resultados',driveUrl:r.driveUrl||'',
     desc:r.desc||((r.name||r.ticker)+' — empresa importada desde tu Plantilla de Valoración.'),
