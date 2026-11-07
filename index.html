@@ -2540,18 +2540,6 @@ function financialBanner(){
     </div>
   </div>`;
 }
-// Banco/aseguradora/financiera importada con la plantilla v2024.1: no tiene EBIT/EBITDA/FCF/ROIC
-// (el apalancamiento es el negocio), así que DCF, EV/FCF, EV/EBITDA, EV/EBIT y el Moat por ROIC
-// no se calculan con datos reales para esta empresa — mejor avisar que mostrarlos en silencio.
-function financialBanner(){
-  if(!co||!co.isFinancial) return '';
-  return `<div style="background:${_dm()?'#0c1832':'#eff6ff'};border:1.5px solid #3b82f6;border-radius:10px;padding:9px 13px;margin-bottom:10px;display:flex;gap:9px;align-items:flex-start;">
-    <span style="font-size:16px;flex-shrink:0;">🏦</span>
-    <div style="font-size:11px;color:${_dm()?'#93c5fd':'#1e40af'};line-height:1.5;">
-      <b>${co.name} es una financiera (plantilla v2024.1).</b> DCF, EV/FCF, EV/EBITDA, EV/EBIT y el Moat por ROIC no se calculan de forma fiable para bancos/aseguradoras/tarjetas — su negocio es el apalancamiento, no generan FCF comparable al de una empresa industrial. Los números de esas pestañas usan supuestos genéricos; no te fíes de ellos. En su lugar mira ROA, ROE, Deuda/Equity, Book Value y PER de tu Excel, debajo.
-    </div>
-  </div>`;
-}
 let curTab='resumen';let charts={};
 
 // ── HELPERS ──
