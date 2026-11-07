@@ -2492,6 +2492,11 @@ let _projManual=false;   // true si el usuario eligió la fuente a mano (no auto
 let _webProj={};         // key -> {years, rows, isdByYear, src, nA} (consenso de analistas FMP o modelo SEC)
 // ¿La empresa actual usa datos ESTIMADOS (añadida sin Excel)? Sus proyecciones NO son de tu hoja.
 function isEstimatedCo(c){c=c||co;return !!(c&&c.estimated);}
+// Empresa SEC-auto sin NINGÚN múltiplo de referencia (ni TTM de Finnhub ni histórico de precio
+// vía fetchDailyHistory): el veredicto y el precio objetivo se calculan con EV/FCF — sin eso,
+// mejor no mostrarlos que dejar que null se cuele como 0 en la cuenta (precio objetivo $0 falso).
+// No afecta a DCF ni Moat: ninguno de los dos usa medPER/medEvFcf/medEvEbitda/medEvEbit.
+function _sinMultiplos(c){c=c||co;return !!(c&&c.medPER==null&&c.medEvFcf==null&&c.medEvEbitda==null&&c.medEvEbit==null);}
 // Para empresas estimadas: si hay consenso FMP, se prefiere automáticamente (salvo elección manual).
 async function _preferFMPIfAvailable(k){
   if(!DB[k]||!isEstimatedCo(DB[k])) return;
@@ -3093,12 +3098,17 @@ function computeMediansFor(c){
 // Así, al abrir cualquier empresa, la valoración parte del MISMO escenario que el resumen
 // (antes tEVF/tPER eran globales fijos 30/35/22/25 → resumen y valoración no cuadraban).
 function baseMultsFor(c){
-  const me=(c.medEvEbit||Math.round(c.medEvEbitda*c.ebitdaM[9]/Math.max(c.ebitM[9],1)));
+  // Si no hay mediana real NI de reserva (empresa SEC-auto sin TTM de Finnhub ni histórico de
+  // precio), el objetivo de ESE múltiplo tiene que quedar sin dato — no "0x" por culpa de que
+  // null se comporta como 0 en una multiplicación/Math.round.
+  const pick=(a,b)=>(a!=null?a:(b!=null?b:null));
+  const r=v=>v!=null?Math.round(v*0.82):null;
+  const me=c.medEvEbit!=null?c.medEvEbit:(c.medEvEbitda!=null?Math.round(c.medEvEbitda*c.ebitdaM[9]/Math.max(c.ebitM[9],1)):null);
   return {
-    evf : Math.round((c.med5EvFcf   ||c.medEvFcf   )*0.82),
-    per : Math.round((c.med5PER     ||c.medPER     )*0.82),
-    eve : Math.round((c.med5EvEbitda||c.medEvEbitda)*0.82),
-    evei: Math.round((c.med5EvEbit  ||me           )*0.82),
+    evf : r(pick(c.med5EvFcf,c.medEvFcf)),
+    per : r(pick(c.med5PER,c.medPER)),
+    eve : r(pick(c.med5EvEbitda,c.medEvEbitda)),
+    evei: r(pick(c.med5EvEbit,me)),
   };
 }
 function applyBaseMults(c){const b=baseMultsFor(c||co);tEVF=b.evf;tPER=b.per;tEVE=b.eve;tEVEI=b.evei;}
@@ -5400,7 +5410,11 @@ function rResumen(){
 
   // FCF/EBITDA/ROIC/EV-FCF no existen para una financiera (ver financialBanner) — se quedarían en
   // null/Infinity. Esos datos reales (ROA/ROE/Deuda-Equity/PER) ya se muestran arriba en su propia tarjeta.
-  const kpiRowsShown=co.isFinancial?kpiRows.filter(k=>['sales','eps'].includes(k.key)):kpiRows;
+  // El tile 'evfcf' usa medEvFcf como denominador: sin él (empresa SEC-auto sin ningún múltiplo
+  // de referencia) la división produce Infinity/NaN. El resto de tiles (sales/fcf/ebitda/eps/roic)
+  // no dependen de medEvFcf y siguen siendo datos reales, así que solo se quita ese uno.
+  const kpiRowsShown=co.isFinancial?kpiRows.filter(k=>['sales','eps'].includes(k.key))
+    :_sinMultiplos(co)?kpiRows.filter(k=>k.key!=='evfcf'):kpiRows;
   const kpiHtml=kpiRowsShown.map(k=>{
     const mainVal=k.main();
     const pctV=k.pct_val();
@@ -5692,12 +5706,14 @@ function rResumen(){
       </div>
     </div>`;})()}
 
-    ${co.isFinancial ? `
-    <!-- ══ BLOQUE 3/4/5 (financiera): veredicto EV/FCF, checklist y target 5Y no aplican a financieras — ver banner arriba ══ -->
+    ${(co.isFinancial||_sinMultiplos(co)) ? `
+    <!-- ══ BLOQUE 3/4/5: veredicto EV/FCF, checklist y target 5Y no se pueden calcular — ver banner arriba ══ -->
     <div class="card" style="margin-bottom:10px;padding:14px 16px;background:${_dm()?'#0c1832':'#eff6ff'};border:1px solid #93c5fd;">
       <div style="font-size:9px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;">Sin veredicto automático</div>
       <div style="font-size:11px;color:${_dm()?'#93c5fd':'#1e40af'};line-height:1.6;">
-        El veredicto, la checklist y el target a 5 años de esta pestaña se calculan con EV/FCF, ROIC y EBITDA — métricas que una financiera no genera (ver aviso arriba). ValueInvest JLH aún no tiene un modelo de valoración dedicado a financieras (ROE/ROA/Book Value/PER). Usa los datos de tu hoja en la tarjeta de arriba para tu propio juicio.
+        ${co.isFinancial
+          ? 'El veredicto, la checklist y el target a 5 años de esta pestaña se calculan con EV/FCF, ROIC y EBITDA — métricas que una financiera no genera (ver aviso arriba). ValueInvest JLH aún no tiene un modelo de valoración dedicado a financieras (ROE/ROA/Book Value/PER). Usa los datos de tu hoja en la tarjeta de arriba para tu propio juicio.'
+          : `No se encontró ningún múltiplo de referencia para ${co.name} (ni snapshot de Finnhub ni histórico de precio) — el veredicto y el target a 5 años se calculan con un múltiplo EV/FCF objetivo, así que sin eso no hay con qué fijarlos. Las métricas clave de arriba (ventas, EBIT, EBITDA, FCF, EPS, ROIC) sí son reales.`}
       </div>
     </div>
     ` : `
@@ -6064,6 +6080,7 @@ function rValoracion(){
   // se construye sobre FCF/EBITDA/EBIT, que una financiera no genera (array vacío → NaN/Infinity
   // en cascada). Sin motor de valoración dedicado a financieras, mejor no mostrar nada de esto.
   if(co.isFinancial) return `${financialBanner()}<div class="card" style="padding:16px;"><div style="font-size:12px;color:var(--sub);line-height:1.7;">Esta pestaña (veredicto, DCF, múltiplos EV/FCF · EV/EBITDA · EV/EBIT, escenarios y precio objetivo) se calcula a partir de FCF, EBITDA y EBIT — métricas que una financiera no genera (su negocio es el apalancamiento). Para no enseñar números sin sentido, se deja vacía.<br><br>Los datos reales de tu Excel para ${co.name} (ROA, ROE, Deuda/Equity, Book Value, PER LTM/NTM/Objetivo) están en la pestaña <b>Resumen</b>.</div></div>`;
+  if(_sinMultiplos(co)) return `<div class="card" style="padding:16px;"><div style="font-size:12px;color:var(--sub);line-height:1.7;"><b>${co.name} no tiene ningún múltiplo de referencia (PER/EV-FCF/EV-EBITDA/EV-EBIT).</b> No se encontró ni el snapshot de Finnhub ni histórico de precio para calcularlos por año — y sin eso no hay con qué fijar un precio objetivo ni un veredicto, así que se deja vacío en vez de mostrar un $0 inventado.<br><br>Las ventas, EBIT, EBITDA, FCF, EPS y ROIC de ${co.name} sí son reales (SEC) y están en la pestaña <b>Resumen</b>.</div></div>`;
   const vd=calcVerdict(),vc=vd.verdictColor;
   const dcf=calcDCF(),ud=(dcf-price)/price*100;
   const isM=calcISModel();
@@ -7352,7 +7369,9 @@ async function buildImportFromFinancials(rows,e){
   const pY=[],pS=[]; let base=last(sales);
   for(let i=0;i<5;i++){base=base*(1+g/100);pY.push((last(years)||2025)+i+1);pS.push(Math.round(base));}
   const m=(e&&e.metrics)?e.metrics:{};
-  const clamp=(v,lo,hi,def)=>(v==null||isNaN(v)||v<=0)?def:Math.max(lo,Math.min(hi,v));
+  // Sin valor por defecto: si no hay dato real (ni TTM de Finnhub ni histórico de precio), que
+  // quede sin dato en vez de inventar un múltiplo igual para cualquier empresa.
+  const clamp=(v,lo,hi)=>(v==null||isNaN(v)||v<=0)?null:Math.max(lo,Math.min(hi,v));
   // El motor de análisis asume 10 años (lee índice [9]); rellenar por delante sin nulos
   const pad10=(arr,fill)=>{const a=arr.map(v=>(v==null||isNaN(v))?fill:v);if(a.length>=10)return a.slice(a.length-10);return Array(10-a.length).fill(a.length?a[0]:fill).concat(a);};
   // Para campos sin "valor neutro" razonable (múltiplos, capex, deuda...) rellenar con null en vez de
@@ -7375,8 +7394,8 @@ async function buildImportFromFinancials(rows,e){
     ebitdaM:pad10(ebitdaM,r0(ebitdaM)),ebitM:pad10(ebitM,r0(ebitM)),fcfM:pad10(fcfM,r0(fcfM)),netDebt:pad10(netDebt,0),
     capex:padNull10(capexArr),cfo:padNull10(cfoArr),totalDebt:padNull10(totalDebtArr),cashEq:padNull10(cashArr),taxRate:padNull10(taxRateArr),
     pY,pS,pEB:[],pF:[],pEPS:[],pND:[],
-    medPER:clamp(m.peTTM,5,50,20), medEvEbitda:clamp(m.evEbitdaTTM,5,40,15),
-    medEvFcf:clamp(m.evEbitdaTTM?m.evEbitdaTTM*1.2:null,5,55,22), medEvEbit:clamp(m.evEbitdaTTM?m.evEbitdaTTM*1.1:null,5,45,18),
+    medPER:clamp(m.peTTM,5,50), medEvEbitda:clamp(m.evEbitdaTTM,5,40),
+    medEvFcf:clamp(m.evEbitdaTTM?m.evEbitdaTTM*1.2:null,5,55), medEvEbit:clamp(m.evEbitdaTTM?m.evEbitdaTTM*1.1:null,5,45),
     hEvF:hEvF10,hPER:hPER10,hEvEbitda:hEvEbitda10,hEvEbit:hEvEbit10
   };
 }
@@ -10479,7 +10498,11 @@ function buildDbEntryFromImport(r){
     fcf:r.fcf||[],eps:r.eps||[],fcfps:r.fcfps||[],roic:r.roic||[],
     ebitdaM:r.ebitdaM||[],ebitM:r.ebitM||[],fcfM:r.fcfM||[],netDebt:r.netDebt||[],
     pY:r.pY||[2026,2027,2028,2029,2030],pS:r.pS||[],pEB:r.pEB||[],pF:r.pF||[],pEPS:r.pEPS||[],pND:r.pND||[],
-    medEvFcf:r.medEvFcf||20,medPER:r.medPER||20,medEvEbitda:r.medEvEbitda||15,medEvEbit:r.medEvEbit||18,
+    // SEC-auto (promoteToAnalysis) sin TTM de Finnhub ni histórico de precio: mejor "sin dato"
+    // que un múltiplo inventado igual para cualquier empresa. Los imports de Excel conservan el
+    // valor de reserva de siempre (si tu hoja no trae la mediana, no hay otro sitio del que sacarla).
+    medEvFcf:r.medEvFcf??(r.autoSource==='finnhub'?null:20),medPER:r.medPER??(r.autoSource==='finnhub'?null:20),
+    medEvEbitda:r.medEvEbitda??(r.autoSource==='finnhub'?null:15),medEvEbit:r.medEvEbit??(r.autoSource==='finnhub'?null:18),
     hEvF:r.hEvF||[],hPER:r.hPER||[],hEvEbitda:r.hEvEbitda||[],hEvEbit:r.hEvEbit||[],
     estimated:!!(r.estimated||r.autoSource==='finnhub'),
     // Se perdían al pasar de "import" a "entry de DB": sin ellos estimatedBanner() no podía avisar
