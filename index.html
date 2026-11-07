@@ -2552,6 +2552,13 @@ const _dm=()=>document.documentElement.classList.contains('dark');
 const N=(v,d=0)=>v==null?'—':Number(v).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
 const P=v=>Number(v).toFixed(1)+'%';
 const cagr=(e,s,y)=>((Math.pow(Math.max(e,0.01)/Math.max(s,0.01),1/y)-1)*100);
+// Diferencia entre dos puntos de una serie (p.ej. ROIC hace 5 años vs ahora) que puede tener
+// huecos reales (año sin ratio calculable): null si falta cualquiera de los dos, en vez de que
+// null se cuele como 0 en la resta y de un "cayó/subió Xpp" fabricado contra un dato inexistente.
+const _diff=(a,b)=>(a!=null&&b!=null)?a-b:null;
+// Formatea una diferencia en puntos porcentuales ("+3pp"/"−5pp"), o "—" si _diff dio null —
+// para no reventar con .toFixed sobre null en las docenas de sitios que muestran estas tendencias.
+const _pp=v=>v!=null?((v>=0?'+':'')+v.toFixed(0)+'pp'):'—';
 const cu=v=>v>0?'#16a34a':v>-15?'#d97706':'#dc2626';
 const cbg=v=>v>0?'#f0fdf4':v>-15?'#fffbeb':'#fef2f2';
 const pct=(v,ref)=>ref===0?0:((v-ref)/Math.abs(ref)*100);
@@ -4098,7 +4105,7 @@ const MOAT_QUAL_BUILTIN={
 };
 
 function calcMoat(){
-  const r9=co.roic[9],rt=co.roic[9]-co.roic[0],sg=cagr(co.sales[9],co.sales[0],9);
+  const r9=co.roic[9],rt=_diff(co.roic[9],co.roic[0]),sg=cagr(co.sales[9],co.sales[0],9);
   const fm=co.fcfM[9],dd=co.netDebt[9]/co.ebitda[9];
   const key=Object.keys(DB).find(k=>DB[k]===co)||co.ticker;
   const q=moatQual(key);
@@ -4118,10 +4125,12 @@ function calcMoat(){
      s:wcI.pct==null?null:(wcI.pct<-15?90:wcI.pct<-5?70:wcI.pct<0?50:35),
      why:wcI.pct==null?'Sin dato de circulante en tu hoja.':`WC/Ventas ${wcI.pct}% · ${wcI.fuente}.`,
      flojo:!wcI.ok},
-    {n:"ROIC vs coste de capital",w:15,s:r9>=50?100:r9>=30?92:r9>=20?82:r9>=15?68:r9>=10?50:25,
-     why:`ROIC ${P(r9)} vs WACC ~${co.wacc}%. Spread ${(r9-co.wacc).toFixed(0)}pp.`},
-    {n:"Tendencia ROIC 10 años",w:8,s:rt>=0?85:rt>=-10?55:rt>=-20?30:15,
-     why:`De ${co.roic[0]}% (${_y0()}) a ${r9}% (${_y9()}).`},
+    {n:"ROIC vs coste de capital",w:15,
+     s:r9==null?null:(r9>=50?100:r9>=30?92:r9>=20?82:r9>=15?68:r9>=10?50:25),
+     why:r9==null?'Sin dato de ROIC para el último año.':`ROIC ${P(r9)} vs WACC ~${co.wacc}%. Spread ${(r9-co.wacc).toFixed(0)}pp.`},
+    {n:"Tendencia ROIC 10 años",w:8,
+     s:rt==null?null:(rt>=0?85:rt>=-10?55:rt>=-20?30:15),
+     why:rt==null?'Sin dato de ROIC de hace 10 años o del último año.':`De ${co.roic[0]}% (${_y0()}) a ${r9}% (${_y9()}).`},
     {n:"Margen FCF consistente",w:12,s:fm>=35?95:fm>=25?85:fm>=20?75:fm>=15?60:fm>=10?42:25,why:`Margen FCF ${P(fm)}.`},
     {n:"CAGR Ventas 10 años",w:12,s:sg>=40?98:sg>=25?90:sg>=20?82:sg>=15?70:sg>=10?55:35,why:`CAGR ${P(sg)}.`},
     {n:"Capital allocation / reinversión FCF",w:10,
@@ -4319,25 +4328,37 @@ function calcVerdict(){
   const moatScore=(moat.overall==null)?null:Math.round(moat.overall*25/100);
 
   // ─── ROIC: tendencia 5Y + nivel absoluto + momentum ───
-  const roicTrend10=co.roic[9]-co.roic[0];
-  const roicTrend5=co.roic[9]-co.roic[4];
+  const roicTrend10=_diff(co.roic[9],co.roic[0]);
+  const roicTrend5=_diff(co.roic[9],co.roic[4]);
   const roicTrend=roicTrend5;
   const roicAbs=co.roic[9];
-  // Regresión lineal sobre los 5 últimos años
-  const roicLast5=co.roic.slice(5);
-  const n5=roicLast5.length,sumX=n5*(n5-1)/2,sumY=roicLast5.reduce((a,b)=>a+b,0);
-  const sumXY=roicLast5.reduce((a,v,i)=>a+i*v,0),sumX2=roicLast5.reduce((a,_,i)=>a+i*i,0);
-  const roicSlope=(n5*sumXY-sumX*sumY)/(n5*sumX2-sumX*sumX);
+  // Regresión lineal sobre los 5 últimos años — solo con los años que sí tienen ROIC real
+  // (antes un año sin ROIC calculable contaba como "0%" en la suma, torciendo la pendiente).
+  const roicLast5Pts=co.roic.slice(5).map((v,i)=>({i,v})).filter(p=>p.v!=null);
+  const n5=roicLast5Pts.length;
+  let roicSlope=0;
+  if(n5>=2){
+    const sumX=roicLast5Pts.reduce((a,p)=>a+p.i,0), sumY=roicLast5Pts.reduce((a,p)=>a+p.v,0);
+    const sumXY=roicLast5Pts.reduce((a,p)=>a+p.i*p.v,0), sumX2=roicLast5Pts.reduce((a,p)=>a+p.i*p.i,0);
+    const denom=n5*sumX2-sumX*sumX;
+    roicSlope=denom?(n5*sumXY-sumX*sumY)/denom:0;
+  }
   const roicMomentum=roicSlope>1.5?'acelerando ↑↑':roicSlope>0.3?'estable o creciendo →':roicSlope>-1.5?'ralentizando ↓':'cayendo ↓↓';
-  let roicScore=0;
-  if(roicAbs>=40) roicScore=16;
-  else if(roicAbs>=25) roicScore=13;
-  else if(roicAbs>=18) roicScore=10;
-  else if(roicAbs>=12) roicScore=5;
-  else roicScore=2;
-  if(roicTrend5<-15) roicScore=Math.max(0,roicScore-6);
-  else if(roicTrend5<-7) roicScore=Math.max(0,roicScore-3);
-  else if(roicTrend5>=5) roicScore=Math.min(18,roicScore+2);
+  // Sin ROIC del último año no hay con qué puntuar este eje — se reparte el peso, igual que ya
+  // se hace con el MOAT cuando no se ha podido evaluar (ver maxPosible más abajo).
+  let roicScore=null;
+  if(roicAbs!=null){
+    if(roicAbs>=40) roicScore=16;
+    else if(roicAbs>=25) roicScore=13;
+    else if(roicAbs>=18) roicScore=10;
+    else if(roicAbs>=12) roicScore=5;
+    else roicScore=2;
+    if(roicTrend5!=null){
+      if(roicTrend5<-15) roicScore=Math.max(0,roicScore-6);
+      else if(roicTrend5<-7) roicScore=Math.max(0,roicScore-3);
+      else if(roicTrend5>=5) roicScore=Math.min(18,roicScore+2);
+    }
+  }
 
   // ─── COHERENCIA ENTRE MÉTODOS (15 pts) ───
   // El DCF era la única valoración independiente de tus múltiplos y se
@@ -4356,10 +4377,10 @@ function calcVerdict(){
     :cohGap<=60?'DCF y múltiplos discrepan: revisa cuál de los dos falla'
     :'Discrepancia grande: uno de los dos métodos está mal calibrado';
 
-  // Si el MOAT no se ha evaluado, sus 25 puntos no cuentan y la nota se
+  // Si el MOAT o el ROIC no se han podido evaluar, sus puntos no cuentan y la nota se
   // reescala sobre lo evaluado, en vez de dar un cero encubierto.
-  const maxPosible=30+12+18+15+(moatScore==null?0:25);
-  let totalScore=Math.round((retScore+mdsScore+roicScore+cohScore+(moatScore||0))/maxPosible*100);
+  const maxPosible=30+12+15+(moatScore==null?0:25)+(roicScore==null?0:18);
+  let totalScore=Math.round((retScore+mdsScore+(roicScore||0)+cohScore+(moatScore||0))/maxPosible*100);
 
   // ─── PENALIZACIÓN POR EUFORIA: precio por encima del múltiplo más alto razonable ───
   const evfcfActual=Math.round((price*co.shares+co.netDebt[9])/co.fcf[9]);
@@ -5250,8 +5271,8 @@ function computeStyleFor(c,px){
   }
   const badges=[
     `Crec. ${growth>=0?'+':''}${growth.toFixed(0)}%/año`,
-    `ROIC ${roic.toFixed(0)}%`,
-    `Mg. FCF ${fcfM.toFixed(0)}%`,
+    `ROIC ${roic!=null?roic.toFixed(0):'—'}%`,
+    `Mg. FCF ${fcfM!=null?fcfM.toFixed(0):'—'}%`,
     `EV/FCF ${evfcfCur.toFixed(0)}x (${cheapPct>=0?'−':'+'}${Math.abs(cheapPct).toFixed(0)}% vs media)`,
   ];
   return{style,icon,color,desc,growth:+growth.toFixed(1),roic,fcfM,evfcfCur:+evfcfCur.toFixed(1),cheapPct:+cheapPct.toFixed(1),
@@ -5314,13 +5335,13 @@ function rResumen(){
   // Checklist
   const chkItems=[
     {pos:true,title:'Crecimiento ventas',why:`CAGR 10Y ${P(cagr(co.sales[9],co.sales[0],9))} · Último año ${P(pct(co.sales[9],co.sales[8]))}`},
-    {pos:co.roic[9]>=co.wacc,title:co.roic[9]>=co.wacc?'ROIC > WACC':'ROIC < WACC',why:`${P(co.roic[9])} vs WACC ${co.wacc}%. Spread ${(co.roic[9]-co.wacc)>=0?'+':''}${(co.roic[9]-co.wacc).toFixed(0)}pp`},
+    {pos:co.roic[9]!=null&&co.roic[9]>=co.wacc,title:co.roic[9]==null?'ROIC sin dato':(co.roic[9]>=co.wacc?'ROIC > WACC':'ROIC < WACC'),why:co.roic[9]==null?'Sin dato de ROIC para el último año.':`${P(co.roic[9])} vs WACC ${co.wacc}%. Spread ${(co.roic[9]-co.wacc)>=0?'+':''}${(co.roic[9]-co.wacc).toFixed(0)}pp`},
     {pos:co.fcfM[9]>=10,title:'Margen FCF',why:`${P(co.fcfM[9])} · sector ~${P(sectorRefFor(co).fcfMg)}`},
     {pos:moat.overall!=null&&moat.overall>=70,title:`MOAT ${moat.label}`,why:`${moat.overall??'—'}/100 · ${moat.dimensions?Object.entries(moat.dimensions).filter(([,v])=>v>=15).map(([k])=>k).join(', '):''}`},
     {pos:co.netDebt[9]/co.ebitda[9]<2,title:co.netDebt[9]<0?'Caja neta':'Deuda controlada',why:`ND/EBITDA ${(co.netDebt[9]/co.ebitda[9]).toFixed(1)}x`},
     {pos:quality.ratio>=0.80,title:`Calidad beneficio: ${quality.label}`,why:`FCF/NI 5Y ${(quality.ratio*100).toFixed(0)}%`},
     {pos:vd.msBase>0,title:vd.msBase>15?'Precio atractivo':'Precio ajustado',why:`MdS ${vd.msBase>=0?'+':''}${vd.msBase}% vs fair ${curSymG()}${N(vd.fairBase)}`},
-    {pos:vd.roicTrend5>=-5,title:vd.roicTrend5>=0?'ROIC mejorando (5Y)':'ROIC erosionando (5Y)',why:`${co.roic[4]}%→${co.roic[9]}% (${vd.roicTrend5>=0?'+':''}${vd.roicTrend5}pp) · ${vd.roicMomentum}`},
+    {pos:vd.roicTrend5==null||vd.roicTrend5>=-5,title:vd.roicTrend5==null?'ROIC (5Y): sin dato suficiente':(vd.roicTrend5>=0?'ROIC mejorando (5Y)':'ROIC erosionando (5Y)'),why:vd.roicTrend5==null?'Falta el ROIC de hace 5 años o del último año para comparar.':`${co.roic[4]}%→${co.roic[9]}% (${vd.roicTrend5>=0?'+':''}${vd.roicTrend5}pp) · ${vd.roicMomentum}`},
   ];
 
   // KPIs — datos actualizados y visuales
@@ -5386,7 +5407,7 @@ function rResumen(){
      detail:()=>`<strong>EPS ${_y9()}: ${curSymG()}${N(co.eps[9],2)}</strong> · CAGR 10Y ${P(cagr(co.eps[9],co.eps[0],9))}<br><br>${_yoyLines(co.eps,v=>curSymG()+N(v,2))}<br><br>Estimado: ${co.pEPS.slice(0,3).map((v,i)=>`${co.pY[i]}E <strong>${curSymG()}${N(v,2)}</strong>`).join(' · ')}`},
     {key:'roic',icon:'🎯',lbl:'ROIC',
      main:()=>P(co.roic[9]),
-     pct_val:()=>co.roic[9]-co.wacc,
+     pct_val:()=>co.roic[9]!=null?co.roic[9]-co.wacc:null,
      pct_lbl:'vs WACC',
      sub:()=>vd.roicMomentum,
      c:co.roic[9]>=co.wacc+10?'#16a34a':co.roic[9]>=co.wacc?'#d97706':'#dc2626',
@@ -5394,7 +5415,7 @@ function rResumen(){
      hist:()=>co.roic.slice(5),
      hist_fmt:v=>v+'%',
      est:null,
-     detail:()=>`<strong>ROIC ${P(co.roic[9])}</strong> vs WACC ${co.wacc}% · Spread ${(co.roic[9]-co.wacc)>=0?'+':''}${(co.roic[9]-co.wacc).toFixed(0)}pp · Trend 5Y ${vd.roicTrend5>=0?'+':''}${vd.roicTrend5}pp (${vd.roicMomentum})<br><br>${_yoyLines(co.roic,v=>v.toFixed(1)+'%',true)}`},
+     detail:()=>`<strong>ROIC ${co.roic[9]!=null?P(co.roic[9]):'sin dato'}</strong> vs WACC ${co.wacc}% · Spread ${co.roic[9]!=null?((co.roic[9]-co.wacc>=0?'+':'')+(co.roic[9]-co.wacc).toFixed(0)+'pp'):'—'} · Trend 5Y ${vd.roicTrend5!=null?((vd.roicTrend5>=0?'+':'')+vd.roicTrend5+'pp'):'—'} (${vd.roicMomentum})<br><br>${_yoyLines(co.roic,v=>v.toFixed(1)+'%',true)}`},
     {key:'evfcf',icon:'💎',lbl:'EV/FCF',
      main:()=>evfcfCurrent+'x',
      pct_val:()=>((evfcfCurrent-medEvFcf)/medEvFcf*100),
@@ -5505,10 +5526,10 @@ function rResumen(){
   const roicBars=co.roic.slice(5).map((v,i)=>{
     const yr=co.years[5+i];
     const maxR=Math.max(...co.roic.filter(x=>x>0),1);
-    const h=v>0?Math.max(8,Math.round(v/maxR*50)):8;
-    const c=v>=co.wacc+10?'#16a34a':v>=co.wacc?'#d97706':'#dc2626';
+    const h=v!=null&&v>0?Math.max(8,Math.round(v/maxR*50)):8;
+    const c=v==null?'#9a958e':(v>=co.wacc+10?'#16a34a':v>=co.wacc?'#d97706':'#dc2626');
     return`<div style="flex:1;text-align:center;">
-      <div style="font-size:8px;font-weight:700;color:${c};margin-bottom:2px;">${v}%</div>
+      <div style="font-size:8px;font-weight:700;color:${c};margin-bottom:2px;">${v!=null?v+'%':'—'}</div>
       <div style="height:${h}px;background:${c}35;border-top:2.5px solid ${c};border-radius:2px 2px 0 0;"></div>
       <div style="font-size:7px;color:var(--muted);margin-top:2px;">${String(yr).slice(2)}</div>
     </div>`;
@@ -5781,8 +5802,8 @@ function rResumen(){
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;flex-wrap:wrap;gap:4px;">
               <span style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">MOAT ${moat.overall??'sin evaluar'}${moat.overall!=null?'/100':''} · ROIC ${P(co.roic[9])}</span>
               <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                ${[{l:'Spread',v:(co.roic[9]-co.wacc)>=0?'+'+Math.abs(co.roic[9]-co.wacc):'−'+Math.abs(co.roic[9]-co.wacc)+'pp',ok:co.roic[9]>=co.wacc},
-                   {l:'5Y',v:(vd.roicTrend5>=0?'+':'')+vd.roicTrend5+'pp',ok:vd.roicTrend5>=0},
+                ${[{l:'Spread',v:co.roic[9]==null?'—':((co.roic[9]-co.wacc)>=0?'+'+Math.abs(co.roic[9]-co.wacc):'−'+Math.abs(co.roic[9]-co.wacc))+'pp',ok:co.roic[9]!=null&&co.roic[9]>=co.wacc},
+                   {l:'5Y',v:vd.roicTrend5==null?'—':(vd.roicTrend5>=0?'+':'')+vd.roicTrend5+'pp',ok:vd.roicTrend5==null?true:vd.roicTrend5>=0},
                    {l:'Mom',v:vd.roicMomentum,ok:vd.roicSlope>=0}
                 ].map(t=>`<span style="font-size:8px;font-weight:700;padding:2px 5px;border-radius:8px;background:${t.ok?'#f0fdf4':'#fef2f2'};color:${t.ok?'#16a34a':'#dc2626'};">${t.l}: ${t.v}</span>`).join('')}
               </div>
@@ -6570,13 +6591,13 @@ function rDatosAnalisis(){
   const sparkFull=(series,color)=>{const a=(series||[]).slice(-6);const vals=a.filter(v=>v!=null);if(!vals.length)return'';const mx=Math.max(...vals.map(v=>Math.abs(v)),1);return'<div style="display:flex;align-items:flex-end;gap:3px;height:30px;width:100%;">'+a.map(v=>{const h=v!=null?Math.max(2,Math.round(Math.abs(v)/mx*30)):2;const c=v==null?'#e0ddd8':v<0?'#dc2626':color;return`<div style="flex:1;min-width:3px;height:${h}px;background:${c};border-radius:1px;"></div>`;}).join('')+'</div>';};
   // métricas
   const salesG5=cagr(co.sales[9],co.sales[4],5), salesYoY=pct(co.sales[9],co.sales[8]);
-  const ebMT=co.ebitdaM[9]-co.ebitdaM[4], ebitMT=co.ebitM[9]-co.ebitM[4];
+  const ebMT=_diff(co.ebitdaM[9],co.ebitdaM[4]), ebitMT=_diff(co.ebitM[9],co.ebitM[4]);
   const lossEbit=cnt(co.ebit,v=>v!=null&&v<0);
   const epsG5=(co.eps[4]>0&&co.eps[9]>0)?cagr(co.eps[9],co.eps[4],5):null;
   const _dil=dilutionFor(co), di=_dil.pct;
-  const negFcf=cnt(co.fcf,v=>v!=null&&v<0), fcfMT=co.fcfM[9]-co.fcfM[4];
+  const negFcf=cnt(co.fcf,v=>v!=null&&v<0), fcfMT=_diff(co.fcfM[9],co.fcfM[4]);
   const cx=(co.isD&&co.isD.cx)?co.isD.cx[0]:null;
-  const spread=co.roic[9]-co.wacc, roicT=co.roic[9]-co.roic[4], roicBelow=cnt(co.roic,v=>v!=null&&v<co.wacc);
+  const spread=co.roic[9]!=null?co.roic[9]-co.wacc:null, roicT=_diff(co.roic[9],co.roic[4]), roicBelow=cnt(co.roic,v=>v!=null&&v<co.wacc);
   const evfcfAct=Math.round((price*co.shares+co.netDebt[9])/co.fcf[9]);
   const med5evf=co.med5EvFcf||co.medEvFcf, multPrem=med5evf?Math.round((evfcfAct-med5evf)/med5evf*100):null;
   const dd=co.netDebt[9]/co.ebitda[9];
@@ -6593,8 +6614,8 @@ function rDatosAnalisis(){
   const blocks=[
    {title:'📊 Crecimiento',sheet:'1.IS',items:[
      {icon:'📦',label:'Ventas',value:''+curSymG()+N0(co.sales[9])+'M · '+(salesG5>=0?'+':'')+salesG5.toFixed(0)+'%/año',series:co.sales,color:'#2563eb',status:salesG5>=12?'pos':salesG5>=5?'warn':'neg',why:'La facturación es el motor: sin crecimiento de ventas, lo demás cuesta sostenerlo.',watch:'Último año '+(salesYoY>=0?'+':'')+salesYoY.toFixed(0)+'% vs media 5Y '+salesG5.toFixed(0)+'%'+(Math.abs(salesYoY-salesG5)>=5?(salesYoY<salesG5?' — ritmo frenándose frente a su propia media.':' — acelerando frente a su propia media.'):' — ritmo estable.')+' Frente al sector ('+s.cagr+'%/año), tu crecimiento es '+((salesG5-s.cagr)>=0?'+':'')+(salesG5-s.cagr).toFixed(0)+'pp.',bench:'>10%/año',sectorField:'cagr',sectorValue:salesG5,sectorUnit:'%'},
-     {icon:'💼',label:'Margen EBITDA',value:P(co.ebitdaM[9])+' ('+(ebMT>=0?'+':'')+ebMT.toFixed(0)+'pp 5Y)',series:co.ebitdaM,color:'#b45309',status:(co.ebitdaM[9]>=25&&ebMT>=-1)?'pos':(ebMT<-3?'neg':'warn'),why:'Rentabilidad operativa bruta. Alto y estable = poder de fijar precios.',watch:'Tendencia 5Y: '+(ebMT>=0?'+':'')+ebMT.toFixed(0)+'pp. Frente al sector ('+s.ebitdaMg+'%), tu margen está '+((co.ebitdaM[9]-s.ebitdaMg)>=0?'+':'')+(co.ebitdaM[9]-s.ebitdaMg).toFixed(0)+'pp.',bench:'>25%',sectorField:'ebitdaMg',sectorValue:co.ebitdaM[9],sectorUnit:'%'},
-     {icon:'⚙️',label:'Margen EBIT',value:P(co.ebitM[9])+' ('+(ebitMT>=0?'+':'')+ebitMT.toFixed(0)+'pp 5Y)',series:co.ebitM,color:'#d97706',status:(co.ebitM[9]>=18&&ebitMT>=-1)?'pos':(ebitMT<-3?'neg':'warn'),why:'Margen operativo tras amortizaciones; más exigente que el EBITDA.',watch:'EBIT '+P(co.ebitM[9])+' vs EBITDA '+P(co.ebitdaM[9])+': la diferencia ('+(co.ebitdaM[9]-co.ebitM[9]).toFixed(0)+'pp) es lo que se llevan amortización y depreciación.',bench:'>15%'},
+     {icon:'💼',label:'Margen EBITDA',value:P(co.ebitdaM[9])+' ('+_pp(ebMT)+' 5Y)',series:co.ebitdaM,color:'#b45309',status:(co.ebitdaM[9]>=25&&ebMT!=null&&ebMT>=-1)?'pos':(ebMT!=null&&ebMT<-3?'neg':'warn'),why:'Rentabilidad operativa bruta. Alto y estable = poder de fijar precios.',watch:'Tendencia 5Y: '+_pp(ebMT)+'. Frente al sector ('+s.ebitdaMg+'%), tu margen está '+((co.ebitdaM[9]-s.ebitdaMg)>=0?'+':'')+(co.ebitdaM[9]-s.ebitdaMg).toFixed(0)+'pp.',bench:'>25%',sectorField:'ebitdaMg',sectorValue:co.ebitdaM[9],sectorUnit:'%'},
+     {icon:'⚙️',label:'Margen EBIT',value:P(co.ebitM[9])+' ('+_pp(ebitMT)+' 5Y)',series:co.ebitM,color:'#d97706',status:(co.ebitM[9]>=18&&ebitMT!=null&&ebitMT>=-1)?'pos':(ebitMT!=null&&ebitMT<-3?'neg':'warn'),why:'Margen operativo tras amortizaciones; más exigente que el EBITDA.',watch:'EBIT '+P(co.ebitM[9])+' vs EBITDA '+P(co.ebitdaM[9])+': la diferencia ('+(co.ebitdaM[9]-co.ebitM[9]).toFixed(0)+'pp) es lo que se llevan amortización y depreciación.',bench:'>15%'},
      {icon:'🏭',label:'EBITDA',value:''+curSymG()+N0(co.ebitda[9])+'M · '+(ebitdaG5>=0?'+':'')+ebitdaG5.toFixed(0)+'%/año',series:co.ebitda,color:'#b45309',status:ebitdaG5>=12?'pos':ebitdaG5>=5?'warn':'neg',why:'Beneficio antes de intereses, impuestos, amortización y depreciación — primer filtro de rentabilidad operativa bruta.',watch:'Crece '+(ebitdaG5>=0?'+':'')+ebitdaG5.toFixed(0)+'%/año, frente al '+salesG5.toFixed(0)+'%/año de las ventas — '+(ebitdaG5>=salesG5?'el margen está mejorando.':'el margen se está comprimiendo.'),bench:'>10%/año'},
      {icon:'⚙️',label:'EBIT',value:''+curSymG()+N0(co.ebit[9])+'M · '+(ebitG5>=0?'+':'')+ebitG5.toFixed(0)+'%/año',series:co.ebit,color:'#d97706',status:lossEbit>0?'neg':(ebitG5>=10?'pos':'warn'),why:'Beneficio operativo tras amortizaciones — más exigente que el EBITDA, ya refleja el desgaste de los activos.',watch:lossEbit>0?(lossEbit+' año(s) con EBIT en pérdidas en la última década.'):('Creció '+(ebitG5>=0?'+':'')+ebitG5.toFixed(0)+'%/año a 5 años, sin años en pérdidas.'),bench:'>10%/año, sin pérdidas'},
      {icon:'💰',label:'Beneficio neto',value:''+curSymG()+N0(niCur)+'M'+(niG5!=null?' · '+(niG5>=0?'+':'')+niG5.toFixed(0)+'%/año':''),series:niSeries,color:'#7c3aed',status:lossNI>0?'neg':(niG5!=null&&niG5>=10?'pos':'warn'),why:'Lo que queda tras todos los gastos, intereses e impuestos. Valídalo siempre con el FCF (abajo): un beneficio que no se convierte en caja es sospechoso.',watch:(lossNI>0?(lossNI+' año(s) en pérdidas en la última década.'):('Creció '+(niG5!=null?(niG5>=0?'+':'')+niG5.toFixed(0)+'%/año a 5 años.':'sin dato de crecimiento a 5 años.')))+spinCaveat,bench:'sin años en pérdidas'},
@@ -6602,19 +6623,19 @@ function rDatosAnalisis(){
      ...(di!=null?[{icon:'🧾',label:'Dilución de acciones',value:(di>0?'+':'')+(+di).toFixed(1)+'%/año'+(_dil.real?'':' (est.)'),color:di<=0?'#16a34a':'#dc2626',status:di<=0?'pos':di<=1.5?'warn':'neg',why:'Emitir acciones reparte el pastel entre más socios; recomprar lo concentra.',watch:dilutionLabel(co),bench:'≤0% (recompra)'}]:[])
    ]},
    {title:'🎯 Rentabilidad del capital (ROIC)',sheet:'3.ROIC',items:[
-     {icon:'🎯',label:'ROIC vs WACC',value:P(co.roic[9])+' vs WACC '+co.wacc+'% ('+(spread>=0?'+':'')+spread.toFixed(0)+'pp)',series:co.roic,color:'#b45309',status:spread>=10?'pos':spread>=0?'warn':'neg',why:'Si el retorno sobre el capital (ROIC) supera su coste (WACC), crecer CREA valor; si no, lo destruye.',watch:'Spread actual '+(spread>=0?'+':'')+spread.toFixed(0)+'pp. Frente al sector (ROIC '+s.roicRef+'%), tu ROIC está '+((co.roic[9]-s.roicRef)>=0?'+':'')+(co.roic[9]-s.roicRef).toFixed(0)+'pp.',bench:'ROIC > WACC+10pp',sectorField:'roicRef',sectorValue:co.roic[9],sectorUnit:'%'},
-     {icon:'📉',label:'Tendencia y consistencia',value:(roicT>=0?'+':'')+roicT.toFixed(0)+'pp 5Y · '+roicBelow+' año(s) < WACC',series:co.roic,color:'#0891b2',status:(roicT>=0&&roicBelow===0)?'pos':(roicT<-5||roicBelow>=3?'neg':'warn'),why:'Un ROIC alto y sostenido indica foso; uno que cae o baja del WACC en crisis indica fragilidad.',watch:roicBelow+' de los últimos 10 años con ROIC por debajo del WACC ('+co.wacc+'%). Tendencia 5Y: '+(roicT>=0?'+':'')+roicT.toFixed(0)+'pp.',bench:'estable y > WACC'},
+     {icon:'🎯',label:'ROIC vs WACC',value:P(co.roic[9])+' vs WACC '+co.wacc+'% ('+_pp(spread)+')',series:co.roic,color:'#b45309',status:spread==null?'warn':(spread>=10?'pos':spread>=0?'warn':'neg'),why:'Si el retorno sobre el capital (ROIC) supera su coste (WACC), crecer CREA valor; si no, lo destruye.',watch:'Spread actual '+_pp(spread)+'. Frente al sector (ROIC '+s.roicRef+'%), tu ROIC está '+((co.roic[9]-s.roicRef)>=0?'+':'')+(co.roic[9]-s.roicRef).toFixed(0)+'pp.',bench:'ROIC > WACC+10pp',sectorField:'roicRef',sectorValue:co.roic[9],sectorUnit:'%'},
+     {icon:'📉',label:'Tendencia y consistencia',value:_pp(roicT)+' 5Y · '+roicBelow+' año(s) < WACC',series:co.roic,color:'#0891b2',status:(roicT!=null&&roicT>=0&&roicBelow===0)?'pos':((roicT!=null&&roicT<-5)||roicBelow>=3?'neg':'warn'),why:'Un ROIC alto y sostenido indica foso; uno que cae o baja del WACC en crisis indica fragilidad.',watch:roicBelow+' de los últimos 10 años con ROIC por debajo del WACC ('+co.wacc+'%). Tendencia 5Y: '+_pp(roicT)+'.',bench:'estable y > WACC'},
    ]},
    {title:'💵 Flujo de caja (FCF)',sheet:'2.FCF',items:[
      {icon:'💧',label:'Free Cash Flow',value:''+curSymG()+N0(co.fcf[9])+'M',series:co.fcf,color:'#16a34a',status:negFcf>=2?'neg':(co.fcf[9]>0?'pos':'warn'),why:'La caja real tras operar e invertir. Es lo único que paga dividendos, recompras y deuda.',watch:(negFcf>0?(negFcf+' año(s) con FCF negativo en la última década.'):('FCF positivo todos los años; margen actual '+P(co.fcfM[9])+'.'))+spinCaveat,bench:'positivo y creciente'},
      {icon:'🪙',label:'FCF por acción',value:curSymG()+N(co.fcfps[9],2),series:co.fcfps,color:'#16a34a',status:negFcf>=2?'neg':(co.fcf[9]>0?'pos':'warn'),why:'El FCF repartido entre acciones — compáralo con el EPS: si el FCF/acc. es menor, el beneficio contable no se está convirtiendo del todo en caja.',watch:'FCF/acción '+curSymG()+N(co.fcfps[9],2)+' vs EPS '+curSymG()+N(co.eps[9],2)+': '+(co.fcfps[9]>=co.eps[9]?'convierte el beneficio en caja real (o más).':'convierte menos caja que beneficio contable — vigila la calidad del beneficio.'),bench:'creciente'},
-     {icon:'💦',label:'Margen FCF',value:P(co.fcfM[9])+' ('+(fcfMT>=0?'+':'')+fcfMT.toFixed(0)+'pp 5Y)',series:co.fcfM,color:'#16a34a',status:co.fcfM[9]>=15?'pos':co.fcfM[9]>=8?'warn':'neg',why:'Qué % de cada euro de ventas acaba en caja libre. Más alto = más eficiente.',watch:'Tendencia 5Y: '+(fcfMT>=0?'+':'')+fcfMT.toFixed(0)+'pp. Frente al sector ('+s.fcfMg+'%), tu margen FCF está '+((co.fcfM[9]-s.fcfMg)>=0?'+':'')+(co.fcfM[9]-s.fcfMg).toFixed(0)+'pp.',bench:'>15%',sectorField:'fcfMg',sectorValue:co.fcfM[9],sectorUnit:'%'},
+     {icon:'💦',label:'Margen FCF',value:P(co.fcfM[9])+' ('+_pp(fcfMT)+' 5Y)',series:co.fcfM,color:'#16a34a',status:co.fcfM[9]>=15?'pos':co.fcfM[9]>=8?'warn':'neg',why:'Qué % de cada euro de ventas acaba en caja libre. Más alto = más eficiente.',watch:'Tendencia 5Y: '+_pp(fcfMT)+'. Frente al sector ('+s.fcfMg+'%), tu margen FCF está '+((co.fcfM[9]-s.fcfMg)>=0?'+':'')+(co.fcfM[9]-s.fcfMg).toFixed(0)+'pp.',bench:'>15%',sectorField:'fcfMg',sectorValue:co.fcfM[9],sectorUnit:'%'},
      {icon:'💎',label:'Calidad del beneficio (FCF/Bº)',value:(q.ratio*100).toFixed(0)+'% · '+q.label,color:q.color,status:q.ratio>=0.85?'pos':q.ratio>=0.7?'warn':'neg',why:'Cuánto del beneficio contable se convierte en caja real. Si es bajo, el beneficio es "de papel".',watch:'FCF medio 5Y '+curSymG()+N(q.totalFCF)+'M vs beneficio medio 5Y '+curSymG()+N(q.totalNI)+'M → conversión del '+(q.ratio*100).toFixed(0)+'%.',bench:'>85%'},
      ...(cx!=null?[{icon:'🔨',label:'CapEx / Ventas',value:cx+'%',color:'#b45309',status:cx<5?'pos':cx<12?'warn':'neg',why:'Cuánto reinvierte en activos para operar. Bajo = negocio "ligero" que retiene más caja.',watch:cx>=12?('CapEx del '+cx+'% de las ventas — capital intensivo; mira si esa inversión se refleja luego en ROIC/FCF.'):('CapEx del '+cx+'% de las ventas — negocio ligero en activos.'),bench:'<5%'}]:[])
    ]},
    {title:'💰 Balance y valoración',sheet:'4.Valoracion',items:[
      {icon:'🏆',label:'EV/FCF actual vs mediana',value:evfcfAct+'x vs '+Math.round(med5evf)+'x'+(multPrem!=null?' ('+(multPrem>=0?'+':'')+multPrem+'%)':''),color:multPrem!=null&&multPrem<=0?'#16a34a':'#dc2626',status:multPrem==null?'warn':multPrem<=0?'pos':multPrem<=20?'warn':'neg',why:'Cómo de caro cotiza hoy frente a su propia media histórica.',watch:(multPrem>20?('Prima del '+multPrem+'% sobre tu propia mediana ('+Math.round(med5evf)+'x): el mercado descuenta bastante optimismo.'):('A '+(multPrem>=0?'+':'')+multPrem+'% de tu propia mediana ('+Math.round(med5evf)+'x).'))+' Frente al sector (EV/FCF '+s.evfRef+'x), tu múltiplo actual ('+evfcfAct+'x) está '+((evfcfAct-s.evfRef)>=0?'+':'')+(evfcfAct-s.evfRef).toFixed(1)+'x.',bench:'≤ mediana',sectorField:'evfRef',sectorValue:evfcfAct,sectorUnit:'x',sectorInvert:true},
-     {icon:'📈',label:'Retorno esperado 5Y',value:(vd.cagr5e>=0?'+':'')+vd.cagr5e+'%/año',color:cagrColor(vd.cagr5e),status:vd.cagr5e>=12?'pos':vd.cagr5e>=6?'warn':'neg',why:'Rentabilidad anualizada estimada hasta tu objetivo promedio 5Y. Es el componente principal del veredicto.',watch:'Compuesto del veredicto: Retorno '+vd.retScore+'/30 + MOAT '+(vd.moatScore??'—')+'/25 + ROIC '+vd.roicScore+'/18 + Coherencia '+vd.cohScore+'/15 + MdS '+vd.mdsScore+'/12 = '+vd.totalScore+'/100.',bench:'>12%/año'},
+     {icon:'📈',label:'Retorno esperado 5Y',value:(vd.cagr5e>=0?'+':'')+vd.cagr5e+'%/año',color:cagrColor(vd.cagr5e),status:vd.cagr5e>=12?'pos':vd.cagr5e>=6?'warn':'neg',why:'Rentabilidad anualizada estimada hasta tu objetivo promedio 5Y. Es el componente principal del veredicto.',watch:'Compuesto del veredicto: Retorno '+vd.retScore+'/30 + MOAT '+(vd.moatScore??'—')+'/25 + ROIC '+(vd.roicScore??'—')+'/18 + Coherencia '+vd.cohScore+'/15 + MdS '+vd.mdsScore+'/12 = '+vd.totalScore+'/100.',bench:'>12%/año'},
      {icon:'🛡️',label:'Margen de seguridad (1Y)',value:(vd.msBase>=0?'+':'')+vd.msBase+'%',color:potColor(vd.msBase),status:vd.msBase>=15?'pos':vd.msBase>=-5?'warn':'neg',why:'Distancia entre el precio y tu precio justo del próximo año. Colchón ante errores.',watch:'Precio actual '+curSymG()+N(price,2)+' vs precio justo 1Y '+curSymG()+N(vd.fairBase)+'.',bench:'>15%'},
      {icon:'🏦',label:'Deuda neta',value:(co.netDebt[9]<0?'Caja neta ':'')+curSymG()+N0(Math.abs(co.netDebt[9]))+'M',series:co.netDebt.map(v=>v!=null?-v:null),color:'#1e3a5f',status:dd<1?'pos':dd<2.5?'warn':'neg',why:'Deuda financiera total menos la caja disponible. Negativa = posición de caja neta, un "fortín" para cuando el ciclo se complica.',watch:'Equivale a '+dd.toFixed(1)+'x el EBITDA anual ('+curSymG()+N0(co.ebitda[9])+'M).',bench:'caja neta ideal'},
      {icon:'🏦',label:'Deuda neta / EBITDA',value:(co.netDebt[9]<0?'Caja neta · ':'')+dd.toFixed(1)+'x',series:co.netDebt.map(v=>v!=null?-v:null),color:'#1e3a5f',status:dd<1?'pos':dd<2.5?'warn':'neg',why:'Solvencia. En cíclicas (como STX) la deuda alta es letal cuando el ciclo cae.',watch:dd>=2.5?('Apalancamiento de '+dd.toFixed(1)+'x, por encima del umbral cómodo (<2.5x) — vigila si el ciclo se complica.'):(co.netDebt[9]<0?('Caja neta de '+curSymG()+N0(Math.abs(co.netDebt[9]))+'M — sin apalancamiento.'):('Apalancamiento de '+dd.toFixed(1)+'x, dentro de rango manejable.')),bench:'<1x · caja neta ideal'},
@@ -6702,7 +6723,7 @@ function rDatosAnalisis(){
        <div class="ctitle" style="margin:0;">Histórico completo ${co.years[0]}–${co.years[9]} <span style="font-weight:600;color:var(--muted);font-size:10px;">10 métricas</span></div>
        <span class="sec-chev" id="chev-danhist">${_secOpen('danhist',false)?'▲ ocultar':'▼ mostrar'}</span>
      </div>
-   <div id="body-danhist" style="display:${_secOpen('danhist',false)?'block':'none'};overflow-x:auto;margin-top:${_secOpen('danhist',false)?'8px':'0'};"><table class="htbl"><thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.years.map(y=>`<th style="text-align:right;">${y}</th>`).join('')}</tr></thead><tbody>${[{l:"Ventas ("+curSymG()+"M)",d:co.sales,c:"#2563eb",f:v=>curSymG()+N(v)},{l:"EBITDA ("+curSymG()+"M)",d:co.ebitda,c:"#b45309",f:v=>curSymG()+N(v)},{l:"EBIT ("+curSymG()+"M)",d:co.ebit,c:"#d97706",f:v=>curSymG()+N(v)},{l:"FCF ("+curSymG()+"M)",d:co.fcf,c:"#16a34a",f:v=>curSymG()+N(v)},{l:"EPS ("+curSymG()+")",d:co.eps,c:"#d97706",f:v=>curSymG()+N(v,2)},{l:"FCF/Acc ("+curSymG()+")",d:co.fcfps,c:"#16a34a",f:v=>curSymG()+N(v,2)},{l:"Mg. EBITDA",d:co.ebitdaM,c:"#b45309",f:v=>P(v)},{l:"Mg. FCF",d:co.fcfM,c:"#16a34a",f:v=>P(v)},{l:"ROIC (%)",d:co.roic,c:"#b45309",f:v=>P(v)},{l:"Deuda Neta",d:co.netDebt,c:"#dc2626",f:v=>curSymG()+N(v)}].map(row=>`<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};"><td style="color:${row.c};font-weight:700;padding:5px 8px;">${row.l}</td>${row.d.map((v,i)=>`<td style="text-align:right;padding:5px 8px;color:${i===row.d.length-1?row.c:'var(--sub)'};font-weight:${i===row.d.length-1?'700':'400'}">${row.f(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+   <div id="body-danhist" style="display:${_secOpen('danhist',false)?'block':'none'};overflow-x:auto;margin-top:${_secOpen('danhist',false)?'8px':'0'};"><table class="htbl"><thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.years.map(y=>`<th style="text-align:right;">${y}</th>`).join('')}</tr></thead><tbody>${[{l:"Ventas ("+curSymG()+"M)",d:co.sales,c:"#2563eb",f:v=>curSymG()+N(v)},{l:"EBITDA ("+curSymG()+"M)",d:co.ebitda,c:"#b45309",f:v=>curSymG()+N(v)},{l:"EBIT ("+curSymG()+"M)",d:co.ebit,c:"#d97706",f:v=>curSymG()+N(v)},{l:"FCF ("+curSymG()+"M)",d:co.fcf,c:"#16a34a",f:v=>curSymG()+N(v)},{l:"EPS ("+curSymG()+")",d:co.eps,c:"#d97706",f:v=>curSymG()+N(v,2)},{l:"FCF/Acc ("+curSymG()+")",d:co.fcfps,c:"#16a34a",f:v=>curSymG()+N(v,2)},{l:"Mg. EBITDA",d:co.ebitdaM,c:"#b45309",f:v=>v!=null?P(v):'—'},{l:"Mg. FCF",d:co.fcfM,c:"#16a34a",f:v=>v!=null?P(v):'—'},{l:"ROIC (%)",d:co.roic,c:"#b45309",f:v=>v!=null?P(v):'—'},{l:"Deuda Neta",d:co.netDebt,c:"#dc2626",f:v=>curSymG()+N(v)}].map(row=>`<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};"><td style="color:${row.c};font-weight:700;padding:5px 8px;">${row.l}</td>${row.d.map((v,i)=>`<td style="text-align:right;padding:5px 8px;color:${i===row.d.length-1?row.c:'var(--sub)'};font-weight:${i===row.d.length-1?'700':'400'}">${row.f(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -7097,7 +7118,9 @@ function _paGrade(v,good,ok,invert){
 // Pre-análisis sobre una empresa de la DB (series de ~10 años)
 function computePreAnalysis(co,ck){
   const last=a=>(a&&a.length)?a[a.length-1]:null;
-  const mean=a=>(a&&a.length)?a.reduce((s,x)=>s+x,0)/a.length:null;
+  // Filtra nulos antes de promediar: un año sin ROIC calculable no debe contar como "0%" y
+  // arrastrar la media hacia abajo — eso fue justo lo que se vio con MELI.
+  const mean=a=>{const v=(a||[]).filter(x=>x!=null&&isFinite(x));return v.length?v.reduce((s,x)=>s+x,0)/v.length:null;};
   const n=co.sales?co.sales.length:0;
   const young=n<6;
   const px=(_priceCache[ck]&&_priceCache[ck].live)||co.price;
@@ -7379,6 +7402,16 @@ async function buildImportFromFinancials(rows,e){
   const padNull10=arr=>{if(arr.length>=10) return arr.slice(arr.length-10); return Array(10-arr.length).fill(null).concat(arr);};
   const padY=ys=>{if(ys.length>=10)return ys.slice(ys.length-10);const f=ys[0]||2025;const h=[];for(let i=10-ys.length;i>0;i--)h.push(f-i);return h.concat(ys);};
   const r0=a=>(a.find(v=>v!=null&&!isNaN(v))||0);
+  // Como pad10, pero sin colar el valor de OTRO año en un hueco DENTRO del histórico real: un
+  // año real (con 10-K de verdad) cuyo ratio no se pudo calcular (p.ej. capital invertido ≤0,
+  // o el ROIC salió fuera de rango) se queda sin dato, no con el ROIC de otro año repetido —
+  // eso fue justo lo que se vio con MELI (68,4% repetido en 4 años reales distintos). Los años
+  // que faltan POR DELANTE (empresa con menos de 10 años de 10-K) siguen usando el relleno de
+  // reserva de siempre; eso no cambia hoy.
+  const padRatio10=(arr,fillForMissingYears)=>{
+    if(arr.length>=10) return arr.slice(arr.length-10);
+    return Array(10-arr.length).fill(fillForMissingYears).concat(arr);
+  };
   const _cat=catalogFor(e.id);
   const hPER10=padNull10(hPER),hEvF10=padNull10(hEvF),hEvEbitda10=padNull10(hEvEbitda),hEvEbit10=padNull10(hEvEbit);
   const hasHistMults=[hPER10,hEvF10,hEvEbitda10,hEvEbit10].some(a=>a.some(v=>v!=null));
@@ -7390,8 +7423,8 @@ async function buildImportFromFinancials(rows,e){
     driveUrl:'', desc:(e.name||e.id)+' — datos automáticos (Finnhub/SEC). Refina importando tu hoja TIKR.',
     importDate:Date.now(), autoSource:'finnhub', estimated:true, yearsAvailable:n, medSource:hasHistMults?'historical':'ttm-snapshot',
     years:padY(years),sales:pad10(sales,0),ebit:pad10(ebit,0),ebitda:pad10(ebitda,0),netIncome:pad10(netIncome,0),
-    fcf:pad10(fcf,0),eps:pad10(eps,0),fcfps:pad10(fcfps,0),roic:pad10(roic,r0(roic)),
-    ebitdaM:pad10(ebitdaM,r0(ebitdaM)),ebitM:pad10(ebitM,r0(ebitM)),fcfM:pad10(fcfM,r0(fcfM)),netDebt:pad10(netDebt,0),
+    fcf:pad10(fcf,0),eps:pad10(eps,0),fcfps:pad10(fcfps,0),roic:padRatio10(roic,r0(roic)),
+    ebitdaM:padRatio10(ebitdaM,r0(ebitdaM)),ebitM:padRatio10(ebitM,r0(ebitM)),fcfM:padRatio10(fcfM,r0(fcfM)),netDebt:pad10(netDebt,0),
     capex:padNull10(capexArr),cfo:padNull10(cfoArr),totalDebt:padNull10(totalDebtArr),cashEq:padNull10(cashArr),taxRate:padNull10(taxRateArr),
     pY,pS,pEB:[],pF:[],pEPS:[],pND:[],
     medPER:clamp(m.peTTM,5,50), medEvEbitda:clamp(m.evEbitdaTTM,5,40),
