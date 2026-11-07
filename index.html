@@ -3543,11 +3543,18 @@ const _SECTOR_RULES=[
 const _SECTOR_OVR={MSFT:'Software',ASML:'Semiconductores',AMZN:'E-commerce',CSU:'Software',
   AAPL:'Hardware / Consumo',GOOGL:'Publicidad / Internet',META:'Publicidad / Internet',
   NVDA:'Semiconductores',WDC:'Memoria / Almacenamiento'};
+// Clasifica un texto de sector/industria libre (p.ej. el 'finnhubIndustry' de una empresa
+// que aún no está en tu DB) contra las mismas reglas que usa sectorBucket. Se separa de
+// sectorBucket para poder usarla también en el pre-análisis de Seguimiento (sin DB todavía).
+function _bucketFromText(t){
+  t=String(t||'');
+  for(const [re,name] of _SECTOR_RULES) if(re.test(t)) return name;
+  return t?'Otros':'Sin clasificar';
+}
 function sectorBucket(key){
   if(_SECTOR_OVR[key]) return _SECTOR_OVR[key];
   const t=String(sectorOf(key)||(getImportedData(key)||{}).sector||'');
-  for(const [re,name] of _SECTOR_RULES) if(re.test(t)) return name;
-  return t?'Otros':'Sin clasificar';
+  return _bucketFromText(t);
 }
 // ══ BENCHMARKS DE SECTOR ══════════════════════════════════════════════
 // Antes el checklist leía co.sectorAvgRoic / sectorAvgGrowth / sectorAvgPER /
@@ -7074,8 +7081,12 @@ function computePreAnalysis(co,ck){
     const evfcfCur=(px*co.shares+last(co.netDebt))/last(co.fcf);
     disc=(co.medEvFcf-evfcfCur)/co.medEvFcf*100;
   }
-  const a1=_paGrade(roicAvg,15,10), a2=_paGrade(salesCagr,15,8),
-        a3=_paGrade(ndE,1,2.5,true), a4=_paGrade(last(co.ebitdaM),25,15),
+  // Mismo listón por sector que usa el análisis profundo (sectorRefFor: mediana de tus
+  // empresas del mismo sector si tienes 3+, si no la tabla SECTOR_REF) — antes aquí se
+  // comparaba a toda empresa (banco, software, marketplace...) con el mismo número fijo.
+  const sref=sectorRefFor(co);
+  const a1=_paGrade(roicAvg,sref.roicRef,sref.roicRef*0.6), a2=_paGrade(salesCagr,sref.cagr,sref.cagr*0.6),
+        a3=_paGrade(ndE,1,2.5,true), a4=_paGrade(last(co.ebitdaM),sref.ebitdaMg,sref.ebitdaMg*0.6),
         a5=_paGrade(disc,0,-25);
   const flags=[];
   const em=co.ebitdaM;
@@ -7083,10 +7094,10 @@ function computePreAnalysis(co,ck){
   if(co.fcf&&last(co.fcf)<0) flags.push('FCF negativo el último año.');
   const a6=flags.length===0?'green':flags.length===1?'amber':'red';
   const axes=[
-    {label:'Calidad / ROIC',light:a1,note:roicAvg!=null?('ROIC medio '+roicAvg.toFixed(0)+'%'):'s/d'},
-    {label:'Crecimiento',   light:a2,note:salesCagr!=null?('Ventas CAGR '+salesCagr.toFixed(0)+'%'):'s/d'},
+    {label:'Calidad / ROIC',light:a1,note:roicAvg!=null?('ROIC medio '+roicAvg.toFixed(0)+'% (sector '+Math.round(sref.roicRef)+'%)'):'s/d'},
+    {label:'Crecimiento',   light:a2,note:salesCagr!=null?('Ventas CAGR '+salesCagr.toFixed(0)+'% (sector '+Math.round(sref.cagr)+'%)'):'s/d'},
     {label:'Solidez fin.',  light:a3,note:ndE!=null?('ND/EBITDA '+ndE.toFixed(1)+'x'):'s/d'},
-    {label:'Márgenes',      light:a4,note:last(co.ebitdaM)!=null?('Mg. EBITDA '+last(co.ebitdaM).toFixed(0)+'%'):'s/d'},
+    {label:'Márgenes',      light:a4,note:last(co.ebitdaM)!=null?('Mg. EBITDA '+last(co.ebitdaM).toFixed(0)+'% (sector '+Math.round(sref.ebitdaMg)+'%)'):'s/d'},
     {label:'Valoración',    light:a5,note:disc!=null?((disc>=0?'−':'+')+Math.abs(disc).toFixed(0)+'% vs mediana hist.'):'s/d'},
     {label:'Red flags',     light:a6,note:flags.length?flags.join(' '):'Sin señales evidentes.'}
   ];
@@ -7127,20 +7138,26 @@ function computePreAnalysisFromMetrics(m,profile){
   if(profile.ipo){const y=+String(profile.ipo).slice(0,4); if(y&&(new Date().getFullYear()-y)<6) young=true;}
   if(m.epsGrowth5Y==null&&m.revenueGrowth5Y==null) young=true;
 
+  // Mismo listón por sector que el resto de la app (sectorBucket/SECTOR_REF), a partir de la
+  // industria que da Finnhub — antes se comparaba a toda empresa con el mismo número fijo
+  // (p.ej. exigir 18% de margen operativo a un marketplace, que estructuralmente va al 5-15%).
+  const bucket=_bucketFromText(profile.finnhubIndustry);
+  const sref=SECTOR_REF[bucket]||SECTOR_REF_DEF;
+
   const roi=pick('roiTTM','roicTTM','roeTTM','roaTTM');
-  const a1=_paGrade(roi,15,8);
+  const a1=_paGrade(roi,sref.roicRef,sref.roicRef*0.6);
   const gr=pick('revenueGrowth5Y','revenueGrowth3Y','revenueGrowthTTMYoy');
-  const a2=_paGrade(gr,15,7);
+  const a2=_paGrade(gr,sref.cagr,sref.cagr*0.6);
   const de=pick('totalDebt/totalEquityQuarterly','totalDebt/totalEquityAnnual','longTermDebt/equityQuarterly');
   let a3=_paGrade(de,0.5,1.5,true);
   const cfps=pick('cashFlowPerShareTTM','cashFlowPerShareAnnual');
   if(cfps!=null&&cfps<0&&a3!=='red') a3=(a3==='green')?'amber':'red';
   const om=pick('operatingMarginTTM','netProfitMarginTTM','operatingMarginAnnual');
-  const a4=_paGrade(om,18,8);
+  const a4=_paGrade(om,sref.ebitdaMg,sref.ebitdaMg*0.6);
   const pe=pick('peTTM','peAnnual'), evE=pick('evEbitdaTTM');
   let a5,valNote;
-  if(pe!=null&&pe>0){a5=_paGrade(pe,18,30,true);valNote='PER '+pe.toFixed(0)+'x';}
-  else if(evE!=null&&evE>0){a5=_paGrade(evE,15,30,true);valNote='EV/EBITDA '+evE.toFixed(0)+'x';}
+  if(pe!=null&&pe>0){a5=_paGrade(pe,sref.pervRef,sref.pervRef*1.6,true);valNote='PER '+pe.toFixed(0)+'x (sector '+Math.round(sref.pervRef)+'x)';}
+  else if(evE!=null&&evE>0){a5=_paGrade(evE,sref.evfRef,sref.evfRef*1.6,true);valNote='EV/EBITDA '+evE.toFixed(0)+'x (sector '+Math.round(sref.evfRef)+'x)';}
   else{a5='gray';valNote='s/d';}
   const flags=[];
   if(cfps!=null&&cfps<0) flags.push('Cash flow negativo (quema caja).');
@@ -7150,10 +7167,10 @@ function computePreAnalysisFromMetrics(m,profile){
   const a6=flags.length===0?'green':flags.length===1?'amber':'red';
 
   const axes=[
-    {label:'Calidad / ROIC',light:a1,note:roi!=null?('ROI '+roi.toFixed(0)+'%'):'s/d'},
-    {label:'Crecimiento',   light:a2,note:gr!=null?('Ventas '+(m.revenueGrowth5Y!=null?'CAGR5Y ':'YoY ')+gr.toFixed(0)+'%'):'s/d'},
+    {label:'Calidad / ROIC',light:a1,note:roi!=null?('ROI '+roi.toFixed(0)+'% (sector '+Math.round(sref.roicRef)+'%)'):'s/d'},
+    {label:'Crecimiento',   light:a2,note:gr!=null?('Ventas '+(m.revenueGrowth5Y!=null?'CAGR5Y ':'YoY ')+gr.toFixed(0)+'% (sector '+Math.round(sref.cagr)+'%)'):'s/d'},
     {label:'Solidez fin.',  light:a3,note:(de!=null?('D/E '+de.toFixed(1)):'s/d')+(cfps!=null&&cfps<0?' · quema caja':'')},
-    {label:'Márgenes',      light:a4,note:om!=null?('Mg. '+(m.operatingMarginTTM!=null?'op. ':'')+om.toFixed(0)+'%'):'s/d'},
+    {label:'Márgenes',      light:a4,note:om!=null?('Mg. '+(m.operatingMarginTTM!=null?'op. ':'')+om.toFixed(0)+'% (sector '+Math.round(sref.ebitdaMg)+'%)'):'s/d'},
     {label:'Valoración',    light:a5,note:valNote},
     {label:'Red flags',     light:a6,note:flags.length?flags.join(' '):'Sin señales evidentes.'}
   ];
