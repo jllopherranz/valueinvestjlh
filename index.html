@@ -2508,11 +2508,35 @@ function estimatedBanner(){
   const k=coKeyOf(co), w=_webProj[k];
   const usingFMP=(_projSource==='auto'&&w&&w.src==='fmp');
   const src=usingFMP?('consenso de analistas FMP'+(w.nA?' · '+w.nA+' analistas':'')):'estimación manteniendo los márgenes actuales';
+  // Avisos adicionales específicos de la importación automática SEC/Finnhub (promoteToAnalysis):
+  // cuántos años de cuentas reales hay de verdad (antes yearsAvailable se guardaba y no se usaba
+  // en ningún sitio — los años que faltan se rellenan repitiendo el más antiguo, así que el CAGR/ROIC
+  // a 10 años puede estar distorsionado) y si la "mediana" de múltiplos es real o el múltiplo de hoy.
+  const extra=[];
+  if(co.autoSource==='finnhub'&&co.yearsAvailable&&co.yearsAvailable<10){
+    extra.push(`Solo hay <b>${co.yearsAvailable} años</b> de cuentas reales (10-K/20-F); los ${10-co.yearsAvailable} años anteriores del histórico son el dato más antiguo repetido para no romper medias a 10 años — trata el CAGR y el ROIC medio con cautela.`);
+  }
+  if(co.autoSource==='finnhub'&&co.medSource==='ttm-snapshot'){
+    extra.push(`No se encontró histórico de precio para calcular múltiplos reales por año: el PER/EV-FCF/EV-EBITDA/EV-EBIT "mediana" que ves es el múltiplo <b>de HOY</b>, no una mediana de varios años — no lo uses para juzgar si está cara o barata vs su propia historia.`);
+  }
   return `<div style="background:${_dm()?'#1a1200':'#fffbeb'};border:1.5px solid #f59e0b;border-radius:10px;padding:9px 13px;margin-bottom:10px;display:flex;gap:9px;align-items:flex-start;">
     <span style="font-size:16px;flex-shrink:0;"></span>
     <div style="font-size:11px;color:${_dm()?'#e3b341':'#92400e'};line-height:1.5;">
       <b>Datos ESTIMADOS — NO son de tu Excel.</b> ${co.name} se añadió con datos automáticos (SEC/Finnhub); las proyecciones y precios objetivo salen de una <b>${src}</b>, no de tus cálculos validados.
       Para una valoración fiable, <b>importa tu hoja de ${co.ticker}</b>${getFMPKey()?'':' (o conecta FMP para usar el consenso de analistas)'}.
+      ${extra.length?'<br>'+extra.join('<br>'):''}
+    </div>
+  </div>`;
+}
+// Banco/aseguradora/financiera importada con la plantilla v2024.1: no tiene EBIT/EBITDA/FCF/ROIC
+// (el apalancamiento es el negocio), así que DCF, EV/FCF, EV/EBITDA, EV/EBIT y el Moat por ROIC
+// no se calculan con datos reales para esta empresa — mejor avisar que mostrarlos en silencio.
+function financialBanner(){
+  if(!co||!co.isFinancial) return '';
+  return `<div style="background:${_dm()?'#0c1832':'#eff6ff'};border:1.5px solid #3b82f6;border-radius:10px;padding:9px 13px;margin-bottom:10px;display:flex;gap:9px;align-items:flex-start;">
+    <span style="font-size:16px;flex-shrink:0;">🏦</span>
+    <div style="font-size:11px;color:${_dm()?'#93c5fd':'#1e40af'};line-height:1.5;">
+      <b>${co.name} es una financiera (plantilla v2024.1).</b> DCF, EV/FCF, EV/EBITDA, EV/EBIT y el Moat por ROIC no se calculan de forma fiable para bancos/aseguradoras/tarjetas — su negocio es el apalancamiento, no generan FCF comparable al de una empresa industrial. Los números de esas pestañas usan supuestos genéricos; no te fíes de ellos. En su lugar mira ROA, ROE, Deuda/Equity, Book Value y PER de tu Excel, debajo.
     </div>
   </div>`;
 }
@@ -7269,17 +7293,34 @@ async function fetchAnnualFinancials(ticker){
     return (d&&Array.isArray(d.data))?d.data:null;
   }catch(e){return null;}
 }
-function buildImportFromFinancials(rows,e){
+async function buildImportFromFinancials(rows,e){
   const annual=rows.filter(x=>/10-K|20-F|40-F/.test(x.form||'')).slice(0,10).reverse();
   if(annual.length<3) return null;
   const M=1e6, last=a=>a[a.length-1];
+  // Precio histórico (Yahoo, 10 años — misma fuente que el análisis técnico) para poder cruzarlo
+  // con el EPS/FCF/EBITDA/EBIT de CADA ejercicio y calcular múltiplos reales por año, en vez de
+  // usar el múltiplo de HOY como si fuera una mediana histórica.
+  let hist=null;
+  try{ hist=await fetchDailyHistory(yfSymbolFor(e.id,e.ticker||e.id),'10y'); }catch(err){}
+  const priceNear=dateStr=>{
+    if(!hist||!hist.times||!hist.times.length||!dateStr) return null;
+    const d=Date.parse(String(dateStr).slice(0,10)+'T00:00:00Z'); if(!isFinite(d)) return null;
+    const target=d/1000;
+    let bestI=-1,bestDiff=Infinity;
+    for(let i=0;i<hist.times.length;i++){ const diff=Math.abs(hist.times[i]-target); if(diff<bestDiff){bestDiff=diff;bestI=i;} }
+    return (bestI>=0&&bestDiff<=10*86400)?hist.closes[bestI]:null; // tolerancia ~10 días (fines de semana/festivos)
+  };
   const years=[],sales=[],ebit=[],ebitda=[],netIncome=[],fcf=[],eps=[],fcfps=[],roic=[],ebitdaM=[],ebitM=[],fcfM=[],netDebt=[],sharesArr=[];
+  const capexArr=[],cfoArr=[],totalDebtArr=[],cashArr=[],taxRateArr=[],hPER=[],hEvF=[],hEvEbitda=[],hEvEbit=[];
   for(const yr of annual){
     const ic=yr.report&&yr.report.ic, bs=yr.report&&yr.report.bs, cf=yr.report&&yr.report.cf;
     const rev=_conceptVal(ic,_GAAP.revenue); if(rev==null) continue;
     const op=_conceptVal(ic,_GAAP.ebit), ni=_conceptVal(ic,_GAAP.netIncome);
     const da=_conceptVal(cf,_GAAP.da)||0, cfo=_conceptVal(cf,_GAAP.cfo), capex=_conceptVal(cf,_GAAP.capex)||0;
     const ltd=_conceptVal(bs,_GAAP.ltDebt)||0, cud=_conceptVal(bs,_GAAP.curDebt)||0, cash=_conceptVal(bs,_GAAP.cash)||0, eq=_conceptVal(bs,_GAAP.equity)||0;
+    // Tipo impositivo real del año (mismo patrón que autoISDFromFinancials), en vez de un 21% fijo para toda empresa/año
+    const pti=_conceptVal(ic,['IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest','IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments']);
+    const txp=_conceptVal(ic,['IncomeTaxExpenseBenefit']);
     const epsv=_conceptVal(ic,_GAAP.epsD)??_conceptVal(ic,_GAAP.epsB);
     let sh=_conceptVal(bs,_GAAP.shares)||_conceptVal(ic,_GAAP.shares);
     if((!sh||sh<1e6)&&ni&&epsv) sh=ni/epsv;
@@ -7294,8 +7335,28 @@ function buildImportFromFinancials(rows,e){
     ebitdaM.push(rev?+((e_ebitda/rev)*100).toFixed(1):null);
     ebitM.push(rev?+((e_op/rev)*100).toFixed(1):null);
     fcfM.push(rev?+((e_fcf/rev)*100).toFixed(1):null);
-    const inv=eq+ltd+cud; let ro=(inv>0)?(e_op*0.79)/inv*100:null;
+    // CapEx/CFO/deuda/caja: ya estaban calculados arriba (capex, cfo, ltd, cud, cash) y antes se tiraban;
+    // alimentan capexIntensity()/el Moat, que si no los recibe marca esos criterios "sin evaluar".
+    capexArr.push(+(Math.abs(capex)/M).toFixed(1)); cfoArr.push(cfo!=null?+(cfo/M).toFixed(1):null);
+    totalDebtArr.push(+((ltd+cud)/M).toFixed(1)); cashArr.push(+(cash/M).toFixed(1));
+    const trReal=(pti!=null&&pti>0&&txp!=null)?(txp/pti*100):null;
+    const trUse=(trReal!=null&&trReal>=5&&trReal<=40)?trReal:21;
+    taxRateArr.push(trReal!=null?+trReal.toFixed(1):null);
+    // ROIC: capital invertido SIN la caja (no está "trabajando" en el negocio) y NOPAT con el
+    // tipo impositivo real del año si es razonable — antes: +caja incluida y 21% fijo siempre,
+    // lo que infravalora el ROIC real de empresas con mucha caja neta (Apple, Microsoft...).
+    const inv=eq+ltd+cud-cash; let ro=(inv>0)?(e_op*(1-trUse/100))/inv*100:null;
     if(ro!=null&&(ro>120||ro<-60)) ro=null; roic.push(ro!=null?+ro.toFixed(1):null);
+    // Múltiplo REAL de ese ejercicio: precio de cierre más próximo a la fecha de cierre del 10-K,
+    // no el precio de hoy. Si no hay histórico de precio (ticker no cubierto por Yahoo), queda null
+    // y el resto del motor lo trata como "sin dato" (igual que cualquier hueco de la hoja del usuario).
+    const px=priceNear(yr.endDate||yr.filedDate||yr.acceptedDate);
+    const _eps9=last(eps), _fcf9=last(fcf), _ebitda9=last(ebitda), _ebit9=last(ebit), _nd9=last(netDebt);
+    const ev=(px!=null&&shM)?(px*shM+_nd9):null;
+    hPER.push((px!=null&&_eps9>0)?+(px/_eps9).toFixed(1):null);
+    hEvF.push((ev!=null&&_fcf9>0)?+(ev/_fcf9).toFixed(1):null);
+    hEvEbitda.push((ev!=null&&_ebitda9>0)?+(ev/_ebitda9).toFixed(1):null);
+    hEvEbit.push((ev!=null&&_ebit9>0)?+(ev/_ebit9).toFixed(1):null);
   }
   if(sales.length<3) return null;
   const n=sales.length;
@@ -7306,23 +7367,29 @@ function buildImportFromFinancials(rows,e){
   const clamp=(v,lo,hi,def)=>(v==null||isNaN(v)||v<=0)?def:Math.max(lo,Math.min(hi,v));
   // El motor de análisis asume 10 años (lee índice [9]); rellenar por delante sin nulos
   const pad10=(arr,fill)=>{const a=arr.map(v=>(v==null||isNaN(v))?fill:v);if(a.length>=10)return a.slice(a.length-10);return Array(10-a.length).fill(a.length?a[0]:fill).concat(a);};
+  // Para campos sin "valor neutro" razonable (múltiplos, capex, deuda...) rellenar con null en vez de
+  // repetir el primer dato real: mejor "sin dato" (el motor ya lo sabe mostrar) que un número inventado.
+  const padNull10=arr=>{if(arr.length>=10) return arr.slice(arr.length-10); return Array(10-arr.length).fill(null).concat(arr);};
   const padY=ys=>{if(ys.length>=10)return ys.slice(ys.length-10);const f=ys[0]||2025;const h=[];for(let i=10-ys.length;i>0;i--)h.push(f-i);return h.concat(ys);};
   const r0=a=>(a.find(v=>v!=null&&!isNaN(v))||0);
   const _cat=catalogFor(e.id);
+  const hPER10=padNull10(hPER),hEvF10=padNull10(hEvF),hEvEbitda10=padNull10(hEvEbitda),hEvEbit10=padNull10(hEvEbit);
+  const hasHistMults=[hPER10,hEvF10,hEvEbitda10,hEvEbit10].some(a=>a.some(v=>v!=null));
   return {
     ticker:e.id, name:e.name||(e.profile&&e.profile.name)||e.id,
     sector:e.sector||(_cat&&_cat.sector)||(e.profile&&e.profile.finnhubIndustry)||'', color:(_cat&&_cat.color)||'#1e3a5f',
     ...(((_cat&&_cat.domain)||_hostOf(e.profile&&e.profile.weburl))?{domain:(_cat&&_cat.domain)||_hostOf(e.profile.weburl)}:{}),...(tvSymbolFor(e.id,e.id)?{tvSymbol:tvSymbolFor(e.id,e.id)}:{}),
     shares:last(sharesArr)||1, sharesHist:pad10(sharesArr,last(sharesArr)||1), price:(_priceCache[e.id]&&_priceCache[e.id].live)||0,
     driveUrl:'', desc:(e.name||e.id)+' — datos automáticos (Finnhub/SEC). Refina importando tu hoja TIKR.',
-    importDate:Date.now(), autoSource:'finnhub', estimated:true, yearsAvailable:n,
+    importDate:Date.now(), autoSource:'finnhub', estimated:true, yearsAvailable:n, medSource:hasHistMults?'historical':'ttm-snapshot',
     years:padY(years),sales:pad10(sales,0),ebit:pad10(ebit,0),ebitda:pad10(ebitda,0),netIncome:pad10(netIncome,0),
     fcf:pad10(fcf,0),eps:pad10(eps,0),fcfps:pad10(fcfps,0),roic:pad10(roic,r0(roic)),
     ebitdaM:pad10(ebitdaM,r0(ebitdaM)),ebitM:pad10(ebitM,r0(ebitM)),fcfM:pad10(fcfM,r0(fcfM)),netDebt:pad10(netDebt,0),
+    capex:padNull10(capexArr),cfo:padNull10(cfoArr),totalDebt:padNull10(totalDebtArr),cashEq:padNull10(cashArr),taxRate:padNull10(taxRateArr),
     pY,pS,pEB:[],pF:[],pEPS:[],pND:[],
     medPER:clamp(m.peTTM,5,50,20), medEvEbitda:clamp(m.evEbitdaTTM,5,40,15),
     medEvFcf:clamp(m.evEbitdaTTM?m.evEbitdaTTM*1.2:null,5,55,22), medEvEbit:clamp(m.evEbitdaTTM?m.evEbitdaTTM*1.1:null,5,45,18),
-    hEvF:[],hPER:[],hEvEbitda:[],hEvEbit:[]
+    hEvF:hEvF10,hPER:hPER10,hEvEbitda:hEvEbitda10,hEvEbit:hEvEbit10
   };
 }
 async function promoteToAnalysis(id){
@@ -7331,11 +7398,13 @@ async function promoteToAnalysis(id){
   if(!confirm('Promover “'+(e.name||id)+'” al análisis profundo.\n\nSe traerán sus cuentas anuales (Finnhub/SEC) y se creará una ficha completa (DCF, proyecciones, veredicto…).\nSon DATOS AUTOMÁTICOS: para máxima precisión, luego puedes importar tu hoja TIKR encima.\n\n¿Continuar?')) return;
   const rows=await fetchAnnualFinancials(e.fhTicker||e.ticker||id);
   if(!rows){alert('No se pudieron traer las cuentas de '+id+'.\nFinnhub sólo cubre as-reported de la SEC (típicamente valores US). Para no-US, importa tu hoja TIKR.');return;}
-  const imp=buildImportFromFinancials(rows,e);
+  const imp=await buildImportFromFinancials(rows,e);
   if(!imp){alert('Las cuentas de '+id+' no traen suficientes campos para montar la ficha. Importa tu hoja TIKR.');return;}
   localStorage.setItem('vi_import_'+id,JSON.stringify(imp));
   hydrateImportedIntoDB();
-  if(typeof computeMediansFor==='function'&&DB[id]&&imp.hEvF&&imp.hEvF.length) computeMediansFor(DB[id]);
+  // imp.hEvF siempre tiene longitud 10 (relleno con null); hay que mirar si hay algún valor REAL,
+  // no solo si el array existe — antes esta condición nunca era falsy y computeMediansFor no corría nunca.
+  if(typeof computeMediansFor==='function'&&DB[id]&&imp.hEvF&&imp.hEvF.some(v=>v!=null)) computeMediansFor(DB[id]);
   if(typeof rebuildCoButtons==='function') rebuildCoButtons();
   saveWatchlist(getWatchlist().filter(x=>x.id!==id));
   setView('analysis');
@@ -10425,6 +10494,9 @@ function buildDbEntryFromImport(r){
     medEvFcf:r.medEvFcf||20,medPER:r.medPER||20,medEvEbitda:r.medEvEbitda||15,medEvEbit:r.medEvEbit||18,
     hEvF:r.hEvF||[],hPER:r.hPER||[],hEvEbitda:r.hEvEbitda||[],hEvEbit:r.hEvEbit||[],
     estimated:!!(r.estimated||r.autoSource==='finnhub'),
+    // Se perdían al pasar de "import" a "entry de DB": sin ellos estimatedBanner() no podía avisar
+    // de cuántos años son reales (yearsAvailable) ni de si los múltiplos son histórico real o el de hoy (medSource).
+    autoSource:r.autoSource||null, yearsAvailable:r.yearsAvailable||null, medSource:r.medSource||null,
     isD
   };
   _estimateProjections(entry);   // rellena proyecciones a 5 años por márgenes si faltan (empresas auto, sin Excel)
