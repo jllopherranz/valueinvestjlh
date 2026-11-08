@@ -3301,12 +3301,22 @@ function calcISModel(){
   if(_projSource==='auto'){ const w=_webProj[coKeyOf(co)]; if(w&&w.rows&&w.rows.length) return w.rows; }
   if(!_isEdited && co.pS&&co.pF&&co.pEB&&co.pEPS && co.pS.length>=5){
     const ebRatio=co.ebitda[9]>0?(co.ebit[9]/co.ebitda[9]):0.85;
+    // Acciones proyectadas: de la hoja si existen; si no, por la dilución real (co.isD.di) ya
+    // calculada a partir del histórico de acciones — NO por EBIT×(1-impuesto)/EPS. Esa fórmula
+    // mezclaba NOPAT (beneficio operativo tras impuestos) con EPS (beneficio NETO, después de
+    // intereses y partidas no operativas): como casi nunca coinciden, inflaba las acciones
+    // proyectadas y con ellas el EV (y por tanto EV/FCF, EV/EBITDA, EV/EBIT) — confirmado con
+    // datos reales de MercadoLibre, donde daba 57,7M acciones en vez de las ~51,5M reales.
+    let _shProj=null;
+    if(!(co.pShares&&co.pShares[0]>0)){
+      _shProj=[]; let s0=co.shares;
+      for(let i=0;i<5;i++){ const di=(co.isD&&co.isD.di&&co.isD.di[i]!=null)?co.isD.di[i]:0; s0=s0*(1+di/100); _shProj.push(s0); }
+    }
     return co.pS.slice(0,5).map((s,i)=>{
       const eb=co.pEB[i], ebit=eb*ebRatio, fcf=co.pF[i], eps=co.pEPS[i];
       const nd=(co.pND&&co.pND[i]!=null)?co.pND[i]:co.netDebt[9];
       const tr=(co.isD&&co.isD.tr&&co.isD.tr[i]!=null)?co.isD.tr[i]/100:0.18;
-      // acciones proyectadas: de la hoja si existen; si no, derivadas de EPS y beneficio (nopat/eps)
-      const sh=(co.pShares&&co.pShares[i]>0)?co.pShares[i]:(eps>0?(ebit*(1-tr))/eps:co.shares);
+      const sh=(co.pShares&&co.pShares[i]>0)?co.pShares[i]:_shProj[i];
       return {yr:co.pY[i],s,eb,ebit,fcf,eps,sh,nd,em:s>0?ebit/s*100:0,ebm:s>0?eb/s*100:0,fm:s>0?fcf/s*100:0};
     });
   }
