@@ -7295,8 +7295,10 @@ const _GAAP={
   da:['DepreciationDepletionAndAmortization','DepreciationAmortizationAndAccretionNet','DepreciationAndAmortization'],
   cfo:['NetCashProvidedByUsedInOperatingActivities','NetCashProvidedByUsedInOperatingActivitiesContinuingOperations'],
   capex:['PaymentsToAcquirePropertyPlantAndEquipment','PaymentsToAcquireProductiveAssets','PaymentsForCapitalImprovements'],
-  ltDebt:['LongTermDebtNoncurrent','LongTermDebt'],
-  curDebt:['LongTermDebtCurrent','DebtCurrent','ShortTermBorrowings'],
+  // LongTermLoansPayable/LoansPayableCurrent: así etiquetan su deuda las fintechs/prestamistas
+  // (p.ej. MercadoLibre) en vez de LongTermDebt* — sin estos alias su deuda salía siempre en 0.
+  ltDebt:['LongTermDebtNoncurrent','LongTermDebt','LongTermLoansPayable'],
+  curDebt:['LongTermDebtCurrent','DebtCurrent','ShortTermBorrowings','LoansPayableCurrent'],
   cash:['CashAndCashEquivalentsAtCarryingValue','CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents'],
   shares:['CommonStockSharesOutstanding','WeightedAverageNumberOfDilutedSharesOutstanding','WeightedAverageNumberOfSharesOutstandingBasic'],
   equity:['StockholdersEquity','StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest']
