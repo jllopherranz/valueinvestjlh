@@ -9766,8 +9766,26 @@ async function fetchDailyHistory(ticker,range){
     for(let i=0;i<closesRaw.length;i++){ if(closesRaw[i]!=null){ closes.push(closesRaw[i]); times.push(timesRaw[i]); } }
     return closes.length?{closes,times}:null;
   };
-  try{const r=await fetch('https://corsproxy.io/?url='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});if(r.ok){const p=parse(await r.json());if(p)return p;}}catch(e){}
-  try{const r=await fetch('https://api.allorigins.win/get?url='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});if(r.ok){const w=await r.json();const p=parse(JSON.parse(w.contents||'{}'));if(p)return p;}}catch(e){}
+  // Varios proxies CORS gratuitos en cascada: son servicios sin SLA que se caen o empiezan a
+  // cobrar sin aviso (corsproxy.io y allorigins.win, los dos únicos que había antes, llevan un
+  // tiempo caídos/de pago) — probar varios da más margen de que alguno esté vivo en cada momento,
+  // a costa de tardar más cuando TODOS fallan. Cada uno envuelve la respuesta de forma distinta.
+  const attempts=[
+    {u:'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url), unwrap:r=>r},
+    {u:'https://api.allorigins.win/raw?url='+encodeURIComponent(url), unwrap:r=>r},
+    {u:'https://thingproxy.freeboard.io/fetch/'+url, unwrap:r=>r},
+    {u:'https://corsproxy.org/?'+encodeURIComponent(url), unwrap:r=>r},
+    {u:'https://api.allorigins.win/get?url='+encodeURIComponent(url), unwrap:r=>JSON.parse(r.contents||'{}')},
+    {u:'https://corsproxy.io/?url='+encodeURIComponent(url), unwrap:r=>r}, // de pago desde 2026; se deja por si vuelve a ser gratis
+  ];
+  for(const a of attempts){
+    try{
+      const r=await fetch(a.u,{signal:AbortSignal.timeout(8000)});
+      if(!r.ok) continue;
+      const parsed=parse(a.unwrap(await r.json()));
+      if(parsed) return parsed;
+    }catch(e){}
+  }
   return null;
 }
 function _sma(a,n){if(!a||a.length<n)return null;let s=0;for(let i=a.length-n;i<a.length;i++)s+=a[i];return s/n;}
