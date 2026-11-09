@@ -814,6 +814,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <div style="display:flex;gap:4px;position:relative;">
         <button id="nav-dash" class="co-btn active" onclick="setView('dash')" title="Cartera"><span id="nic-dash"></span><span class="co-btn-label">Cartera</span></button>
         <button id="nav-watch" class="co-btn" onclick="setView('watch')" title="Seguimiento"><span id="nic-watch"></span><span class="co-btn-label">Seguimiento</span></button>
+        <button id="nav-mercat" class="co-btn" onclick="setView('mercat')" title="Mercado"><span id="nic-mercat"></span><span class="co-btn-label">Mercado</span></button>
         <button id="nav-analysis" class="co-btn" onclick="toggleAnalysisMenu(event)" title="Análisis"><span id="nic-anly"></span><span class="co-btn-label">Análisis</span></button>
         <div id="co-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:130;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:6px;min-width:210px;max-height:70vh;overflow:auto;">
           <div style="font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:2px 8px 6px;">Elige empresa</div>
@@ -1066,6 +1067,118 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     </table>
   </div>
 </div><!-- /view-watch -->
+
+<!-- ══ VISTA MERCADO (pestaña propia — visión del mercado en general, no de tu cartera) ══ -->
+<div id="view-mercat" style="display:none;max-width:1600px;margin:0 auto;padding:10px 20px 30px;">
+  <div style="margin:4px 0 12px;">
+    <div style="font-size:16px;font-weight:600;color:var(--text);">📊 Mercado</div>
+    <div style="font-size:10px;color:var(--muted);">Visión general del mercado — más allá de tus empresas</div>
+  </div>
+
+  <!-- ── Mapa de calor por sectores (TradingView, iframe — no usa los proxies CORS de la app) ── -->
+  <div class="card" id="mercat-heatmap-card" style="margin-bottom:12px;padding:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Mapa de sectores (S&amp;P 500)</div>
+      <div style="font-size:9px;color:var(--muted);">tamaño = peso · color = variación del día</div>
+    </div>
+    <div id="mercat-heatmap-wrap" style="position:relative;width:100%;height:420px;border-radius:10px;overflow:hidden;"></div>
+  </div>
+
+  <!-- ── Tendencia de los índices (gráfico real, no solo el número) ── -->
+  <div class="card" id="mercat-trend-card" style="margin-bottom:12px;padding:12px;">
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Tendencia de los índices <span style="font-size:9px;font-weight:400;color:var(--muted);">· último año</span></div>
+    <div id="mercat-trend-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;">
+      <div class="mercat-idx-tile">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;">
+          <span style="font-size:11px;font-weight:600;color:var(--text);">S&amp;P 500</span>
+          <span id="mi-sp500-px" style="font-size:13px;font-weight:700;color:var(--text);">—</span>
+        </div>
+        <div id="mi-sp500-sub" style="font-size:9.5px;color:var(--muted);margin:2px 0 4px;">cargando…</div>
+        <div style="height:60px;"><canvas id="mi-sp500-chart"></canvas></div>
+      </div>
+      <div class="mercat-idx-tile">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;">
+          <span style="font-size:11px;font-weight:600;color:var(--text);">Nasdaq 100</span>
+          <span id="mi-ndx-px" style="font-size:13px;font-weight:700;color:var(--text);">—</span>
+        </div>
+        <div id="mi-ndx-sub" style="font-size:9.5px;color:var(--muted);margin:2px 0 4px;">cargando…</div>
+        <div style="height:60px;"><canvas id="mi-ndx-chart"></canvas></div>
+      </div>
+      <div class="mercat-idx-tile">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;">
+          <span style="font-size:11px;font-weight:600;color:var(--text);">Dow Jones</span>
+          <span id="mi-dow-px" style="font-size:13px;font-weight:700;color:var(--text);">—</span>
+        </div>
+        <div id="mi-dow-sub" style="font-size:9.5px;color:var(--muted);margin:2px 0 4px;">cargando…</div>
+        <div style="height:60px;"><canvas id="mi-dow-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Sentimiento del mercado (Fear & Greed, reubicado aquí con protagonismo propio) ── -->
+  <div class="card" id="mercat-fg-card" style="margin-bottom:12px;padding:12px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+    <div style="min-width:150px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Sentimiento del mercado</div>
+      <div style="font-size:9px;color:var(--muted);">CNN Fear &amp; Greed Index</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="font-size:30px;font-weight:700;color:var(--text);" id="mercat-fg-val">—</div>
+      <div>
+        <div class="fg-bar-mini" style="width:150px;height:10px;">
+          <span class="fg-needle" id="mercat-fg-needle" style="left:50%;"></span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:5px;" id="mercat-fg-lbl">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Pulso de mercado (días de distribución del S&P 500) ── -->
+  <div class="card" id="mercat-pulse-card" style="margin-bottom:12px;padding:12px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+    <div style="min-width:150px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Pulso de mercado</div>
+      <div style="font-size:9px;color:var(--muted);">días de distribución del S&amp;P 500</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="font-size:30px;font-weight:700;color:var(--text);" id="mercat-pulse-count">—</div>
+      <div>
+        <div class="fg-bar-mini" style="width:150px;height:10px;background:linear-gradient(90deg,#16a34a 0%,#16a34a 20%,#d97706 20%,#d97706 40%,#dc2626 40%,#dc2626 100%);">
+          <span class="fg-needle" id="mercat-pulse-needle" style="left:50%;"></span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:5px;font-weight:600;" id="mercat-pulse-lbl">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Movers: mejores y peores sectores del día ── -->
+  <div class="card" id="mercat-movers-card" style="margin-bottom:12px;padding:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Sectores: mejores y peores del día</div>
+      <div style="font-size:9px;color:var(--muted);">11 sectores SPDR · variación del día · pulsa un sector para ver tu exposición</div>
+    </div>
+    <div id="mercat-movers-list" style="padding:4px 0;font-size:11px;color:var(--muted);">cargando…</div>
+    <div id="mercat-sector-detail" style="display:none;border-top:1px solid var(--border);margin-top:8px;"></div>
+  </div>
+
+  <!-- ── Amplitud de mercado (sobre el universo de 11 sectores SPDR) ── -->
+  <div class="card" id="mercat-breadth-card" style="margin-bottom:12px;padding:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Amplitud de mercado</div>
+      <div style="font-size:9px;color:var(--muted);">sobre los 11 sectores SPDR</div>
+    </div>
+    <div id="mercat-breadth-box" style="font-size:11px;color:var(--muted);">cargando…</div>
+  </div>
+
+  <!-- ── Radar de fuerza: fuerza relativa vs S&P 500 (sectores + tus empresas) ── -->
+  <div class="card" id="mercat-force-card" style="margin-bottom:12px;padding:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Radar de fuerza</div>
+      <div style="font-size:9px;color:var(--muted);">fuerza relativa a 3 meses vs S&amp;P 500</div>
+    </div>
+    <div id="mercat-force-box" style="font-size:11px;color:var(--muted);">cargando…</div>
+  </div>
+
+  <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Más piezas (calendario económico) próximamente.</div>
+</div><!-- /view-mercat -->
 
 <!-- Vista Cartera fusionada en el Dashboard (contenedor vacío para compatibilidad) -->
 <div id="view-cartera" style="display:none;"></div>
@@ -7002,17 +7115,19 @@ function startDashRefresh(){
 // ── Navegación entre vistas ──
 function setView(v){
   if(v==='cartera') v='dash'; // Cartera fusionada en el Dashboard
-  _curView=(v==='dash'||v==='watch')?v:'analysis';
+  _curView=(v==='dash'||v==='watch'||v==='mercat')?v:'analysis';
   if(v!=='analysis'){const _dd=document.getElementById('co-dropdown');if(_dd)_dd.style.display='none';}
   const dash=document.getElementById('view-dash');
   const cartera=document.getElementById('view-cartera');
   const watch=document.getElementById('view-watch');
+  const mercat=document.getElementById('view-mercat');
   const cnt=document.getElementById('cnt');
   const tabs=document.getElementById('tabs');
   const coBtns=document.getElementById('co-btns');
   const btnD=document.getElementById('nav-dash');
   const btnC=document.getElementById('nav-cartera');
   const btnW=document.getElementById('nav-watch');
+  const btnM=document.getElementById('nav-mercat');
   const btnA=document.getElementById('nav-analysis');
   const hdrAnalysis=document.getElementById('hdr-analysis-zone');
   const _navIdle=b=>{if(b)b.classList.remove('active');}, _navOn=b=>{if(b)b.classList.add('active');};
@@ -7021,6 +7136,7 @@ function setView(v){
   dash.style.display='none';
   if(cartera) cartera.style.display='none';
   if(watch) watch.style.display='none';
+  if(mercat) mercat.style.display='none';
   cnt.style.display='none';
   if(tabs) tabs.style.display='none';
   if(coBtns) coBtns.style.display='none';
@@ -7030,11 +7146,18 @@ function setView(v){
   ['co-info','co-name','co-quickinfo'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   const coLogoWrap=document.getElementById('co-logo-wrap');if(coLogoWrap)coLogoWrap.style.display='none';
   const hdrPG=document.getElementById('hdr-price-group');if(hdrPG) hdrPG.style.display='none';
-  _navIdle(btnD);_navIdle(btnC);_navIdle(btnW);_navIdle(btnA);
-  // Ticker de mercado (Bitcoin, S&P 500, Euríbor…): solo en Cartera/Seguimiento, no dentro del análisis
-  const _mktBar=document.getElementById('dash-mkt-bar'); if(_mktBar) _mktBar.style.display=(v==='analysis')?'none':'';
+  _navIdle(btnD);_navIdle(btnC);_navIdle(btnW);_navIdle(btnM);_navIdle(btnA);
+  // Ticker de mercado (Bitcoin, S&P 500, Euríbor…): solo en Cartera/Seguimiento, no dentro de Mercado (que ya es
+  // mercado) ni dentro del análisis de una empresa
+  const _mktBar=document.getElementById('dash-mkt-bar'); if(_mktBar) _mktBar.style.display=(v==='analysis'||v==='mercat')?'none':'';
 
-  if(v==='watch'){
+  if(v==='mercat'){
+    if(mercat) mercat.style.display='block';
+    _navOn(btnM);
+    localStorage.setItem('vi_view','mercat');
+    renderMercat();
+    document.getElementById('earnings-badge')?.classList.remove('visible');
+  } else if(v==='watch'){
     if(watch) watch.style.display='block';
     _navOn(btnW);
     localStorage.setItem('vi_view','watch');
@@ -7075,6 +7198,265 @@ function setView(v){
     updateEarningsBadge();                          // resultados de la empresa actual
     if(!document.querySelector('.tab.active')) showTab('resumen');
   }
+}
+
+// ── Vista Mercado: mapa de calor de sectores (widget TradingView por iframe — no usa los
+// proxies CORS de Yahoo/Finnhub que ya usa el resto de la app, así que no los satura) ──
+function renderMercat(){
+  const wrap=document.getElementById('mercat-heatmap-wrap');
+  if(!wrap) return;
+  const theme=_dm()?'dark':'light';
+  if(wrap.dataset.theme===theme) return; // ya construido con el tema correcto
+  wrap.dataset.theme=theme;
+  wrap.innerHTML='<div class="tradingview-widget-container" style="height:100%;width:100%;"><div class="tradingview-widget-container__widget" style="height:100%;width:100%;"></div></div>';
+  const cfg={
+    exchanges:[], dataSource:'SPX500', grouping:'sector',
+    blockSize:'market_cap_basic', blockColor:'change',
+    locale:'es', symbolUrl:'', colorTheme:theme,
+    hasTopBar:false, isDataSetEnabled:false, isZoomEnabled:true,
+    hasSymbolTooltip:true, isMonoSize:false, width:'100%', height:'100%'
+  };
+  const script=document.createElement('script');
+  script.type='text/javascript';
+  script.async=true;
+  script.src='https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js';
+  script.text=JSON.stringify(cfg);
+  wrap.querySelector('.tradingview-widget-container').appendChild(script);
+  renderMercatTrends();
+  fetchFearGreed();
+  renderMercatMovers();
+  renderMercatBreadth();
+}
+
+// Gráficos de tendencia de los 3 índices principales en Mercado — reutiliza fetchDailyHistory
+// y computeTechnicals (ya usados por el técnico de la pestaña Resumen), así que no añade fuentes
+// de datos nuevas. Se carga una sola vez por sesión (no en cada visita a la pestaña).
+const MERCAT_IDX=[{id:'sp500',t:'^GSPC'},{id:'ndx',t:'^NDX'},{id:'dow',t:'^DJI'}];
+let _mercatTrendsLoaded=false, _mercatCharts={}, _mercatSp500Hist=null;
+async function renderMercatTrends(force){
+  if(_mercatTrendsLoaded&&!force) return;
+  _mercatTrendsLoaded=true;
+  await Promise.allSettled(MERCAT_IDX.map(async(ix,i)=>{
+    await new Promise(r=>setTimeout(r,i*200)); // escalonado, mismo motivo que fetchDashPrices
+    const hist=await fetchDailyHistory(ix.t,'1y');
+    if(ix.id==='sp500'&&hist) _mercatSp500Hist=hist; // reutilizado por el Pulso de mercado, sin otra llamada
+    const pxEl=document.getElementById('mi-'+ix.id+'-px'), subEl=document.getElementById('mi-'+ix.id+'-sub'), cv=document.getElementById('mi-'+ix.id+'-chart');
+    if(!hist||!hist.closes.length){ if(subEl) subEl.textContent='No se pudo cargar el histórico ahora'; return; }
+    const {closes}=hist;
+    const t=computeTechnicals(closes);
+    const chg=((t.last-closes[0])/closes[0]*100);
+    const up=chg>=0;
+    if(pxEl) pxEl.textContent=Math.round(t.last).toLocaleString('es-ES');
+    if(subEl){
+      const chgTxt=(up?'+':'')+chg.toFixed(1)+'% (1a)';
+      const hiTxt=t.fromHigh>=-0.05?'en máx. 52s':'máx 52s '+t.fromHigh.toFixed(1)+'%';
+      subEl.innerHTML=`<span style="color:${up?'var(--green)':'var(--red)'};font-weight:600;">${chgTxt}</span> · ${hiTxt}`;
+    }
+    if(cv&&window.Chart){
+      const key='mkt_'+ix.id;
+      if(_mercatCharts[key]){try{_mercatCharts[key].destroy();}catch(e){}}
+      _mercatCharts[key]=new Chart(cv,{type:'line',data:{labels:closes.map((_,i2)=>i2),
+        datasets:[{data:closes,borderColor:up?'#16a34a':'#dc2626',borderWidth:1.5,pointRadius:0,tension:.15,fill:false}]},
+        options:{responsive:true,maintainAspectRatio:false,animation:false,
+          plugins:{legend:{display:false},tooltip:{enabled:false}},
+          scales:{x:{display:false},y:{display:false}}}});
+    }
+  }));
+  renderMercatPulse();
+}
+
+// Pulso de mercado: días de distribución del S&P 500 (señal clásica O'Neil/IBD — sesión que cae
+// ≥0,2% con volumen superior al día anterior, en las últimas 25 sesiones). Reutiliza el histórico
+// ya pedido por renderMercatTrends para el S&P 500, no hace una llamada aparte.
+function computeDistributionDays(closes,volumes,lookback){
+  lookback=lookback||25;
+  const n=closes.length; let count=0;
+  for(let i=Math.max(1,n-lookback);i<n;i++){
+    if(closes[i]<=closes[i-1]*0.998 && volumes[i]>volumes[i-1]) count++;
+  }
+  return count;
+}
+function renderMercatPulse(){
+  const valEl=document.getElementById('mercat-pulse-count'), lblEl=document.getElementById('mercat-pulse-lbl'), needle=document.getElementById('mercat-pulse-needle');
+  if(!valEl) return;
+  if(!_mercatSp500Hist||!_mercatSp500Hist.closes||!_mercatSp500Hist.volumes){ valEl.textContent='—'; if(lblEl) lblEl.textContent='No se pudo calcular ahora'; return; }
+  const n=computeDistributionDays(_mercatSp500Hist.closes,_mercatSp500Hist.volumes,25);
+  valEl.textContent=n;
+  const lvl=n<=2?['Tranquilo','var(--green)']:n<=4?['Cautela','var(--amber)']:['Bajo presión','var(--red)'];
+  if(lblEl){ lblEl.textContent=lvl[0]+' · '+n+' días de distribución (25 sesiones)'; lblEl.style.color=lvl[1]; }
+  if(needle) needle.style.left=Math.min(96,Math.max(4,n/10*100))+'%';
+}
+
+// Movers: mejores y peores sectores del día. La app no tiene (ni puede traer client-side) un
+// screener del mercado completo, así que se adapta al universo manejable que ya usa el heatmap:
+// los 11 sectores SPDR, vía Yahoo (misma fuente/proxy que fetchDashPrices).
+const SECTOR_ETFS=[
+  {t:'XLK',name:'Tecnología'},{t:'XLF',name:'Financiero'},{t:'XLE',name:'Energía'},
+  {t:'XLV',name:'Salud'},{t:'XLY',name:'Cons. discrecional'},{t:'XLP',name:'Cons. básico'},
+  {t:'XLI',name:'Industrial'},{t:'XLB',name:'Materiales'},{t:'XLU',name:'Utilities'},
+  {t:'XLRE',name:'Inmobiliario'},{t:'XLC',name:'Comunicación'},
+];
+let _mercatMoversLoaded=false;
+async function renderMercatMovers(force){
+  const box=document.getElementById('mercat-movers-list'); if(!box) return;
+  if(_mercatMoversLoaded&&!force) return;
+  _mercatMoversLoaded=true;
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const results=await Promise.allSettled(SECTOR_ETFS.map(async(s,i)=>{
+    await sleep(i*150); // escalonado, mismo motivo que fetchDashPrices
+    const q=await fetchQuoteYF(s.t);
+    return {...s,dp:(q&&q.dp!=null)?q.dp:null};
+  }));
+  const rows=results.map(r=>r.status==='fulfilled'?r.value:null).filter(r=>r&&r.dp!=null);
+  if(!rows.length){ box.innerHTML='<span style="color:var(--muted);">No se pudo cargar ahora.</span>'; return; }
+  rows.sort((a,b)=>b.dp-a.dp);
+  const maxAbs=Math.max(1,...rows.map(r=>Math.abs(r.dp)));
+  box.innerHTML=rows.map(r=>{
+    const up=r.dp>=0, w=Math.min(100,Math.abs(r.dp)/maxAbs*100);
+    return `<div data-etf="${r.t}" onclick="toggleMercatSectorDetail('${r.t}','${r.name}')" style="display:flex;align-items:center;gap:8px;padding:3px 4px;cursor:pointer;border-radius:6px;" title="Pulsa para ver tu exposición a ${r.name}">
+      <span style="width:130px;font-size:11px;color:var(--text);flex-shrink:0;">${r.name}</span>
+      <div style="flex:1;height:14px;background:var(--surface2);border-radius:3px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;${up?'left':'right'}:0;height:100%;width:${w}%;background:${up?'#16a34a':'#dc2626'};border-radius:3px;"></div>
+      </div>
+      <span style="width:52px;text-align:right;font-size:11px;font-weight:700;color:${up?'var(--green)':'var(--red)'};">${(up?'+':'')+r.dp.toFixed(1)}%</span>
+    </div>`;
+  }).join('');
+  if(_mercatSectorOpen) _mercatHighlightRow(_mercatSectorOpen);
+}
+
+// ── Vista fusionada: pulsar un sector del ranking muestra tu exposición, sin tocar la tabla de
+// Cartera (pedido explícito de Jordi) — un panel inline aquí mismo, no un salto a Cartera. El
+// heatmap de TradingView corre en un iframe de otro origen y no expone clic por bloque en el
+// widget gratuito, así que la interacción cuelga de esta lista de sectores en vez del mapa.
+// Traduce los ~15 buckets finos que ya usa la concentración de Cartera (sectorBucket) a los 11
+// sectores SPDR de Mercado — no son 1:1, es una aproximación razonable.
+const _SECTOR_TO_SPDR={
+  'Semiconductores':'XLK','Memoria / Almacenamiento':'XLK','Datacenters':'XLK','Software':'XLK',
+  'Nube':'XLK','Hardware / Consumo':'XLK','Publicidad / Internet':'XLC','Telecom / Media':'XLC',
+  'E-commerce':'XLY','Salud':'XLV','Financiero':'XLF','Energía':'XLE','Industrial':'XLI',
+  'Inmobiliario':'XLRE','Utilities':'XLU',
+};
+let _mercatSectorOpen=null;
+function _mercatHighlightRow(etf){
+  document.querySelectorAll('#mercat-movers-list [data-etf]').forEach(el=>{
+    const on=el.dataset.etf===etf;
+    el.style.background=on?'color-mix(in srgb, var(--blue) 12%, transparent)':'';
+  });
+}
+function toggleMercatSectorDetail(etf,name){
+  const panel=document.getElementById('mercat-sector-detail'); if(!panel) return;
+  if(_mercatSectorOpen===etf){
+    _mercatSectorOpen=null; panel.style.display='none'; panel.innerHTML='';
+    _mercatHighlightRow(null); return;
+  }
+  _mercatSectorOpen=etf;
+  const companies=getAllPortfolioCompanies().filter(c=>_SECTOR_TO_SPDR[sectorBucket(c.key)]===etf);
+  panel.style.display='block';
+  panel.innerHTML=companies.length
+    ? `<div style="padding:8px 2px 2px;">
+        <div style="font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;">Tu exposición a ${name}</div>
+        ${companies.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${c.key}'])switchCo('${c.key}');},80);" title="Abrir análisis de ${c.name}">
+          <span style="font-size:11.5px;color:var(--text);">${c.name||c.key}</span>
+          <span style="font-size:10px;color:var(--muted);">${c.ticker||c.key}</span>
+        </div>`).join('')}
+      </div>`
+    : `<div style="padding:8px 2px;font-size:11px;color:var(--amber);">No tienes ninguna posición en <b>${name}</b> — posible oportunidad de diversificación.</div>`;
+  _mercatHighlightRow(etf);
+}
+
+// Amplitud de mercado: % de sectores por encima de su media de 50/200 sesiones, y cuántos están
+// cerca de su máximo/mínimo de 52 semanas. Mismo universo (11 SPDR) y misma fuente que los movers,
+// pero pide histórico diario (fetchDailyHistory) en vez de solo la cotización — es la pieza más
+// pesada en peticiones de todo Mercado, así que se carga una sola vez por sesión.
+let _mercatBreadthLoaded=false, _mercatSectorHist={};
+async function renderMercatBreadth(force){
+  const box=document.getElementById('mercat-breadth-box'); if(!box) return;
+  if(_mercatBreadthLoaded&&!force) return;
+  _mercatBreadthLoaded=true;
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const results=await Promise.allSettled(SECTOR_ETFS.map(async(s,i)=>{
+    await sleep(i*250);
+    const hist=await fetchDailyHistory(s.t,'1y');
+    if(!hist||hist.closes.length<200) return null;
+    _mercatSectorHist[s.t]=hist; // reutilizado por el Radar de fuerza, sin otra llamada
+    const t=computeTechnicals(hist.closes);
+    return {...s,last:t.last,sma50:t.sma50,sma200:t.sma200,fromHigh:t.fromHigh,fromLow:t.fromLow};
+  }));
+  const rows=results.map(r=>r.status==='fulfilled'?r.value:null).filter(Boolean);
+  if(!rows.length){ box.innerHTML='<span style="color:var(--muted);">No se pudo calcular ahora.</span>'; return; }
+  const aboveSMA50=rows.filter(r=>r.sma50!=null&&r.last>=r.sma50).length;
+  const aboveSMA200=rows.filter(r=>r.sma200!=null&&r.last>=r.sma200).length;
+  const nearHigh=rows.filter(r=>r.fromHigh>=-2).length;   // a menos del 2% de su máximo 52s
+  const nearLow=rows.filter(r=>r.fromLow<=2).length;      // a menos del 2% de su mínimo 52s
+  const pct=n=>Math.round(n/rows.length*100);
+  const bar=(lbl,n,tot)=>{ const p=pct(n); return `<div style="margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text);margin-bottom:3px;"><span>${lbl}</span><b>${n}/${tot} · ${p}%</b></div>
+    <div style="height:8px;border-radius:4px;background:var(--surface2);overflow:hidden;"><div style="height:100%;width:${p}%;background:${p>=50?'#16a34a':'#dc2626'};"></div></div>
+  </div>`; };
+  box.innerHTML=bar('Sectores por encima de su media de 50 sesiones',aboveSMA50,rows.length)
+    +bar('Sectores por encima de su media de 200 sesiones',aboveSMA200,rows.length)
+    +`<div style="display:flex;gap:18px;font-size:11px;color:var(--muted);margin-top:8px;">
+        <span><b style="color:var(--green);font-size:14px;">${nearHigh}</b> cerca de máx. 52s (±2%)</span>
+        <span><b style="color:var(--red);font-size:14px;">${nearLow}</b> cerca de mín. 52s (±2%)</span>
+      </div>`;
+  renderMercatForce();
+}
+
+// Radar de fuerza: fuerza relativa (RS) a 3 meses de los 11 sectores y de tus empresas (cartera +
+// seguimiento) frente al S&P 500 — RS simple (rentabilidad propia menos la del S&P en el mismo
+// periodo), no normalizado a escala 1-99 como IBD porque no tenemos un universo amplio de
+// comparación (ya avisado en la propuesta original). Reutiliza los históricos de sectores ya
+// pedidos por Amplitud de mercado; solo pide histórico nuevo por cada empresa de tu cartera.
+let _mercatForceLoaded=false;
+function _periodReturnPct(closes,daysBack){
+  const n=closes.length; if(n<daysBack+1) return null;
+  const a=closes[n-1-daysBack], b=closes[n-1];
+  return a>0?((b-a)/a*100):null;
+}
+async function renderMercatForce(){
+  const box=document.getElementById('mercat-force-box'); if(!box) return;
+  if(_mercatForceLoaded) return;
+  _mercatForceLoaded=true;
+  let spHist=_mercatSp500Hist;
+  if(!spHist) spHist=await fetchDailyHistory('^GSPC','1y');
+  const spRS=spHist?_periodReturnPct(spHist.closes,63):null; // ~3 meses de sesiones
+  if(spRS==null){ box.innerHTML='<span style="color:var(--muted);">No se pudo calcular ahora.</span>'; return; }
+
+  const sectorRows=SECTOR_ETFS.map(s=>{
+    const h=_mercatSectorHist[s.t]; if(!h) return null;
+    const r=_periodReturnPct(h.closes,63);
+    return r==null?null:{name:s.name,rs:+(r-spRS).toFixed(1)};
+  }).filter(Boolean);
+
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const companies=getAllPortfolioCompanies();
+  const coResults=await Promise.allSettled(companies.map(async(c,i)=>{
+    await sleep(i*200);
+    const sym=yfSymbolForKey(c.key);
+    const h=await fetchDailyHistory(sym,'6mo');
+    if(!h||!h.closes.length) return null;
+    const r=_periodReturnPct(h.closes,63);
+    return r==null?null:{name:c.name||c.key,rs:+(r-spRS).toFixed(1)};
+  }));
+  const coRows=coResults.map(r=>r.status==='fulfilled'?r.value:null).filter(Boolean);
+
+  const list=(title,rows,strongest)=>{
+    if(!rows.length) return `<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">${title}: sin datos.</div>`;
+    const sorted=[...rows].sort((a,b)=>b.rs-a.rs);
+    const picks=(strongest?sorted.slice(0,5):sorted.slice(-5).reverse());
+    return `<div style="margin-bottom:10px;">
+      <div style="font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;">${title}</div>
+      ${picks.map(p=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;">
+        <span style="color:var(--text);">${p.name}</span>
+        <b style="color:${p.rs>=0?'var(--green)':'var(--red)'};">${(p.rs>=0?'+':'')+p.rs}%</b>
+      </div>`).join('')}
+    </div>`;
+  };
+  box.innerHTML=`<div style="font-size:9px;color:var(--muted);margin-bottom:10px;">Fuerza relativa = rentabilidad a 3 meses menos la del S&amp;P 500 en el mismo periodo</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
+      <div>${list('Sectores más fuertes',sectorRows,true)}${list('Sectores más débiles',sectorRows,false)}</div>
+      <div>${list('Tus empresas más fuertes',coRows,true)}${list('Tus empresas más débiles',coRows,false)}</div>
+    </div>`;
 }
 
 // ── Finnhub key helpers ──
@@ -8326,10 +8708,14 @@ async function fetchFearGreed(){
   _renderFearGreed(score,rating,false);
 }
 function _renderFearGreed(score,rating,stale){
-  const valEl=document.getElementById('dm-fg'),lblEl=document.getElementById('fg-lbl'),needle=document.getElementById('fg-needle');
-  if(valEl){ valEl.textContent=score; valEl.style.opacity=stale?'.5':''; valEl.title=stale?'Último valor conocido — no se ha podido actualizar ahora':''; }
-  if(lblEl) lblEl.textContent=FG_RATING_ES[rating]||rating;
-  if(needle) needle.style.left=Math.min(96,Math.max(4,score))+'%';
+  const pairs=[['dm-fg','fg-lbl','fg-needle'],['mercat-fg-val','mercat-fg-lbl','mercat-fg-needle']];
+  const pos=Math.min(96,Math.max(4,score));
+  pairs.forEach(([vId,lId,nId])=>{
+    const valEl=document.getElementById(vId),lblEl=document.getElementById(lId),needle=document.getElementById(nId);
+    if(valEl){ valEl.textContent=score; valEl.style.opacity=stale?'.5':''; valEl.title=stale?'Último valor conocido — no se ha podido actualizar ahora':''; }
+    if(lblEl) lblEl.textContent=FG_RATING_ES[rating]||rating;
+    if(needle) needle.style.left=pos+'%';
+  });
 }
 
 // ── Euríbor 12M (BCE) — índice de referencia de las hipotecas en España ──
@@ -8455,7 +8841,7 @@ function updateDashCoRow(key,price,pct,change){
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab" data-t="${t.t}" onclick="showTab('${t.t}')">${svgIcon(t.ic)}${t.l}</button>`).join('');
   // Iconos de línea en cabecera y navegación
   const _setIc=(id,name)=>{const e=document.getElementById(id);if(e)e.innerHTML=svgIcon(name,'ic-lg');};
-  _setIc('brand-ic','activity'); _setIc('nic-dash','briefcase'); _setIc('nic-watch','eye'); _setIc('nic-anly','activity');
+  _setIc('brand-ic','activity'); _setIc('nic-dash','briefcase'); _setIc('nic-watch','eye'); _setIc('nic-mercat','barchart'); _setIc('nic-anly','activity');
   _setIc('aic-add','plus'); _setIc('aic-imp','folder'); _setIc('aic-sync','refresh'); _setIc('aic-restore','refresh'); _setIc('aic-backup','share');
   _paintPrivadoBtn(); document.documentElement.classList.toggle('privado',privado());
   BUILTIN_KEYS=new Set(Object.keys(DB));        // empresas de fábrica
@@ -9772,11 +10158,11 @@ async function fetchDailyHistory(ticker,range){
   const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range||'1y'}`;
   const parse=d=>{
     const q=d?.chart?.result?.[0];
-    const closesRaw=q?.indicators?.quote?.[0]?.close,timesRaw=q?.timestamp;
+    const closesRaw=q?.indicators?.quote?.[0]?.close,timesRaw=q?.timestamp,volsRaw=q?.indicators?.quote?.[0]?.volume;
     if(!Array.isArray(closesRaw)||!Array.isArray(timesRaw))return null;
-    const closes=[],times=[];
-    for(let i=0;i<closesRaw.length;i++){ if(closesRaw[i]!=null){ closes.push(closesRaw[i]); times.push(timesRaw[i]); } }
-    return closes.length?{closes,times}:null;
+    const closes=[],times=[],volumes=[];
+    for(let i=0;i<closesRaw.length;i++){ if(closesRaw[i]!=null){ closes.push(closesRaw[i]); times.push(timesRaw[i]); volumes.push(Array.isArray(volsRaw)?(volsRaw[i]??0):0); } }
+    return closes.length?{closes,times,volumes}:null;
   };
   // Varios proxies CORS gratuitos en cascada: son servicios sin SLA que se caen o empiezan a
   // cobrar sin aviso (corsproxy.io y allorigins.win, los dos únicos que había antes, llevan un
@@ -10921,6 +11307,7 @@ async function refreshAllImports(auto){
     const isDark=html.classList.toggle('dark');
     localStorage.setItem('vi_dark',isDark?'1':'0');
     _paint(document.getElementById('dark-toggle'));
+    if(typeof renderMercat==='function'&&typeof _curView!=='undefined'&&_curView==='mercat') renderMercat();
   };
   document.addEventListener('DOMContentLoaded',function(){ _paint(document.getElementById('dark-toggle')); });
 })();
