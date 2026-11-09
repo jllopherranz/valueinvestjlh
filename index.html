@@ -614,6 +614,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .val-detail-tbl td{padding:3px 4px;border-top:1px solid var(--border);}
 .cartera-co-name{font-size:11.5px;font-weight:700;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;}
 .cartera-ticker{font-size:9.5px;color:var(--muted);font-weight:600;margin-top:0;line-height:1.3;white-space:nowrap;}
+/* Rendimiento junto al peso de la posición: solo visible en móvil (ver media query), donde
+   sustituye a la columna «Mi coste» para ganar espacio horizontal. */
+.cartera-ret-inline{display:none;font-weight:700;}
 .cartera-sector{font-size:10px;color:var(--sub);}
 .cartera-price{font-size:13px;font-weight:600;color:var(--blue);}
 .cartera-vi{font-size:14px;font-weight:600;}
@@ -722,6 +725,11 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   .c-sub{font-size:8.5px !important;}
   .c-sub2{font-size:7.5px !important;margin-left:3px !important;}
   .cartera-price{font-size:11.5px;}
+  /* ── Columnas «Mi coste» y «Sem.» ocultas en móvil: el precio de compra pasa a verse como
+     rendimiento junto al peso de la posición (ticker), y la semanal (a menudo vacía al cargar)
+     no merece una columna propia — así «Obj. precio» entra en pantalla sin hacer scroll ── */
+  .col-mi-coste,.col-sem{display:none !important;}
+  .cartera-ret-inline{display:inline !important;}
 }
 @media (max-width:480px){
   .cartera-co-name{max-width:52px;}
@@ -963,8 +971,8 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
           <th></th>
           <th style="text-align:left;" data-sort="name" onclick="sortCartera('name')">Empresa <span class="sort-ind"></span></th>
           <th style="text-align:right;" data-sort="price" onclick="sortCartera('price')">Precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','precio',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
-          <th style="text-align:right;" data-sort="retPct" onclick="sortCartera('retPct')">Mi coste <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','coste',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">rdto.</span></th>
-          <th style="text-align:right;" data-sort="weeklyPct" onclick="sortCartera('weeklyPct')">Sem. <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','sem',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span></th>
+          <th class="col-mi-coste" style="text-align:right;" data-sort="retPct" onclick="sortCartera('retPct')">Mi coste <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','coste',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">rdto.</span></th>
+          <th class="col-sem" style="text-align:right;" data-sort="weeklyPct" onclick="sortCartera('weeklyPct')">Sem. <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','sem',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span></th>
           <th style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));" data-sort="mds" onclick="sortCartera('mds')">Obj. precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
           <th style="text-align:right;" data-sort="mds15" onclick="sortCartera('mds15')">Entrada <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','entrada',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
           <th style="text-align:right;" data-sort="cagr5" onclick="sortCartera('cagr5')">Obj. 5Y <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj5',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">promedio · ret. anual</span></th>
@@ -9078,6 +9086,9 @@ function renderCartera(){
     // muestra el icono 📂 de la última columna — no hace falta repetirlo aquí.
     const peso=(m.buyPrice&&m.mktValue!=null&&totalMkt>0)?(m.mktValue/totalMkt*100):null;
     const pesoBadge=!m.buyPrice?'':`<span id="cwt-${k}" class="c-sub2"${peso==null?' style="color:var(--amber);"':''} title="${peso!=null?(privado()?'Peso':(m.shares+' acciones · valor '+fmtBase(m.mktValue)))+' de tu cartera':'Añade el nº de acciones para ver el peso de la posición'}">${peso!=null?peso.toFixed(0)+'%':'+nº'}</span>`;
+    // En móvil la columna «Mi coste» se oculta (ver CSS .col-mi-coste): el rendimiento se
+    // muestra aquí en su lugar, junto al peso, en verde/rojo.
+    const retInline=(m.buyPrice&&m.retPct!=null)?` <span id="cretm-${k}" class="c-sub2 cartera-ret-inline" style="color:${m.retPct>=0?'#16a34a':'#dc2626'};" onclick="event.stopPropagation();setCarteraPos('${k}')" title="Rendimiento sobre tu coste medio · pulsa para editarlo">${sp(m.retPct,0)}</span>`:'';
     const posCell=(()=>{
       if(m.buyPrice){
         const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
@@ -9101,14 +9112,14 @@ function renderCartera(){
     <div class="cartera-ticker" style="cursor:pointer;" onclick="event.stopPropagation();promptListing('${k}')"
          title="Bolsa: ${m.yfSym}${m.curDet?'':' (divisa deducida del ticker, aún sin confirmar)'} · pulsa para cambiar">${co.ticker}
       ${m.escalaMal?`<span class="cart-escala" title="El precio (${m.yfSym}) es ${m.escala>=1?m.escala.toFixed(1)+' veces mayor':(1/m.escala).toFixed(1)+' veces menor'} que tu objetivo de precio. Suele significar que la cotización es de otra bolsa o de un ADR (que equivale a varias acciones), y entonces el margen de seguridad no vale. Pulsa para elegir la cotización correcta.">⚠</span>`:''}
-      ${pesoBadge}</div>
+      ${pesoBadge}${retInline}</div>
   </td>
   <td style="text-align:right;">
     <div class="cartera-price" id="cprice-${k}">${fmt(m.price,k)}</div>
     <div id="cday-${k}" style="font-size:9.5px;font-weight:700;color:${dCol};">${m.dailyPct!=null?sp(m.dailyPct,2):''}</div>
   </td>
-  <td id="cpos-${k}" style="text-align:right;cursor:pointer;" onclick="event.stopPropagation();setCarteraPos('${k}')" title="Pulsa para poner/editar tu precio de compra medio y tus acciones">${posCell}</td>
-  <td style="text-align:right;">
+  <td id="cpos-${k}" class="col-mi-coste" style="text-align:right;cursor:pointer;" onclick="event.stopPropagation();setCarteraPos('${k}')" title="Pulsa para poner/editar tu precio de compra medio y tus acciones">${posCell}</td>
+  <td class="col-sem" style="text-align:right;">
     <div id="cweek-${k}" style="font-size:11.5px;font-weight:600;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
   </td>
   <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">
@@ -10065,6 +10076,11 @@ function updateCarteraRow(key){
     const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
     p('cpos-'+key).innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(fmt(m.buyPrice))}</div>`
       +`<div class="c-sub" style="color:${rc};">${sp(m.retPct)}</div>`;
+  }
+  // Rendimiento en línea junto al ticker (sustituye a «Mi coste» en móvil — ver rowFor)
+  if(p('cretm-'+key)&&m.retPct!=null){
+    p('cretm-'+key).textContent=sp(m.retPct,0);
+    p('cretm-'+key).style.color=m.retPct>=0?'#16a34a':'#dc2626';
   }
   // Peso junto al ticker: depende del total de la cartera, que solo se conoce cuando
   // todos los precios han llegado — se refresca aquí en vez de en cpos-.
