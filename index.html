@@ -814,6 +814,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <div style="display:flex;gap:4px;position:relative;">
         <button id="nav-dash" class="co-btn active" onclick="setView('dash')" title="Cartera"><span id="nic-dash"></span><span class="co-btn-label">Cartera</span></button>
         <button id="nav-watch" class="co-btn" onclick="setView('watch')" title="Seguimiento"><span id="nic-watch"></span><span class="co-btn-label">Seguimiento</span></button>
+        <button id="nav-mercat" class="co-btn" onclick="setView('mercat')" title="Mercado"><span id="nic-mercat"></span><span class="co-btn-label">Mercado</span></button>
         <button id="nav-analysis" class="co-btn" onclick="toggleAnalysisMenu(event)" title="Análisis"><span id="nic-anly"></span><span class="co-btn-label">Análisis</span></button>
         <div id="co-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:130;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:6px;min-width:210px;max-height:70vh;overflow:auto;">
           <div style="font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:2px 8px 6px;">Elige empresa</div>
@@ -1066,6 +1067,25 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     </table>
   </div>
 </div><!-- /view-watch -->
+
+<!-- ══ VISTA MERCADO (pestaña propia — visión del mercado en general, no de tu cartera) ══ -->
+<div id="view-mercat" style="display:none;max-width:1600px;margin:0 auto;padding:10px 20px 30px;">
+  <div style="margin:4px 0 12px;">
+    <div style="font-size:16px;font-weight:600;color:var(--text);">📊 Mercado</div>
+    <div style="font-size:10px;color:var(--muted);">Visión general del mercado — más allá de tus empresas</div>
+  </div>
+
+  <!-- ── Mapa de calor por sectores (TradingView, iframe — no usa los proxies CORS de la app) ── -->
+  <div class="card" id="mercat-heatmap-card" style="margin-bottom:12px;padding:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Mapa de sectores (S&amp;P 500)</div>
+      <div style="font-size:9px;color:var(--muted);">tamaño = peso · color = variación del día</div>
+    </div>
+    <div id="mercat-heatmap-wrap" style="position:relative;width:100%;height:420px;border-radius:10px;overflow:hidden;"></div>
+  </div>
+
+  <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Más piezas (tendencia de índices, pulso de mercado, radar de fuerza, amplitud, calendario) próximamente.</div>
+</div><!-- /view-mercat -->
 
 <!-- Vista Cartera fusionada en el Dashboard (contenedor vacío para compatibilidad) -->
 <div id="view-cartera" style="display:none;"></div>
@@ -7002,17 +7022,19 @@ function startDashRefresh(){
 // ── Navegación entre vistas ──
 function setView(v){
   if(v==='cartera') v='dash'; // Cartera fusionada en el Dashboard
-  _curView=(v==='dash'||v==='watch')?v:'analysis';
+  _curView=(v==='dash'||v==='watch'||v==='mercat')?v:'analysis';
   if(v!=='analysis'){const _dd=document.getElementById('co-dropdown');if(_dd)_dd.style.display='none';}
   const dash=document.getElementById('view-dash');
   const cartera=document.getElementById('view-cartera');
   const watch=document.getElementById('view-watch');
+  const mercat=document.getElementById('view-mercat');
   const cnt=document.getElementById('cnt');
   const tabs=document.getElementById('tabs');
   const coBtns=document.getElementById('co-btns');
   const btnD=document.getElementById('nav-dash');
   const btnC=document.getElementById('nav-cartera');
   const btnW=document.getElementById('nav-watch');
+  const btnM=document.getElementById('nav-mercat');
   const btnA=document.getElementById('nav-analysis');
   const hdrAnalysis=document.getElementById('hdr-analysis-zone');
   const _navIdle=b=>{if(b)b.classList.remove('active');}, _navOn=b=>{if(b)b.classList.add('active');};
@@ -7021,6 +7043,7 @@ function setView(v){
   dash.style.display='none';
   if(cartera) cartera.style.display='none';
   if(watch) watch.style.display='none';
+  if(mercat) mercat.style.display='none';
   cnt.style.display='none';
   if(tabs) tabs.style.display='none';
   if(coBtns) coBtns.style.display='none';
@@ -7030,11 +7053,18 @@ function setView(v){
   ['co-info','co-name','co-quickinfo'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   const coLogoWrap=document.getElementById('co-logo-wrap');if(coLogoWrap)coLogoWrap.style.display='none';
   const hdrPG=document.getElementById('hdr-price-group');if(hdrPG) hdrPG.style.display='none';
-  _navIdle(btnD);_navIdle(btnC);_navIdle(btnW);_navIdle(btnA);
-  // Ticker de mercado (Bitcoin, S&P 500, Euríbor…): solo en Cartera/Seguimiento, no dentro del análisis
-  const _mktBar=document.getElementById('dash-mkt-bar'); if(_mktBar) _mktBar.style.display=(v==='analysis')?'none':'';
+  _navIdle(btnD);_navIdle(btnC);_navIdle(btnW);_navIdle(btnM);_navIdle(btnA);
+  // Ticker de mercado (Bitcoin, S&P 500, Euríbor…): solo en Cartera/Seguimiento, no dentro de Mercado (que ya es
+  // mercado) ni dentro del análisis de una empresa
+  const _mktBar=document.getElementById('dash-mkt-bar'); if(_mktBar) _mktBar.style.display=(v==='analysis'||v==='mercat')?'none':'';
 
-  if(v==='watch'){
+  if(v==='mercat'){
+    if(mercat) mercat.style.display='block';
+    _navOn(btnM);
+    localStorage.setItem('vi_view','mercat');
+    renderMercat();
+    document.getElementById('earnings-badge')?.classList.remove('visible');
+  } else if(v==='watch'){
     if(watch) watch.style.display='block';
     _navOn(btnW);
     localStorage.setItem('vi_view','watch');
@@ -7075,6 +7105,30 @@ function setView(v){
     updateEarningsBadge();                          // resultados de la empresa actual
     if(!document.querySelector('.tab.active')) showTab('resumen');
   }
+}
+
+// ── Vista Mercado: mapa de calor de sectores (widget TradingView por iframe — no usa los
+// proxies CORS de Yahoo/Finnhub que ya usa el resto de la app, así que no los satura) ──
+function renderMercat(){
+  const wrap=document.getElementById('mercat-heatmap-wrap');
+  if(!wrap) return;
+  const theme=_dm()?'dark':'light';
+  if(wrap.dataset.theme===theme) return; // ya construido con el tema correcto
+  wrap.dataset.theme=theme;
+  wrap.innerHTML='<div class="tradingview-widget-container" style="height:100%;width:100%;"><div class="tradingview-widget-container__widget" style="height:100%;width:100%;"></div></div>';
+  const cfg={
+    exchanges:[], dataSource:'SPX500', grouping:'sector',
+    blockSize:'market_cap_basic', blockColor:'change',
+    locale:'es', symbolUrl:'', colorTheme:theme,
+    hasTopBar:false, isDataSetEnabled:false, isZoomEnabled:true,
+    hasSymbolTooltip:true, isMonoSize:false, width:'100%', height:'100%'
+  };
+  const script=document.createElement('script');
+  script.type='text/javascript';
+  script.async=true;
+  script.src='https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js';
+  script.text=JSON.stringify(cfg);
+  wrap.querySelector('.tradingview-widget-container').appendChild(script);
 }
 
 // ── Finnhub key helpers ──
@@ -8455,7 +8509,7 @@ function updateDashCoRow(key,price,pct,change){
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab" data-t="${t.t}" onclick="showTab('${t.t}')">${svgIcon(t.ic)}${t.l}</button>`).join('');
   // Iconos de línea en cabecera y navegación
   const _setIc=(id,name)=>{const e=document.getElementById(id);if(e)e.innerHTML=svgIcon(name,'ic-lg');};
-  _setIc('brand-ic','activity'); _setIc('nic-dash','briefcase'); _setIc('nic-watch','eye'); _setIc('nic-anly','activity');
+  _setIc('brand-ic','activity'); _setIc('nic-dash','briefcase'); _setIc('nic-watch','eye'); _setIc('nic-mercat','barchart'); _setIc('nic-anly','activity');
   _setIc('aic-add','plus'); _setIc('aic-imp','folder'); _setIc('aic-sync','refresh'); _setIc('aic-restore','refresh'); _setIc('aic-backup','share');
   _paintPrivadoBtn(); document.documentElement.classList.toggle('privado',privado());
   BUILTIN_KEYS=new Set(Object.keys(DB));        // empresas de fábrica
@@ -10921,6 +10975,7 @@ async function refreshAllImports(auto){
     const isDark=html.classList.toggle('dark');
     localStorage.setItem('vi_dark',isDark?'1':'0');
     _paint(document.getElementById('dark-toggle'));
+    if(typeof renderMercat==='function'&&typeof _curView!=='undefined'&&_curView==='mercat') renderMercat();
   };
   document.addEventListener('DOMContentLoaded',function(){ _paint(document.getElementById('dark-toggle')); });
 })();
