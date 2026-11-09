@@ -1084,7 +1084,55 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <div id="mercat-heatmap-wrap" style="position:relative;width:100%;height:420px;border-radius:10px;overflow:hidden;"></div>
   </div>
 
-  <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Más piezas (tendencia de índices, pulso de mercado, radar de fuerza, amplitud, calendario) próximamente.</div>
+  <!-- ── Tendencia de los índices (gráfico real, no solo el número) ── -->
+  <div class="card" id="mercat-trend-card" style="margin-bottom:12px;padding:12px;">
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Tendencia de los índices <span style="font-size:9px;font-weight:400;color:var(--muted);">· último año</span></div>
+    <div id="mercat-trend-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;">
+      <div class="mercat-idx-tile">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;">
+          <span style="font-size:11px;font-weight:600;color:var(--text);">S&amp;P 500</span>
+          <span id="mi-sp500-px" style="font-size:13px;font-weight:700;color:var(--text);">—</span>
+        </div>
+        <div id="mi-sp500-sub" style="font-size:9.5px;color:var(--muted);margin:2px 0 4px;">cargando…</div>
+        <div style="height:60px;"><canvas id="mi-sp500-chart"></canvas></div>
+      </div>
+      <div class="mercat-idx-tile">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;">
+          <span style="font-size:11px;font-weight:600;color:var(--text);">Nasdaq 100</span>
+          <span id="mi-ndx-px" style="font-size:13px;font-weight:700;color:var(--text);">—</span>
+        </div>
+        <div id="mi-ndx-sub" style="font-size:9.5px;color:var(--muted);margin:2px 0 4px;">cargando…</div>
+        <div style="height:60px;"><canvas id="mi-ndx-chart"></canvas></div>
+      </div>
+      <div class="mercat-idx-tile">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;">
+          <span style="font-size:11px;font-weight:600;color:var(--text);">Dow Jones</span>
+          <span id="mi-dow-px" style="font-size:13px;font-weight:700;color:var(--text);">—</span>
+        </div>
+        <div id="mi-dow-sub" style="font-size:9.5px;color:var(--muted);margin:2px 0 4px;">cargando…</div>
+        <div style="height:60px;"><canvas id="mi-dow-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Sentimiento del mercado (Fear & Greed, reubicado aquí con protagonismo propio) ── -->
+  <div class="card" id="mercat-fg-card" style="margin-bottom:12px;padding:12px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+    <div style="min-width:150px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Sentimiento del mercado</div>
+      <div style="font-size:9px;color:var(--muted);">CNN Fear &amp; Greed Index</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="font-size:30px;font-weight:700;color:var(--text);" id="mercat-fg-val">—</div>
+      <div>
+        <div class="fg-bar-mini" style="width:150px;height:10px;">
+          <span class="fg-needle" id="mercat-fg-needle" style="left:50%;"></span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:5px;" id="mercat-fg-lbl">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Más piezas (pulso de mercado, radar de fuerza, amplitud, movers, calendario) próximamente.</div>
 </div><!-- /view-mercat -->
 
 <!-- Vista Cartera fusionada en el Dashboard (contenedor vacío para compatibilidad) -->
@@ -7129,6 +7177,43 @@ function renderMercat(){
   script.src='https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js';
   script.text=JSON.stringify(cfg);
   wrap.querySelector('.tradingview-widget-container').appendChild(script);
+  renderMercatTrends();
+  fetchFearGreed();
+}
+
+// Gráficos de tendencia de los 3 índices principales en Mercado — reutiliza fetchDailyHistory
+// y computeTechnicals (ya usados por el técnico de la pestaña Resumen), así que no añade fuentes
+// de datos nuevas. Se carga una sola vez por sesión (no en cada visita a la pestaña).
+const MERCAT_IDX=[{id:'sp500',t:'^GSPC'},{id:'ndx',t:'^NDX'},{id:'dow',t:'^DJI'}];
+let _mercatTrendsLoaded=false, _mercatCharts={};
+async function renderMercatTrends(force){
+  if(_mercatTrendsLoaded&&!force) return;
+  _mercatTrendsLoaded=true;
+  await Promise.allSettled(MERCAT_IDX.map(async(ix,i)=>{
+    await new Promise(r=>setTimeout(r,i*200)); // escalonado, mismo motivo que fetchDashPrices
+    const hist=await fetchDailyHistory(ix.t,'1y');
+    const pxEl=document.getElementById('mi-'+ix.id+'-px'), subEl=document.getElementById('mi-'+ix.id+'-sub'), cv=document.getElementById('mi-'+ix.id+'-chart');
+    if(!hist||!hist.closes.length){ if(subEl) subEl.textContent='No se pudo cargar el histórico ahora'; return; }
+    const {closes}=hist;
+    const t=computeTechnicals(closes);
+    const chg=((t.last-closes[0])/closes[0]*100);
+    const up=chg>=0;
+    if(pxEl) pxEl.textContent=Math.round(t.last).toLocaleString('es-ES');
+    if(subEl){
+      const chgTxt=(up?'+':'')+chg.toFixed(1)+'% (1a)';
+      const hiTxt=t.fromHigh>=-0.05?'en máx. 52s':'máx 52s '+t.fromHigh.toFixed(1)+'%';
+      subEl.innerHTML=`<span style="color:${up?'var(--green)':'var(--red)'};font-weight:600;">${chgTxt}</span> · ${hiTxt}`;
+    }
+    if(cv&&window.Chart){
+      const key='mkt_'+ix.id;
+      if(_mercatCharts[key]){try{_mercatCharts[key].destroy();}catch(e){}}
+      _mercatCharts[key]=new Chart(cv,{type:'line',data:{labels:closes.map((_,i2)=>i2),
+        datasets:[{data:closes,borderColor:up?'#16a34a':'#dc2626',borderWidth:1.5,pointRadius:0,tension:.15,fill:false}]},
+        options:{responsive:true,maintainAspectRatio:false,animation:false,
+          plugins:{legend:{display:false},tooltip:{enabled:false}},
+          scales:{x:{display:false},y:{display:false}}}});
+    }
+  }));
 }
 
 // ── Finnhub key helpers ──
@@ -8380,10 +8465,14 @@ async function fetchFearGreed(){
   _renderFearGreed(score,rating,false);
 }
 function _renderFearGreed(score,rating,stale){
-  const valEl=document.getElementById('dm-fg'),lblEl=document.getElementById('fg-lbl'),needle=document.getElementById('fg-needle');
-  if(valEl){ valEl.textContent=score; valEl.style.opacity=stale?'.5':''; valEl.title=stale?'Último valor conocido — no se ha podido actualizar ahora':''; }
-  if(lblEl) lblEl.textContent=FG_RATING_ES[rating]||rating;
-  if(needle) needle.style.left=Math.min(96,Math.max(4,score))+'%';
+  const pairs=[['dm-fg','fg-lbl','fg-needle'],['mercat-fg-val','mercat-fg-lbl','mercat-fg-needle']];
+  const pos=Math.min(96,Math.max(4,score));
+  pairs.forEach(([vId,lId,nId])=>{
+    const valEl=document.getElementById(vId),lblEl=document.getElementById(lId),needle=document.getElementById(nId);
+    if(valEl){ valEl.textContent=score; valEl.style.opacity=stale?'.5':''; valEl.title=stale?'Último valor conocido — no se ha podido actualizar ahora':''; }
+    if(lblEl) lblEl.textContent=FG_RATING_ES[rating]||rating;
+    if(needle) needle.style.left=pos+'%';
+  });
 }
 
 // ── Euríbor 12M (BCE) — índice de referencia de las hipotecas en España ──
