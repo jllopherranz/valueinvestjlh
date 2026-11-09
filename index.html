@@ -1149,7 +1149,16 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     </div>
   </div>
 
-  <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Más piezas (radar de fuerza, amplitud, movers, calendario) próximamente.</div>
+  <!-- ── Movers: mejores y peores sectores del día ── -->
+  <div class="card" id="mercat-movers-card" style="margin-bottom:12px;padding:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Sectores: mejores y peores del día</div>
+      <div style="font-size:9px;color:var(--muted);">11 sectores SPDR · variación del día</div>
+    </div>
+    <div id="mercat-movers-list" style="padding:4px 0;font-size:11px;color:var(--muted);">cargando…</div>
+  </div>
+
+  <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Más piezas (radar de fuerza, amplitud, calendario) próximamente.</div>
 </div><!-- /view-mercat -->
 
 <!-- Vista Cartera fusionada en el Dashboard (contenedor vacío para compatibilidad) -->
@@ -7196,6 +7205,7 @@ function renderMercat(){
   wrap.querySelector('.tradingview-widget-container').appendChild(script);
   renderMercatTrends();
   fetchFearGreed();
+  renderMercatMovers();
 }
 
 // Gráficos de tendencia de los 3 índices principales en Mercado — reutiliza fetchDailyHistory
@@ -7255,6 +7265,42 @@ function renderMercatPulse(){
   const lvl=n<=2?['Tranquilo','var(--green)']:n<=4?['Cautela','var(--amber)']:['Bajo presión','var(--red)'];
   if(lblEl){ lblEl.textContent=lvl[0]+' · '+n+' días de distribución (25 sesiones)'; lblEl.style.color=lvl[1]; }
   if(needle) needle.style.left=Math.min(96,Math.max(4,n/10*100))+'%';
+}
+
+// Movers: mejores y peores sectores del día. La app no tiene (ni puede traer client-side) un
+// screener del mercado completo, así que se adapta al universo manejable que ya usa el heatmap:
+// los 11 sectores SPDR, vía Yahoo (misma fuente/proxy que fetchDashPrices).
+const SECTOR_ETFS=[
+  {t:'XLK',name:'Tecnología'},{t:'XLF',name:'Financiero'},{t:'XLE',name:'Energía'},
+  {t:'XLV',name:'Salud'},{t:'XLY',name:'Cons. discrecional'},{t:'XLP',name:'Cons. básico'},
+  {t:'XLI',name:'Industrial'},{t:'XLB',name:'Materiales'},{t:'XLU',name:'Utilities'},
+  {t:'XLRE',name:'Inmobiliario'},{t:'XLC',name:'Comunicación'},
+];
+let _mercatMoversLoaded=false;
+async function renderMercatMovers(force){
+  const box=document.getElementById('mercat-movers-list'); if(!box) return;
+  if(_mercatMoversLoaded&&!force) return;
+  _mercatMoversLoaded=true;
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const results=await Promise.allSettled(SECTOR_ETFS.map(async(s,i)=>{
+    await sleep(i*150); // escalonado, mismo motivo que fetchDashPrices
+    const q=await fetchQuoteYF(s.t);
+    return {...s,dp:(q&&q.dp!=null)?q.dp:null};
+  }));
+  const rows=results.map(r=>r.status==='fulfilled'?r.value:null).filter(r=>r&&r.dp!=null);
+  if(!rows.length){ box.innerHTML='<span style="color:var(--muted);">No se pudo cargar ahora.</span>'; return; }
+  rows.sort((a,b)=>b.dp-a.dp);
+  const maxAbs=Math.max(1,...rows.map(r=>Math.abs(r.dp)));
+  box.innerHTML=rows.map(r=>{
+    const up=r.dp>=0, w=Math.min(100,Math.abs(r.dp)/maxAbs*100);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">
+      <span style="width:130px;font-size:11px;color:var(--text);flex-shrink:0;">${r.name}</span>
+      <div style="flex:1;height:14px;background:var(--surface2);border-radius:3px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;${up?'left':'right'}:0;height:100%;width:${w}%;background:${up?'#16a34a':'#dc2626'};border-radius:3px;"></div>
+      </div>
+      <span style="width:52px;text-align:right;font-size:11px;font-weight:700;color:${up?'var(--green)':'var(--red)'};">${(up?'+':'')+r.dp.toFixed(1)}%</span>
+    </div>`;
+  }).join('');
 }
 
 // ── Finnhub key helpers ──
