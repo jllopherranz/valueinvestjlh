@@ -1158,7 +1158,16 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <div id="mercat-movers-list" style="padding:4px 0;font-size:11px;color:var(--muted);">cargando…</div>
   </div>
 
-  <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Más piezas (radar de fuerza, amplitud, calendario) próximamente.</div>
+  <!-- ── Amplitud de mercado (sobre el universo de 11 sectores SPDR) ── -->
+  <div class="card" id="mercat-breadth-card" style="margin-bottom:12px;padding:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Amplitud de mercado</div>
+      <div style="font-size:9px;color:var(--muted);">sobre los 11 sectores SPDR</div>
+    </div>
+    <div id="mercat-breadth-box" style="font-size:11px;color:var(--muted);">cargando…</div>
+  </div>
+
+  <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Más piezas (radar de fuerza, calendario) próximamente.</div>
 </div><!-- /view-mercat -->
 
 <!-- Vista Cartera fusionada en el Dashboard (contenedor vacío para compatibilidad) -->
@@ -7206,6 +7215,7 @@ function renderMercat(){
   renderMercatTrends();
   fetchFearGreed();
   renderMercatMovers();
+  renderMercatBreadth();
 }
 
 // Gráficos de tendencia de los 3 índices principales en Mercado — reutiliza fetchDailyHistory
@@ -7301,6 +7311,42 @@ async function renderMercatMovers(force){
       <span style="width:52px;text-align:right;font-size:11px;font-weight:700;color:${up?'var(--green)':'var(--red)'};">${(up?'+':'')+r.dp.toFixed(1)}%</span>
     </div>`;
   }).join('');
+}
+
+// Amplitud de mercado: % de sectores por encima de su media de 50/200 sesiones, y cuántos están
+// cerca de su máximo/mínimo de 52 semanas. Mismo universo (11 SPDR) y misma fuente que los movers,
+// pero pide histórico diario (fetchDailyHistory) en vez de solo la cotización — es la pieza más
+// pesada en peticiones de todo Mercado, así que se carga una sola vez por sesión.
+let _mercatBreadthLoaded=false;
+async function renderMercatBreadth(force){
+  const box=document.getElementById('mercat-breadth-box'); if(!box) return;
+  if(_mercatBreadthLoaded&&!force) return;
+  _mercatBreadthLoaded=true;
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const results=await Promise.allSettled(SECTOR_ETFS.map(async(s,i)=>{
+    await sleep(i*250);
+    const hist=await fetchDailyHistory(s.t,'1y');
+    if(!hist||hist.closes.length<200) return null;
+    const t=computeTechnicals(hist.closes);
+    return {...s,last:t.last,sma50:t.sma50,sma200:t.sma200,fromHigh:t.fromHigh,fromLow:t.fromLow};
+  }));
+  const rows=results.map(r=>r.status==='fulfilled'?r.value:null).filter(Boolean);
+  if(!rows.length){ box.innerHTML='<span style="color:var(--muted);">No se pudo calcular ahora.</span>'; return; }
+  const aboveSMA50=rows.filter(r=>r.sma50!=null&&r.last>=r.sma50).length;
+  const aboveSMA200=rows.filter(r=>r.sma200!=null&&r.last>=r.sma200).length;
+  const nearHigh=rows.filter(r=>r.fromHigh>=-2).length;   // a menos del 2% de su máximo 52s
+  const nearLow=rows.filter(r=>r.fromLow<=2).length;      // a menos del 2% de su mínimo 52s
+  const pct=n=>Math.round(n/rows.length*100);
+  const bar=(lbl,n,tot)=>{ const p=pct(n); return `<div style="margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text);margin-bottom:3px;"><span>${lbl}</span><b>${n}/${tot} · ${p}%</b></div>
+    <div style="height:8px;border-radius:4px;background:var(--surface2);overflow:hidden;"><div style="height:100%;width:${p}%;background:${p>=50?'#16a34a':'#dc2626'};"></div></div>
+  </div>`; };
+  box.innerHTML=bar('Sectores por encima de su media de 50 sesiones',aboveSMA50,rows.length)
+    +bar('Sectores por encima de su media de 200 sesiones',aboveSMA200,rows.length)
+    +`<div style="display:flex;gap:18px;font-size:11px;color:var(--muted);margin-top:8px;">
+        <span><b style="color:var(--green);font-size:14px;">${nearHigh}</b> cerca de máx. 52s (±2%)</span>
+        <span><b style="color:var(--red);font-size:14px;">${nearLow}</b> cerca de mín. 52s (±2%)</span>
+      </div>`;
 }
 
 // ── Finnhub key helpers ──
