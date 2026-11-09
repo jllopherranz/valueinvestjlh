@@ -1153,9 +1153,10 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <div class="card" id="mercat-movers-card" style="margin-bottom:12px;padding:12px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
       <div style="font-size:13px;font-weight:600;color:var(--text);">Sectores: mejores y peores del día</div>
-      <div style="font-size:9px;color:var(--muted);">11 sectores SPDR · variación del día</div>
+      <div style="font-size:9px;color:var(--muted);">11 sectores SPDR · variación del día · pulsa un sector para ver tu exposición</div>
     </div>
     <div id="mercat-movers-list" style="padding:4px 0;font-size:11px;color:var(--muted);">cargando…</div>
+    <div id="mercat-sector-detail" style="display:none;border-top:1px solid var(--border);margin-top:8px;"></div>
   </div>
 
   <!-- ── Amplitud de mercado (sobre el universo de 11 sectores SPDR) ── -->
@@ -7312,7 +7313,7 @@ async function renderMercatMovers(force){
   const maxAbs=Math.max(1,...rows.map(r=>Math.abs(r.dp)));
   box.innerHTML=rows.map(r=>{
     const up=r.dp>=0, w=Math.min(100,Math.abs(r.dp)/maxAbs*100);
-    return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">
+    return `<div data-etf="${r.t}" onclick="toggleMercatSectorDetail('${r.t}','${r.name}')" style="display:flex;align-items:center;gap:8px;padding:3px 4px;cursor:pointer;border-radius:6px;" title="Pulsa para ver tu exposición a ${r.name}">
       <span style="width:130px;font-size:11px;color:var(--text);flex-shrink:0;">${r.name}</span>
       <div style="flex:1;height:14px;background:var(--surface2);border-radius:3px;position:relative;overflow:hidden;">
         <div style="position:absolute;top:0;${up?'left':'right'}:0;height:100%;width:${w}%;background:${up?'#16a34a':'#dc2626'};border-radius:3px;"></div>
@@ -7320,6 +7321,47 @@ async function renderMercatMovers(force){
       <span style="width:52px;text-align:right;font-size:11px;font-weight:700;color:${up?'var(--green)':'var(--red)'};">${(up?'+':'')+r.dp.toFixed(1)}%</span>
     </div>`;
   }).join('');
+  if(_mercatSectorOpen) _mercatHighlightRow(_mercatSectorOpen);
+}
+
+// ── Vista fusionada: pulsar un sector del ranking muestra tu exposición, sin tocar la tabla de
+// Cartera (pedido explícito de Jordi) — un panel inline aquí mismo, no un salto a Cartera. El
+// heatmap de TradingView corre en un iframe de otro origen y no expone clic por bloque en el
+// widget gratuito, así que la interacción cuelga de esta lista de sectores en vez del mapa.
+// Traduce los ~15 buckets finos que ya usa la concentración de Cartera (sectorBucket) a los 11
+// sectores SPDR de Mercado — no son 1:1, es una aproximación razonable.
+const _SECTOR_TO_SPDR={
+  'Semiconductores':'XLK','Memoria / Almacenamiento':'XLK','Datacenters':'XLK','Software':'XLK',
+  'Nube':'XLK','Hardware / Consumo':'XLK','Publicidad / Internet':'XLC','Telecom / Media':'XLC',
+  'E-commerce':'XLY','Salud':'XLV','Financiero':'XLF','Energía':'XLE','Industrial':'XLI',
+  'Inmobiliario':'XLRE','Utilities':'XLU',
+};
+let _mercatSectorOpen=null;
+function _mercatHighlightRow(etf){
+  document.querySelectorAll('#mercat-movers-list [data-etf]').forEach(el=>{
+    const on=el.dataset.etf===etf;
+    el.style.background=on?'color-mix(in srgb, var(--blue) 12%, transparent)':'';
+  });
+}
+function toggleMercatSectorDetail(etf,name){
+  const panel=document.getElementById('mercat-sector-detail'); if(!panel) return;
+  if(_mercatSectorOpen===etf){
+    _mercatSectorOpen=null; panel.style.display='none'; panel.innerHTML='';
+    _mercatHighlightRow(null); return;
+  }
+  _mercatSectorOpen=etf;
+  const companies=getAllPortfolioCompanies().filter(c=>_SECTOR_TO_SPDR[sectorBucket(c.key)]===etf);
+  panel.style.display='block';
+  panel.innerHTML=companies.length
+    ? `<div style="padding:8px 2px 2px;">
+        <div style="font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;">Tu exposición a ${name}</div>
+        ${companies.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${c.key}'])switchCo('${c.key}');},80);" title="Abrir análisis de ${c.name}">
+          <span style="font-size:11.5px;color:var(--text);">${c.name||c.key}</span>
+          <span style="font-size:10px;color:var(--muted);">${c.ticker||c.key}</span>
+        </div>`).join('')}
+      </div>`
+    : `<div style="padding:8px 2px;font-size:11px;color:var(--amber);">No tienes ninguna posición en <b>${name}</b> — posible oportunidad de diversificación.</div>`;
+  _mercatHighlightRow(etf);
 }
 
 // Amplitud de mercado: % de sectores por encima de su media de 50/200 sesiones, y cuántos están
