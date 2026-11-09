@@ -1132,7 +1132,24 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     </div>
   </div>
 
-  <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Más piezas (pulso de mercado, radar de fuerza, amplitud, movers, calendario) próximamente.</div>
+  <!-- ── Pulso de mercado (días de distribución del S&P 500) ── -->
+  <div class="card" id="mercat-pulse-card" style="margin-bottom:12px;padding:12px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+    <div style="min-width:150px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Pulso de mercado</div>
+      <div style="font-size:9px;color:var(--muted);">días de distribución del S&amp;P 500</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="font-size:30px;font-weight:700;color:var(--text);" id="mercat-pulse-count">—</div>
+      <div>
+        <div class="fg-bar-mini" style="width:150px;height:10px;background:linear-gradient(90deg,#16a34a 0%,#16a34a 20%,#d97706 20%,#d97706 40%,#dc2626 40%,#dc2626 100%);">
+          <span class="fg-needle" id="mercat-pulse-needle" style="left:50%;"></span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:5px;font-weight:600;" id="mercat-pulse-lbl">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Más piezas (radar de fuerza, amplitud, movers, calendario) próximamente.</div>
 </div><!-- /view-mercat -->
 
 <!-- Vista Cartera fusionada en el Dashboard (contenedor vacío para compatibilidad) -->
@@ -7185,13 +7202,14 @@ function renderMercat(){
 // y computeTechnicals (ya usados por el técnico de la pestaña Resumen), así que no añade fuentes
 // de datos nuevas. Se carga una sola vez por sesión (no en cada visita a la pestaña).
 const MERCAT_IDX=[{id:'sp500',t:'^GSPC'},{id:'ndx',t:'^NDX'},{id:'dow',t:'^DJI'}];
-let _mercatTrendsLoaded=false, _mercatCharts={};
+let _mercatTrendsLoaded=false, _mercatCharts={}, _mercatSp500Hist=null;
 async function renderMercatTrends(force){
   if(_mercatTrendsLoaded&&!force) return;
   _mercatTrendsLoaded=true;
   await Promise.allSettled(MERCAT_IDX.map(async(ix,i)=>{
     await new Promise(r=>setTimeout(r,i*200)); // escalonado, mismo motivo que fetchDashPrices
     const hist=await fetchDailyHistory(ix.t,'1y');
+    if(ix.id==='sp500'&&hist) _mercatSp500Hist=hist; // reutilizado por el Pulso de mercado, sin otra llamada
     const pxEl=document.getElementById('mi-'+ix.id+'-px'), subEl=document.getElementById('mi-'+ix.id+'-sub'), cv=document.getElementById('mi-'+ix.id+'-chart');
     if(!hist||!hist.closes.length){ if(subEl) subEl.textContent='No se pudo cargar el histórico ahora'; return; }
     const {closes}=hist;
@@ -7214,6 +7232,29 @@ async function renderMercatTrends(force){
           scales:{x:{display:false},y:{display:false}}}});
     }
   }));
+  renderMercatPulse();
+}
+
+// Pulso de mercado: días de distribución del S&P 500 (señal clásica O'Neil/IBD — sesión que cae
+// ≥0,2% con volumen superior al día anterior, en las últimas 25 sesiones). Reutiliza el histórico
+// ya pedido por renderMercatTrends para el S&P 500, no hace una llamada aparte.
+function computeDistributionDays(closes,volumes,lookback){
+  lookback=lookback||25;
+  const n=closes.length; let count=0;
+  for(let i=Math.max(1,n-lookback);i<n;i++){
+    if(closes[i]<=closes[i-1]*0.998 && volumes[i]>volumes[i-1]) count++;
+  }
+  return count;
+}
+function renderMercatPulse(){
+  const valEl=document.getElementById('mercat-pulse-count'), lblEl=document.getElementById('mercat-pulse-lbl'), needle=document.getElementById('mercat-pulse-needle');
+  if(!valEl) return;
+  if(!_mercatSp500Hist||!_mercatSp500Hist.closes||!_mercatSp500Hist.volumes){ valEl.textContent='—'; if(lblEl) lblEl.textContent='No se pudo calcular ahora'; return; }
+  const n=computeDistributionDays(_mercatSp500Hist.closes,_mercatSp500Hist.volumes,25);
+  valEl.textContent=n;
+  const lvl=n<=2?['Tranquilo','var(--green)']:n<=4?['Cautela','var(--amber)']:['Bajo presión','var(--red)'];
+  if(lblEl){ lblEl.textContent=lvl[0]+' · '+n+' días de distribución (25 sesiones)'; lblEl.style.color=lvl[1]; }
+  if(needle) needle.style.left=Math.min(96,Math.max(4,n/10*100))+'%';
 }
 
 // ── Finnhub key helpers ──
@@ -9915,11 +9956,11 @@ async function fetchDailyHistory(ticker,range){
   const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range||'1y'}`;
   const parse=d=>{
     const q=d?.chart?.result?.[0];
-    const closesRaw=q?.indicators?.quote?.[0]?.close,timesRaw=q?.timestamp;
+    const closesRaw=q?.indicators?.quote?.[0]?.close,timesRaw=q?.timestamp,volsRaw=q?.indicators?.quote?.[0]?.volume;
     if(!Array.isArray(closesRaw)||!Array.isArray(timesRaw))return null;
-    const closes=[],times=[];
-    for(let i=0;i<closesRaw.length;i++){ if(closesRaw[i]!=null){ closes.push(closesRaw[i]); times.push(timesRaw[i]); } }
-    return closes.length?{closes,times}:null;
+    const closes=[],times=[],volumes=[];
+    for(let i=0;i<closesRaw.length;i++){ if(closesRaw[i]!=null){ closes.push(closesRaw[i]); times.push(timesRaw[i]); volumes.push(Array.isArray(volsRaw)?(volsRaw[i]??0):0); } }
+    return closes.length?{closes,times,volumes}:null;
   };
   // Varios proxies CORS gratuitos en cascada: son servicios sin SLA que se caen o empiezan a
   // cobrar sin aviso (corsproxy.io y allorigins.win, los dos únicos que había antes, llevan un
