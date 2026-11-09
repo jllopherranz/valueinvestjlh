@@ -1167,7 +1167,16 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <div id="mercat-breadth-box" style="font-size:11px;color:var(--muted);">cargando…</div>
   </div>
 
-  <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Más piezas (radar de fuerza, calendario) próximamente.</div>
+  <!-- ── Radar de fuerza: fuerza relativa vs S&P 500 (sectores + tus empresas) ── -->
+  <div class="card" id="mercat-force-card" style="margin-bottom:12px;padding:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Radar de fuerza</div>
+      <div style="font-size:9px;color:var(--muted);">fuerza relativa a 3 meses vs S&amp;P 500</div>
+    </div>
+    <div id="mercat-force-box" style="font-size:11px;color:var(--muted);">cargando…</div>
+  </div>
+
+  <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Más piezas (calendario económico) próximamente.</div>
 </div><!-- /view-mercat -->
 
 <!-- Vista Cartera fusionada en el Dashboard (contenedor vacío para compatibilidad) -->
@@ -7317,7 +7326,7 @@ async function renderMercatMovers(force){
 // cerca de su máximo/mínimo de 52 semanas. Mismo universo (11 SPDR) y misma fuente que los movers,
 // pero pide histórico diario (fetchDailyHistory) en vez de solo la cotización — es la pieza más
 // pesada en peticiones de todo Mercado, así que se carga una sola vez por sesión.
-let _mercatBreadthLoaded=false;
+let _mercatBreadthLoaded=false, _mercatSectorHist={};
 async function renderMercatBreadth(force){
   const box=document.getElementById('mercat-breadth-box'); if(!box) return;
   if(_mercatBreadthLoaded&&!force) return;
@@ -7327,6 +7336,7 @@ async function renderMercatBreadth(force){
     await sleep(i*250);
     const hist=await fetchDailyHistory(s.t,'1y');
     if(!hist||hist.closes.length<200) return null;
+    _mercatSectorHist[s.t]=hist; // reutilizado por el Radar de fuerza, sin otra llamada
     const t=computeTechnicals(hist.closes);
     return {...s,last:t.last,sma50:t.sma50,sma200:t.sma200,fromHigh:t.fromHigh,fromLow:t.fromLow};
   }));
@@ -7347,6 +7357,64 @@ async function renderMercatBreadth(force){
         <span><b style="color:var(--green);font-size:14px;">${nearHigh}</b> cerca de máx. 52s (±2%)</span>
         <span><b style="color:var(--red);font-size:14px;">${nearLow}</b> cerca de mín. 52s (±2%)</span>
       </div>`;
+  renderMercatForce();
+}
+
+// Radar de fuerza: fuerza relativa (RS) a 3 meses de los 11 sectores y de tus empresas (cartera +
+// seguimiento) frente al S&P 500 — RS simple (rentabilidad propia menos la del S&P en el mismo
+// periodo), no normalizado a escala 1-99 como IBD porque no tenemos un universo amplio de
+// comparación (ya avisado en la propuesta original). Reutiliza los históricos de sectores ya
+// pedidos por Amplitud de mercado; solo pide histórico nuevo por cada empresa de tu cartera.
+let _mercatForceLoaded=false;
+function _periodReturnPct(closes,daysBack){
+  const n=closes.length; if(n<daysBack+1) return null;
+  const a=closes[n-1-daysBack], b=closes[n-1];
+  return a>0?((b-a)/a*100):null;
+}
+async function renderMercatForce(){
+  const box=document.getElementById('mercat-force-box'); if(!box) return;
+  if(_mercatForceLoaded) return;
+  _mercatForceLoaded=true;
+  let spHist=_mercatSp500Hist;
+  if(!spHist) spHist=await fetchDailyHistory('^GSPC','1y');
+  const spRS=spHist?_periodReturnPct(spHist.closes,63):null; // ~3 meses de sesiones
+  if(spRS==null){ box.innerHTML='<span style="color:var(--muted);">No se pudo calcular ahora.</span>'; return; }
+
+  const sectorRows=SECTOR_ETFS.map(s=>{
+    const h=_mercatSectorHist[s.t]; if(!h) return null;
+    const r=_periodReturnPct(h.closes,63);
+    return r==null?null:{name:s.name,rs:+(r-spRS).toFixed(1)};
+  }).filter(Boolean);
+
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const companies=getAllPortfolioCompanies();
+  const coResults=await Promise.allSettled(companies.map(async(c,i)=>{
+    await sleep(i*200);
+    const sym=yfSymbolForKey(c.key);
+    const h=await fetchDailyHistory(sym,'6mo');
+    if(!h||!h.closes.length) return null;
+    const r=_periodReturnPct(h.closes,63);
+    return r==null?null:{name:c.name||c.key,rs:+(r-spRS).toFixed(1)};
+  }));
+  const coRows=coResults.map(r=>r.status==='fulfilled'?r.value:null).filter(Boolean);
+
+  const list=(title,rows,strongest)=>{
+    if(!rows.length) return `<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">${title}: sin datos.</div>`;
+    const sorted=[...rows].sort((a,b)=>b.rs-a.rs);
+    const picks=(strongest?sorted.slice(0,5):sorted.slice(-5).reverse());
+    return `<div style="margin-bottom:10px;">
+      <div style="font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;">${title}</div>
+      ${picks.map(p=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;">
+        <span style="color:var(--text);">${p.name}</span>
+        <b style="color:${p.rs>=0?'var(--green)':'var(--red)'};">${(p.rs>=0?'+':'')+p.rs}%</b>
+      </div>`).join('')}
+    </div>`;
+  };
+  box.innerHTML=`<div style="font-size:9px;color:var(--muted);margin-bottom:10px;">Fuerza relativa = rentabilidad a 3 meses menos la del S&amp;P 500 en el mismo periodo</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
+      <div>${list('Sectores más fuertes',sectorRows,true)}${list('Sectores más débiles',sectorRows,false)}</div>
+      <div>${list('Tus empresas más fuertes',coRows,true)}${list('Tus empresas más débiles',coRows,false)}</div>
+    </div>`;
 }
 
 // ── Finnhub key helpers ──
