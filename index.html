@@ -8415,13 +8415,19 @@ function newsSourceRank(n){
   if(/prnewswire|businesswire|business wire|globenewswire|globe ?newswire|press ?release|investor ?relations|\/ir\.|ir\.[a-z]/.test(s)) return 1; // comunicado oficial
   if(/\bsec\b|sec\.gov|edgar|\.gov\b|federal reserve|antitrust division/.test(s)) return 2;               // SEC / oficiales
   if(/reuters/.test(s)) return 3;
-  if(/bloomberg/.test(s)) return 4;
   if(/cnbc/.test(s)) return 5;
-  if(/wall street journal|wsj/.test(s)) return 6;
-  if(/financial times|\bft\.com\b/.test(s)) return 7;
   if(/yahoo/.test(s)) return 8;
   if(/investing\.com|investing/.test(s)) return 9;
   return 15; // resto de medios
+}
+
+// Fuentes con muro de registro/suscripción duro: aunque el titular pase el filtro de relevancia,
+// el usuario no puede abrir el enlace sin crear una cuenta. Se descartan directamente en vez de
+// solo bajarles prioridad, porque un enlace que no se puede leer no vale aunque sea el único que
+// cubre la noticia.
+const NEWS_PAYWALL=/wall street journal|\bwsj\.com\b|financial times|\bft\.com\b|bloomberg|barrons?\.com|barron'?s|seekingalpha\.com|seeking alpha|\bimf\b\.org/i;
+function isPaywalled(n){
+  return NEWS_PAYWALL.test(((n.source||'')+' '+(n.url||'')).toLowerCase());
 }
 
 // Eventos de alto valor → suben la relevancia (peso en titular; la mitad si solo está en el resumen)
@@ -8586,6 +8592,7 @@ async function fetchDashNews(){
       const scored=[];
       for(const n of j){
         if((n.headline||'').length<14) continue;
+        if(isPaywalled(n)) continue;                      // enlace que el usuario no puede leer sin registrarse
         const score=scoreNews(n,own,others);
         if(score<MIN_NEWS_SCORE) continue;               // solo lo que trata REALMENTE de la empresa
         scored.push({co,n,score,rank:newsSourceRank(n),impact:newsImpact(n),tok:newsTokens(n)});
