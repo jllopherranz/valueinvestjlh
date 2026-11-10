@@ -7290,12 +7290,24 @@ async function _tdFetchHist(ticker,outputsize){
     }catch(e){ return null; }
   });
 }
+// Los 3 índices (^GSPC/^NDX/^DJI) no los cubre el plan gratis de Twelve Data, así que dependen de
+// Yahoo+proxy — el único punto de Mercado que puede seguir fallando tras los fixes anteriores.
+// Si Yahoo falla, se usa como última red de seguridad el ETF que sigue a cada índice (mismo patrón
+// de movimiento, ya que el ETF está diseñado para replicarlo) — sirve perfectamente para el % de
+// cambio, la distancia al máximo/mínimo de 52s y los cálculos de Pulso/Radar de fuerza (todos
+// relativos), aunque el nivel absoluto que devuelve es el precio del ETF, no el del índice en
+// puntos — por eso se marca `viaEtf` para que quien pinte un número en pantalla lo sepa.
+const _MERCAT_IDX_ETF={'^GSPC':'SPY','^NDX':'QQQ','^DJI':'DIA'};
 async function _mercatFetchHist(ticker,range){
   const key='h_'+ticker+'_'+range;
   const cached=_mercatCacheGet(key,_MERCAT_TTL_HIST); if(cached) return cached;
   const outputsize=range==='6mo'?130:260;
   let fresh=ticker.startsWith('^')?null:await _tdFetchHist(ticker,outputsize); // los índices no los cubre el plan gratis de Twelve Data
   if(!fresh) fresh=await fetchDailyHistory(ticker,range);
+  if(!fresh&&_MERCAT_IDX_ETF[ticker]){
+    const etf=await _tdFetchHist(_MERCAT_IDX_ETF[ticker],outputsize);
+    if(etf) fresh={...etf,viaEtf:true,etfTicker:_MERCAT_IDX_ETF[ticker]};
+  }
   if(fresh&&fresh.closes&&fresh.closes.length) _mercatCacheSet(key,fresh);
   else{ const stale=_mercatCacheGet(key,Infinity); if(stale) return stale; }
   return fresh;
@@ -7319,17 +7331,25 @@ async function renderMercatTrends(force){
     const t=computeTechnicals(closes);
     const chg=((t.last-closes[0])/closes[0]*100);
     const up=chg>=0;
-    if(pxEl) pxEl.textContent=Math.round(t.last).toLocaleString('es-ES');
+    // Si Yahoo ha fallado y se ha usado el ETF de respaldo (_MERCAT_IDX_ETF), su precio no es el
+    // nivel del índice en puntos — mostrarlo confundiría, así que se oculta y se avisa; el % de
+    // cambio y la distancia al máximo sí son válidos (el ETF sigue el índice, no su nivel absoluto).
+    if(pxEl) pxEl.textContent=hist.viaEtf?'—':Math.round(t.last).toLocaleString('es-ES');
     if(subEl){
       const chgTxt=(up?'+':'')+chg.toFixed(1)+'% (1a)';
       const hiTxt=t.fromHigh>=-0.05?'en máx. 52s':'máx 52s '+t.fromHigh.toFixed(1)+'%';
-      subEl.innerHTML=`<span style="color:${up?'var(--green)':'var(--red)'};font-weight:600;">${chgTxt}</span> · ${hiTxt}`;
+      const etfNote=hist.viaEtf?` · <span title="Yahoo no respondía; % y distancia al máximo calculados sobre ${hist.etfTicker}, el ETF que replica este índice">vía ${hist.etfTicker}</span>`:'';
+      subEl.innerHTML=`<span style="color:${up?'var(--green)':'var(--red)'};font-weight:600;">${chgTxt}</span> · ${hiTxt}${etfNote}`;
     }
     if(cv&&window.Chart){
       const key='mkt_'+ix.id;
       if(_mercatCharts[key]){try{_mercatCharts[key].destroy();}catch(e){}}
+      const sma200=closes.map((_,i2)=>i2+1<200?null:_sma(closes.slice(0,i2+1),200));
       _mercatCharts[key]=new Chart(cv,{type:'line',data:{labels:closes.map((_,i2)=>i2),
-        datasets:[{data:closes,borderColor:up?'#16a34a':'#dc2626',borderWidth:1.5,pointRadius:0,tension:.15,fill:false}]},
+        datasets:[
+          {data:closes,borderColor:up?'#16a34a':'#dc2626',borderWidth:1.5,pointRadius:0,tension:.15,fill:false},
+          {data:sma200,borderColor:'#9a958e',borderWidth:1,borderDash:[3,3],pointRadius:0,tension:.15,fill:false},
+        ]},
         options:{responsive:true,maintainAspectRatio:false,animation:false,
           plugins:{legend:{display:false},tooltip:{enabled:false}},
           scales:{x:{display:false},y:{display:false}}}});
