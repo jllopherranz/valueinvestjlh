@@ -8415,13 +8415,19 @@ function newsSourceRank(n){
   if(/prnewswire|businesswire|business wire|globenewswire|globe ?newswire|press ?release|investor ?relations|\/ir\.|ir\.[a-z]/.test(s)) return 1; // comunicado oficial
   if(/\bsec\b|sec\.gov|edgar|\.gov\b|federal reserve|antitrust division/.test(s)) return 2;               // SEC / oficiales
   if(/reuters/.test(s)) return 3;
-  if(/bloomberg/.test(s)) return 4;
   if(/cnbc/.test(s)) return 5;
-  if(/wall street journal|wsj/.test(s)) return 6;
-  if(/financial times|\bft\.com\b/.test(s)) return 7;
   if(/yahoo/.test(s)) return 8;
   if(/investing\.com|investing/.test(s)) return 9;
   return 15; // resto de medios
+}
+
+// Fuentes con muro de registro/suscripción duro: aunque el titular pase el filtro de relevancia,
+// el usuario no puede abrir el enlace sin crear una cuenta. Se descartan directamente en vez de
+// solo bajarles prioridad, porque un enlace que no se puede leer no vale aunque sea el único que
+// cubre la noticia.
+const NEWS_PAYWALL=/wall street journal|\bwsj\.com\b|financial times|\bft\.com\b|bloomberg|barrons?\.com|barron'?s|seekingalpha\.com|seeking alpha|\bimf\b\.org/i;
+function isPaywalled(n){
+  return NEWS_PAYWALL.test(((n.source||'')+' '+(n.url||'')).toLowerCase());
 }
 
 // Eventos de alto valor → suben la relevancia (peso en titular; la mitad si solo está en el resumen)
@@ -8492,25 +8498,38 @@ function newsSim(a,b){
 }
 // Un resultado trimestral, fusión o cambio de guidance lo cubren varios medios el mismo día, cada
 // uno con su propio titular ("Los ingresos superan..." / "Las acciones suben un 3%...") — apenas
-// comparten palabras, así que newsSim() no los une. Si son de la MISMA empresa, caen dentro de 48h
-// y ambos coinciden en el mismo tipo de evento de peso alto (≥28 en NEWS_EVENTS), es el mismo hecho.
-const SAME_EVENT_MIN_W=28;
+// comparten palabras, así que newsSim() no los une. Si son de la MISMA empresa, caen dentro de 36h,
+// coinciden en el mismo tipo de evento (en NEWS_EVENTS) y aun así comparten algo de vocabulario
+// (para no fusionar, p.ej., dos subidas de precio objetivo de bancos distintos por casualidad de
+// categoría), es el mismo hecho. Antes exigía peso ≥28 (solo resultados/M&A/guidance): se amplía a
+// cualquier categoría porque los duplicados también abundan en subidas de rating, lanzamientos o
+// contratos cubiertos por varios medios el mismo día.
+const SAME_EVENT_MIN_W=14;
+const SAME_EVENT_MIN_OVERLAP=0.15;
 function sameHighValueEvent(a,b){
   if(a.co.key!==b.co.key) return false;
-  if(Math.abs((a.n.datetime||0)-(b.n.datetime||0))>48*3600) return false;
+  if(Math.abs((a.n.datetime||0)-(b.n.datetime||0))>36*3600) return false;
+  if(newsSim(a.tok,b.tok)<SAME_EVENT_MIN_OVERLAP) return false;
   const ha=a.n.headline||'',hb=b.n.headline||'';
   return NEWS_EVENTS.some(ev=>ev.w>=SAME_EVENT_MIN_W&&ev.re.test(ha)&&ev.re.test(hb));
 }
-// Traduce un único titular (fallback cuando falla el lote)
-async function _translateOne(text){
-  try{
-    const url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q='+encodeURIComponent(text);
-    const r=await fetch(url,{signal:AbortSignal.timeout(9000)});
-    if(!r.ok) return null;
-    const j=await r.json();
-    const t=j[0].map(x=>x[0]).join('').trim();
-    return t||null;
-  }catch(e){return null;}
+// Traduce un único titular (fallback cuando falla el lote). Dos intentos: una noticia en inglés
+// sin traducir no debe verse (regla: solo noticias en español), así que vale la pena un reintento
+// antes de descartarla.
+async function _translateOne(text,tries){
+  tries=tries||2;
+  for(let i=0;i<tries;i++){
+    try{
+      const url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q='+encodeURIComponent(text);
+      const r=await fetch(url,{signal:AbortSignal.timeout(9000)});
+      if(r.ok){
+        const j=await r.json();
+        const t=j[0].map(x=>x[0]).join('').trim();
+        if(t) return t;
+      }
+    }catch(e){}
+  }
+  return null;
 }
 // Traduce titulares al español (Google gtx, por lotes, con caché en localStorage)
 async function _translateNews(heads){
@@ -8537,7 +8556,9 @@ async function _translateNews(heads){
     }
   }
   try{localStorage.setItem('vi_news_es',JSON.stringify(cache));}catch(e){}
-  const map={}; heads.forEach(h=>map[h]=cache[h]||h);
+  // Si no hay traducción en caché, el titular queda SIN traducir → el renderer lo descarta
+  // (regla: solo noticias en español, nunca mostrar el inglés de respaldo).
+  const map={}; heads.forEach(h=>map[h]=cache[h]||null);
   return map;
 }
 
@@ -8571,6 +8592,7 @@ async function fetchDashNews(){
       const scored=[];
       for(const n of j){
         if((n.headline||'').length<14) continue;
+        if(isPaywalled(n)) continue;                      // enlace que el usuario no puede leer sin registrarse
         const score=scoreNews(n,own,others);
         if(score<MIN_NEWS_SCORE) continue;               // solo lo que trata REALMENTE de la empresa
         scored.push({co,n,score,rank:newsSourceRank(n),impact:newsImpact(n),tok:newsTokens(n)});
@@ -8584,7 +8606,7 @@ async function fetchDashNews(){
   all.sort((a,b)=>a.rank-b.rank||b.score-a.score||(b.n.datetime||0)-(a.n.datetime||0));
   const kept=[];
   for(const c of all){
-    const dup=kept.find(x=>newsSim(x.tok,c.tok)>=0.5||sameHighValueEvent(x,c));
+    const dup=kept.find(x=>newsSim(x.tok,c.tok)>=0.4||sameHighValueEvent(x,c));
     if(dup){ dup.score=Math.max(dup.score,c.score); continue; }  // ya tenemos la mejor versión de este hecho
     kept.push(c);
   }
@@ -8628,6 +8650,11 @@ async function _renderNewsGroups(){
   }else if(_newsQuick==='top'){
     groups=groups.map(g=>({co:g.co,items:g.items.slice(0,1)}));   // ya vienen ordenadas por relevancia
   }
+  // Traduce ANTES de pintar y descarta lo que no se pudo traducir: solo noticias en español,
+  // nunca el titular en inglés como respaldo silencioso (regla del usuario).
+  const allHeads=[]; groups.forEach(g=>g.items.forEach(c=>allHeads.push(c.n.headline)));
+  const tr=await _translateNews(allHeads);
+  groups=groups.map(g=>({co:g.co,items:g.items.filter(c=>tr[c.n.headline])})).filter(g=>g.items.length);
   groups.forEach(g=>{ g.fresh=g.items.filter(c=>c.fresh).length; });
 
   const sumEl=document.getElementById('news-summary');
@@ -8643,8 +8670,6 @@ async function _renderNewsGroups(){
       ? freshCount+' titular'+(freshCount===1?'':'es')+' nuevo'+(freshCount===1?'':'s')+' · '+groups.length+' empresa'+(groups.length===1?'':'s')
       : groups.length+' empresa'+(groups.length===1?'':'s')+' con noticias';
   }
-  const allHeads=[]; groups.forEach(g=>g.items.forEach(c=>allHeads.push(c.n.headline)));
-  const tr=await _translateNews(allHeads);
   const DOT={pos:'news-dot-pos',neu:'news-dot-neu',neg:'news-dot-neg'};
   const DOTTIP={pos:'Impacto esperado: positivo para la empresa',neu:'Impacto esperado: neutro / incierto',neg:'Impacto esperado: negativo para la empresa'};
   newsEl.innerHTML=groups.map(g=>{
