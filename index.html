@@ -1078,9 +1078,12 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 
 <!-- ══ VISTA MERCADO (pestaña propia — visión del mercado en general, no de tu cartera) ══ -->
 <div id="view-mercat" style="display:none;max-width:1600px;margin:0 auto;padding:10px 20px 30px;">
-  <div style="margin:4px 0 12px;">
-    <div style="font-size:16px;font-weight:600;color:var(--text);">📊 Mercado</div>
-    <div style="font-size:10px;color:var(--muted);">Visión general del mercado — más allá de tus empresas</div>
+  <div style="margin:4px 0 12px;display:flex;align-items:baseline;justify-content:space-between;gap:10px;">
+    <div>
+      <div style="font-size:16px;font-weight:600;color:var(--text);">📊 Mercado</div>
+      <div style="font-size:10px;color:var(--muted);">Visión general del mercado — más allá de tus empresas</div>
+    </div>
+    <a href="javascript:promptTDKey()" style="font-size:10px;color:var(--muted);text-decoration:underline;white-space:nowrap;" title="Clave gratuita de Twelve Data para que el histórico de sectores/empresas no dependa de proxies CORS">⚙️ Clave Twelve Data</a>
   </div>
 
   <!-- ── Mapa de calor por sectores (TradingView, iframe — no usa los proxies CORS de la app) ── -->
@@ -5002,7 +5005,7 @@ function getPositionFor(key){try{const r=localStorage.getItem('pos_'+key);return
 // Los datos (empresas importadas, precios de compra, ajustes) viven en localStorage → son locales
 // de este navegador. Esto permite exportar un código y restaurarlo en el móvil.
 const _BACKUP_PREFIXES=['vi_import_','pos_','vi_drive_','vi_mults_','vi_yf_','vi_domain_'];
-const _BACKUP_KEYS=['vi_watchlist','vi_hidden','finnhub_api_key','fmp_api_key','vi_base_cur'];
+const _BACKUP_KEYS=['vi_watchlist','vi_hidden','finnhub_api_key','fmp_api_key','td_api_key','vi_base_cur'];
 function _collectBackup(){
   const out={};
   for(let i=0;i<localStorage.length;i++){
@@ -7232,16 +7235,14 @@ function renderMercat(){
   wrap.querySelector('.tradingview-widget-container').appendChild(script);
   renderMercatTrends();
   fetchFearGreed();
-  renderMercatMovers();
-  renderMercatBreadth();
+  renderMercatBreadth(); // trae el histórico de sectores y, con él ya cargado, pinta Movers (sin petición propia)
 }
 
-// Caché en localStorage (TTL) para todas las peticiones de Mercado: sin esto, cada carga de
+// Caché en localStorage (TTL) para las peticiones de histórico de Mercado: sin esto, cada carga de
 // página/visita a la pestaña vuelve a pedir índices+11 sectores+empresas a los proxies CORS
-// gratuitos (corsproxy.io/allorigins/codetabs) que ya son frágiles — exactamente el riesgo que
-// avisaba la propuesta original. Las cotizaciones (movers) caducan rápido; los históricos diarios
-// (tendencias/amplitud/radar) se cachean más tiempo porque solo cambian una vez al día.
-const _MERCAT_TTL_QUOTE=15*60*1000, _MERCAT_TTL_HIST=4*60*60*1000;
+// gratuitos (ya frágiles de por sí) — exactamente el riesgo que avisaba la propuesta original.
+// Los históricos diarios (tendencias/movers/amplitud/radar) solo cambian una vez al día.
+const _MERCAT_TTL_HIST=4*60*60*1000;
 function _mercatCacheGet(key,ttlMs){
   try{
     const raw=JSON.parse(localStorage.getItem('vi_mercat_'+key)||'null');
@@ -7250,17 +7251,51 @@ function _mercatCacheGet(key,ttlMs){
   }catch(e){ return null; }
 }
 function _mercatCacheSet(key,v){ try{localStorage.setItem('vi_mercat_'+key,JSON.stringify({v,ts:Date.now()}));}catch(e){} }
-async function _mercatFetchQuote(ticker){
-  const cached=_mercatCacheGet('q_'+ticker,_MERCAT_TTL_QUOTE); if(cached) return cached;
-  const fresh=await fetchQuoteYF(ticker);
-  if(fresh) _mercatCacheSet('q_'+ticker,fresh);
-  else{ const stale=_mercatCacheGet('q_'+ticker,Infinity); if(stale) return stale; } // proxy caído: mejor dato viejo que nada
-  return fresh;
+
+// Twelve Data: fuente alternativa con CORS real (sin proxy de terceros) para el histórico diario
+// de sectores y empresas — los proxies gratuitos de Yahoo se agotan dentro de la misma visita
+// (ver PR #41-43). Plan gratis: 800 peticiones/día, 8 por minuto — _tdThrottled() las serializa
+// con ~7.6s de margen para no pasarse. Solo cubre acciones/ETFs normales, no índices (^GSPC,
+// ^NDX, ^DJI exigen plan de pago), así que esos siguen por Yahoo+proxy sin cambios.
+function getTDKey(){return localStorage.getItem('td_api_key')||'';}
+function promptTDKey(){
+  const k=prompt('API key GRATIS de Twelve Data para el histórico de Mercado (sectores y empresas):\n\n1) Regístrate en twelvedata.com/pricing (plan gratis, sin tarjeta)\n2) Copia tu API key del dashboard\n3) Pégala aquí:', getTDKey());
+  if(k!=null){ localStorage.setItem('td_api_key',k.trim()); alert(k.trim()?'✅ Key de Twelve Data guardada.':'Key de Twelve Data borrada.'); }
+}
+let _tdQueue=Promise.resolve(), _tdLast=0;
+function _tdThrottled(fn){
+  const run=_tdQueue.then(async()=>{
+    const wait=Math.max(0,7600-(Date.now()-_tdLast));
+    if(wait>0) await new Promise(r=>setTimeout(r,wait));
+    _tdLast=Date.now();
+    return fn();
+  });
+  _tdQueue=run.catch(()=>{});
+  return run;
+}
+async function _tdFetchHist(ticker,outputsize){
+  const key=getTDKey(); if(!key) return null;
+  return _tdThrottled(async()=>{
+    try{
+      const url=`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(ticker)}&interval=1day&outputsize=${outputsize}&apikey=${key}`;
+      const r=await fetch(url,{signal:AbortSignal.timeout(9000)});
+      if(!r.ok) return null;
+      const d=await r.json();
+      if(d.status!=='ok'||!Array.isArray(d.values)||!d.values.length) return null;
+      // Twelve Data devuelve más reciente primero; closes/times/volumes van de más antiguo a más
+      // reciente, igual que fetchDailyHistory, para que el resto del código no tenga que distinguir.
+      const vals=[...d.values].reverse();
+      const closes=vals.map(v=>+v.close), times=vals.map(v=>Math.floor(new Date(v.datetime).getTime()/1000)), volumes=vals.map(v=>+v.volume||0);
+      return closes.length?{closes,times,volumes}:null;
+    }catch(e){ return null; }
+  });
 }
 async function _mercatFetchHist(ticker,range){
   const key='h_'+ticker+'_'+range;
   const cached=_mercatCacheGet(key,_MERCAT_TTL_HIST); if(cached) return cached;
-  const fresh=await fetchDailyHistory(ticker,range);
+  const outputsize=range==='6mo'?130:260;
+  let fresh=ticker.startsWith('^')?null:await _tdFetchHist(ticker,outputsize); // los índices no los cubre el plan gratis de Twelve Data
+  if(!fresh) fresh=await fetchDailyHistory(ticker,range);
   if(fresh&&fresh.closes&&fresh.closes.length) _mercatCacheSet(key,fresh);
   else{ const stale=_mercatCacheGet(key,Infinity); if(stale) return stale; }
   return fresh;
@@ -7334,18 +7369,18 @@ const SECTOR_ETFS=[
   {t:'XLI',name:'Industrial'},{t:'XLB',name:'Materiales'},{t:'XLU',name:'Utilities'},
   {t:'XLRE',name:'Inmobiliario'},{t:'XLC',name:'Comunicación'},
 ];
-let _mercatMoversLoaded=false;
-async function renderMercatMovers(force){
+let _mercatSectorHist={};
+// No pide su propia cotización: lee el cierre diario de cada sector que ya ha traído Amplitud de
+// mercado (_mercatSectorHist) y calcula el cambio de hoy (último cierre vs el anterior). Antes
+// hacía 11 peticiones propias de más — justo las que agotaban la cuota del proxy gratuito y
+// dejaban sin datos al resto de piezas de Mercado en la misma visita.
+function renderMercatMovers(){
   const box=document.getElementById('mercat-movers-list'); if(!box) return;
-  if(_mercatMoversLoaded&&!force) return;
-  _mercatMoversLoaded=true;
-  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  const results=await Promise.allSettled(SECTOR_ETFS.map(async(s,i)=>{
-    await sleep(i*450); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
-    const q=await _mercatFetchQuote(s.t);
-    return {...s,dp:(q&&q.dp!=null)?q.dp:null};
-  }));
-  const rows=results.map(r=>r.status==='fulfilled'?r.value:null).filter(r=>r&&r.dp!=null);
+  const rows=SECTOR_ETFS.map(s=>{
+    const h=_mercatSectorHist[s.t]; if(!h||h.closes.length<2) return null;
+    const c=h.closes, dp=(c[c.length-1]-c[c.length-2])/c[c.length-2]*100;
+    return {...s,dp};
+  }).filter(Boolean);
   if(!rows.length){ box.innerHTML='<span style="color:var(--muted);">No se pudo cargar ahora.</span>'; return; }
   rows.sort((a,b)=>b.dp-a.dp);
   const maxAbs=Math.max(1,...rows.map(r=>Math.abs(r.dp)));
@@ -7406,7 +7441,7 @@ function toggleMercatSectorDetail(etf,name){
 // cerca de su máximo/mínimo de 52 semanas. Mismo universo (11 SPDR) y misma fuente que los movers,
 // pero pide histórico diario (fetchDailyHistory) en vez de solo la cotización — es la pieza más
 // pesada en peticiones de todo Mercado, así que se carga una sola vez por sesión.
-let _mercatBreadthLoaded=false, _mercatSectorHist={};
+let _mercatBreadthLoaded=false;
 async function renderMercatBreadth(force){
   const box=document.getElementById('mercat-breadth-box'); if(!box) return;
   if(_mercatBreadthLoaded&&!force) return;
@@ -7415,12 +7450,14 @@ async function renderMercatBreadth(force){
   const results=await Promise.allSettled(SECTOR_ETFS.map(async(s,i)=>{
     await sleep(i*500); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
     const hist=await _mercatFetchHist(s.t,'1y');
-    if(!hist||hist.closes.length<200) return null;
-    _mercatSectorHist[s.t]=hist; // reutilizado por el Radar de fuerza, sin otra llamada
+    if(!hist||hist.closes.length<2) return null;
+    _mercatSectorHist[s.t]=hist; // reutilizado por Movers y por el Radar de fuerza, sin otra llamada
+    if(hist.closes.length<200) return null; // histórico corto: sirve para Movers pero no para SMA200
     const t=computeTechnicals(hist.closes);
     return {...s,last:t.last,sma50:t.sma50,sma200:t.sma200,fromHigh:t.fromHigh,fromLow:t.fromLow};
   }));
   const rows=results.map(r=>r.status==='fulfilled'?r.value:null).filter(Boolean);
+  renderMercatMovers();
   if(!rows.length){ box.innerHTML='<span style="color:var(--muted);">No se pudo calcular ahora.</span>'; return; }
   const aboveSMA50=rows.filter(r=>r.sma50!=null&&r.last>=r.sma50).length;
   const aboveSMA200=rows.filter(r=>r.sma200!=null&&r.last>=r.sma200).length;
