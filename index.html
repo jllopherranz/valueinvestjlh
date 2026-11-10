@@ -1078,9 +1078,12 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 
 <!-- ══ VISTA MERCADO (pestaña propia — visión del mercado en general, no de tu cartera) ══ -->
 <div id="view-mercat" style="display:none;max-width:1600px;margin:0 auto;padding:10px 20px 30px;">
-  <div style="margin:4px 0 12px;">
-    <div style="font-size:16px;font-weight:600;color:var(--text);">📊 Mercado</div>
-    <div style="font-size:10px;color:var(--muted);">Visión general del mercado — más allá de tus empresas</div>
+  <div style="margin:4px 0 12px;display:flex;align-items:baseline;justify-content:space-between;gap:10px;">
+    <div>
+      <div style="font-size:16px;font-weight:600;color:var(--text);">📊 Mercado</div>
+      <div style="font-size:10px;color:var(--muted);">Visión general del mercado — más allá de tus empresas</div>
+    </div>
+    <a href="javascript:promptTDKey()" style="font-size:10px;color:var(--muted);text-decoration:underline;white-space:nowrap;" title="Clave gratuita de Twelve Data para que el histórico de sectores/empresas no dependa de proxies CORS">⚙️ Clave Twelve Data</a>
   </div>
 
   <!-- ── Mapa de calor por sectores (TradingView, iframe — no usa los proxies CORS de la app) ── -->
@@ -5002,7 +5005,7 @@ function getPositionFor(key){try{const r=localStorage.getItem('pos_'+key);return
 // Los datos (empresas importadas, precios de compra, ajustes) viven en localStorage → son locales
 // de este navegador. Esto permite exportar un código y restaurarlo en el móvil.
 const _BACKUP_PREFIXES=['vi_import_','pos_','vi_drive_','vi_mults_','vi_yf_','vi_domain_'];
-const _BACKUP_KEYS=['vi_watchlist','vi_hidden','finnhub_api_key','fmp_api_key','vi_base_cur'];
+const _BACKUP_KEYS=['vi_watchlist','vi_hidden','finnhub_api_key','fmp_api_key','td_api_key','vi_base_cur'];
 function _collectBackup(){
   const out={};
   for(let i=0;i<localStorage.length;i++){
@@ -7248,10 +7251,51 @@ function _mercatCacheGet(key,ttlMs){
   }catch(e){ return null; }
 }
 function _mercatCacheSet(key,v){ try{localStorage.setItem('vi_mercat_'+key,JSON.stringify({v,ts:Date.now()}));}catch(e){} }
+
+// Twelve Data: fuente alternativa con CORS real (sin proxy de terceros) para el histórico diario
+// de sectores y empresas — los proxies gratuitos de Yahoo se agotan dentro de la misma visita
+// (ver PR #41-43). Plan gratis: 800 peticiones/día, 8 por minuto — _tdThrottled() las serializa
+// con ~7.6s de margen para no pasarse. Solo cubre acciones/ETFs normales, no índices (^GSPC,
+// ^NDX, ^DJI exigen plan de pago), así que esos siguen por Yahoo+proxy sin cambios.
+function getTDKey(){return localStorage.getItem('td_api_key')||'';}
+function promptTDKey(){
+  const k=prompt('API key GRATIS de Twelve Data para el histórico de Mercado (sectores y empresas):\n\n1) Regístrate en twelvedata.com/pricing (plan gratis, sin tarjeta)\n2) Copia tu API key del dashboard\n3) Pégala aquí:', getTDKey());
+  if(k!=null){ localStorage.setItem('td_api_key',k.trim()); alert(k.trim()?'✅ Key de Twelve Data guardada.':'Key de Twelve Data borrada.'); }
+}
+let _tdQueue=Promise.resolve(), _tdLast=0;
+function _tdThrottled(fn){
+  const run=_tdQueue.then(async()=>{
+    const wait=Math.max(0,7600-(Date.now()-_tdLast));
+    if(wait>0) await new Promise(r=>setTimeout(r,wait));
+    _tdLast=Date.now();
+    return fn();
+  });
+  _tdQueue=run.catch(()=>{});
+  return run;
+}
+async function _tdFetchHist(ticker,outputsize){
+  const key=getTDKey(); if(!key) return null;
+  return _tdThrottled(async()=>{
+    try{
+      const url=`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(ticker)}&interval=1day&outputsize=${outputsize}&apikey=${key}`;
+      const r=await fetch(url,{signal:AbortSignal.timeout(9000)});
+      if(!r.ok) return null;
+      const d=await r.json();
+      if(d.status!=='ok'||!Array.isArray(d.values)||!d.values.length) return null;
+      // Twelve Data devuelve más reciente primero; closes/times/volumes van de más antiguo a más
+      // reciente, igual que fetchDailyHistory, para que el resto del código no tenga que distinguir.
+      const vals=[...d.values].reverse();
+      const closes=vals.map(v=>+v.close), times=vals.map(v=>Math.floor(new Date(v.datetime).getTime()/1000)), volumes=vals.map(v=>+v.volume||0);
+      return closes.length?{closes,times,volumes}:null;
+    }catch(e){ return null; }
+  });
+}
 async function _mercatFetchHist(ticker,range){
   const key='h_'+ticker+'_'+range;
   const cached=_mercatCacheGet(key,_MERCAT_TTL_HIST); if(cached) return cached;
-  const fresh=await fetchDailyHistory(ticker,range);
+  const outputsize=range==='6mo'?130:260;
+  let fresh=ticker.startsWith('^')?null:await _tdFetchHist(ticker,outputsize); // los índices no los cubre el plan gratis de Twelve Data
+  if(!fresh) fresh=await fetchDailyHistory(ticker,range);
   if(fresh&&fresh.closes&&fresh.closes.length) _mercatCacheSet(key,fresh);
   else{ const stale=_mercatCacheGet(key,Infinity); if(stale) return stale; }
   return fresh;
