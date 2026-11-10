@@ -7431,7 +7431,8 @@ async function renderMercatBreadth(force){
     <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text);margin-bottom:3px;"><span>${lbl}</span><b>${n}/${tot} · ${p}%</b></div>
     <div style="height:8px;border-radius:4px;background:var(--surface2);overflow:hidden;"><div style="height:100%;width:${p}%;background:${p>=50?'#16a34a':'#dc2626'};"></div></div>
   </div>`; };
-  box.innerHTML=bar('Sectores por encima de su media de 50 sesiones',aboveSMA50,rows.length)
+  box.innerHTML=`<div style="font-size:9px;color:var(--muted);margin-bottom:10px;">Cuántos de los 11 sectores suben de fondo (no solo el índice general) — cuantos más, más sano es el mercado; pocos subiendo suele avisar de una subida frágil, sostenida por pocos valores</div>`
+    +bar('Sectores por encima de su media de 50 sesiones',aboveSMA50,rows.length)
     +bar('Sectores por encima de su media de 200 sesiones',aboveSMA200,rows.length)
     +`<div style="display:flex;gap:18px;font-size:11px;color:var(--muted);margin-top:8px;">
         <span><b style="color:var(--green);font-size:14px;">${nearHigh}</b> cerca de máx. 52s (±2%)</span>
