@@ -7301,7 +7301,7 @@ const _MERCAT_IDX_ETF={'^GSPC':'SPY','^NDX':'QQQ','^DJI':'DIA'};
 async function _mercatFetchHist(ticker,range){
   const key='h_'+ticker+'_'+range;
   const cached=_mercatCacheGet(key,_MERCAT_TTL_HIST); if(cached) return cached;
-  const outputsize=range==='6mo'?130:260;
+  const outputsize=range==='6mo'?130:range==='2y'?520:260;
   let fresh=ticker.startsWith('^')?null:await _tdFetchHist(ticker,outputsize); // los índices no los cubre el plan gratis de Twelve Data
   if(!fresh) fresh=await fetchDailyHistory(ticker,range);
   if(!fresh&&_MERCAT_IDX_ETF[ticker]){
@@ -7323,11 +7323,16 @@ async function renderMercatTrends(force){
   _mercatTrendsLoaded=true;
   await Promise.allSettled(MERCAT_IDX.map(async(ix,i)=>{
     await new Promise(r=>setTimeout(r,i*450)); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
-    const hist=await _mercatFetchHist(ix.t,'1y');
-    if(ix.id==='sp500'&&hist) _mercatSp500Hist=hist; // reutilizado por el Pulso de mercado, sin otra llamada
+    // Se pide 2 años aunque solo se muestre 1: la media de 200 sesiones necesita 200 días previos
+    // para empezar a calcularse, así que con solo 1 año de datos la línea solo aparecía en el
+    // último tramo del gráfico (los primeros ~200 días no tenían suficiente histórico detrás).
+    const histFull=await _mercatFetchHist(ix.t,'2y');
+    if(ix.id==='sp500'&&histFull) _mercatSp500Hist=histFull; // reutilizado por el Pulso de mercado, sin otra llamada
     const pxEl=document.getElementById('mi-'+ix.id+'-px'), subEl=document.getElementById('mi-'+ix.id+'-sub'), cv=document.getElementById('mi-'+ix.id+'-chart');
-    if(!hist||!hist.closes.length){ if(subEl) subEl.textContent='No se pudo cargar el histórico ahora'; return; }
-    const {closes}=hist;
+    if(!histFull||!histFull.closes.length){ if(subEl) subEl.textContent='No se pudo cargar el histórico ahora'; return; }
+    const hist=histFull;
+    const dispN=Math.min(260,histFull.closes.length), leadIn=histFull.closes.length-dispN;
+    const closes=histFull.closes.slice(-dispN); // ventana mostrada: el último año
     const t=computeTechnicals(closes);
     const chg=((t.last-closes[0])/closes[0]*100);
     const up=chg>=0;
@@ -7344,7 +7349,10 @@ async function renderMercatTrends(force){
     if(cv&&window.Chart){
       const key='mkt_'+ix.id;
       if(_mercatCharts[key]){try{_mercatCharts[key].destroy();}catch(e){}}
-      const sma200=closes.map((_,i2)=>i2+1<200?null:_sma(closes.slice(0,i2+1),200));
+      const sma200=closes.map((_,i2)=>{
+        const idxInFull=leadIn+i2;
+        return idxInFull+1<200?null:_sma(histFull.closes.slice(0,idxInFull+1),200);
+      });
       _mercatCharts[key]=new Chart(cv,{type:'line',data:{labels:closes.map((_,i2)=>i2),
         datasets:[
           {data:closes,borderColor:up?'#16a34a':'#dc2626',borderWidth:1.5,pointRadius:0,tension:.15,fill:false},
