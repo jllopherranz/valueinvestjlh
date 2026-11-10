@@ -7275,7 +7275,7 @@ async function renderMercatTrends(force){
   if(_mercatTrendsLoaded&&!force) return;
   _mercatTrendsLoaded=true;
   await Promise.allSettled(MERCAT_IDX.map(async(ix,i)=>{
-    await new Promise(r=>setTimeout(r,i*200)); // escalonado, mismo motivo que fetchDashPrices
+    await new Promise(r=>setTimeout(r,i*450)); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
     const hist=await _mercatFetchHist(ix.t,'1y');
     if(ix.id==='sp500'&&hist) _mercatSp500Hist=hist; // reutilizado por el Pulso de mercado, sin otra llamada
     const pxEl=document.getElementById('mi-'+ix.id+'-px'), subEl=document.getElementById('mi-'+ix.id+'-sub'), cv=document.getElementById('mi-'+ix.id+'-chart');
@@ -7341,7 +7341,7 @@ async function renderMercatMovers(force){
   _mercatMoversLoaded=true;
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const results=await Promise.allSettled(SECTOR_ETFS.map(async(s,i)=>{
-    await sleep(i*150); // escalonado, mismo motivo que fetchDashPrices
+    await sleep(i*450); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
     const q=await _mercatFetchQuote(s.t);
     return {...s,dp:(q&&q.dp!=null)?q.dp:null};
   }));
@@ -7413,7 +7413,7 @@ async function renderMercatBreadth(force){
   _mercatBreadthLoaded=true;
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const results=await Promise.allSettled(SECTOR_ETFS.map(async(s,i)=>{
-    await sleep(i*250);
+    await sleep(i*500); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
     const hist=await _mercatFetchHist(s.t,'1y');
     if(!hist||hist.closes.length<200) return null;
     _mercatSectorHist[s.t]=hist; // reutilizado por el Radar de fuerza, sin otra llamada
@@ -7469,7 +7469,7 @@ async function renderMercatForce(){
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const companies=getAllPortfolioCompanies();
   const coResults=await Promise.allSettled(companies.map(async(c,i)=>{
-    await sleep(i*200);
+    await sleep(i*450); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
     const sym=yfSymbolForKey(c.key);
     const h=await _mercatFetchHist(sym,'6mo');
     if(!h||!h.closes.length) return null;
@@ -10146,21 +10146,22 @@ function _parseYF(data){
 }
 async function fetchQuoteYF(ticker){
   const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
-  // 1) corsproxy.io (JSON directo)
-  try{
-    const r=await fetch('https://corsproxy.io/?url='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});
-    if(r.ok){const d=await r.json();const p=_parseYF(d);if(p)return p;}
-  }catch(e){}
-  // 2) allorigins (envuelve en .contents)
+  // Orden verificado en navegador real (10-nov-2026): corsproxy.io exige API key de pago desde 2026
+  // (401 inmediato) y codetabs se queda colgado sin responder — probarlos primero solo añadía
+  // segundos muertos antes de llegar al único que de verdad responde. allorigins/get va primero.
+  // 1) allorigins (envuelve en .contents) — el que funciona
   try{
     const r=await fetch('https://api.allorigins.win/get?url='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});
     if(r.ok){const w=await r.json();const p=_parseYF(JSON.parse(w.contents||'{}'));if(p)return p;}
   }catch(e){}
-  // 3) codetabs (JSON directo) — tercer proxy de respaldo: cuando varios índices piden a la vez,
-  // corsproxy.io/allorigins devuelven error de "demasiadas peticiones" para algunos tickers y no para
-  // otros según el orden de llegada; este tercer proxy rescata justo esos casos.
+  // 2) codetabs (JSON directo) — respaldo: a veces tarda, pero cuando responde es directo
   try{
     const r=await fetch('https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});
+    if(r.ok){const d=await r.json();const p=_parseYF(d);if(p)return p;}
+  }catch(e){}
+  // 3) corsproxy.io (JSON directo) — de pago desde 2026; se deja último por si vuelve a ser gratis
+  try{
+    const r=await fetch('https://corsproxy.io/?url='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});
     if(r.ok){const d=await r.json();const p=_parseYF(d);if(p)return p;}
   }catch(e){}
   return null;
@@ -10206,15 +10207,17 @@ async function fetchDailyHistory(ticker,range){
     return closes.length?{closes,times,volumes}:null;
   };
   // Varios proxies CORS gratuitos en cascada: son servicios sin SLA que se caen o empiezan a
-  // cobrar sin aviso (corsproxy.io y allorigins.win, los dos únicos que había antes, llevan un
-  // tiempo caídos/de pago) — probar varios da más margen de que alguno esté vivo en cada momento,
-  // a costa de tardar más cuando TODOS fallan. Cada uno envuelve la respuesta de forma distinta.
+  // cobrar sin aviso. Orden verificado en navegador real (10-nov-2026): codetabs y allorigins/raw
+  // se quedan colgados sin responder (8s muertos cada uno antes de pasar al siguiente), thingproxy
+  // y corsproxy.org fallan rápido pero nunca responden (bloqueo CORS del propio proxy), y
+  // corsproxy.io exige ya API key de pago (401 inmediato). El único que de verdad funciona es
+  // allorigins/get — va primero para no quemar ~16s muertos en cada fetch antes de acertar.
   const attempts=[
-    {u:'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url), unwrap:r=>r},
-    {u:'https://api.allorigins.win/raw?url='+encodeURIComponent(url), unwrap:r=>r},
+    {u:'https://api.allorigins.win/get?url='+encodeURIComponent(url), unwrap:r=>JSON.parse(r.contents||'{}')},
     {u:'https://thingproxy.freeboard.io/fetch/'+url, unwrap:r=>r},
     {u:'https://corsproxy.org/?'+encodeURIComponent(url), unwrap:r=>r},
-    {u:'https://api.allorigins.win/get?url='+encodeURIComponent(url), unwrap:r=>JSON.parse(r.contents||'{}')},
+    {u:'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url), unwrap:r=>r},
+    {u:'https://api.allorigins.win/raw?url='+encodeURIComponent(url), unwrap:r=>r},
     {u:'https://corsproxy.io/?url='+encodeURIComponent(url), unwrap:r=>r}, // de pago desde 2026; se deja por si vuelve a ser gratis
   ];
   for(const a of attempts){
