@@ -149,6 +149,16 @@ Excluye empresas de fábrica del backup para achicar el código.
 `newsImpact` (verde/ámbar/rojo) · `newsSim`/`newsTokens` (dedup por contexto) · `newsSourceRank`
 (prioridad de fuente) · `_translateNews` (a español, cache).
 
+**Resumen diario (GitHub Action)** `loadDailyDigest`/`_paintDailyDigest` pintan la sección "🗞️ Resumen
+diario" del Dashboard a partir de `data/daily-news.json`. Ese fichero lo genera y commitea a diario
+`.github/workflows/daily-news.yml` ejecutando `scripts/daily-news.mjs` (Node, fuera del navegador):
+1 noticia por empresa de `data/news-companies.json`, con el mismo criterio de relevancia/impacto que
+`scoreNews`/`newsImpact` (duplicado a propósito en el script — actualiza los dos si cambia el criterio).
+Necesita el secret de repo `FINNHUB_API_KEY`. Si una empresa no tiene nada en 48h, usa lo más relevante
+de los últimos 7 días marcado como `stale` ("noticia previa, no de hoy"). `data/news-companies.json` es
+manual: actualízalo si cambia la cartera/seguimiento (la Action no puede leer el `localStorage` del
+usuario).
+
 **Importar** `openImportModal`/`doImport`/`parseExcelData` (Excel del usuario) ·
 `buildImportFromFinancials` (auto SEC/Finnhub) · `buildDbEntryFromImport`+`_estimateProjections` ·
 `hydrateImportedIntoDB` · `importFromLink`/`refreshAllImports` (re-descarga desde Drive) · `deleteCompanyFull`.
