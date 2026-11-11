@@ -999,6 +999,19 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <!-- ── Comparador Growth vs Value de la cartera ── -->
   <div id="dash-style-compare" style="margin-bottom:12px;"></div>
 
+  <!-- ── Resumen diario (GitHub Action): 1 noticia por empresa, generada 1 vez al día ── -->
+  <!-- data/daily-news.json lo genera .github/workflows/daily-news.yml con scripts/daily-news.mjs
+       (mismo criterio de relevancia que fetchDashNews, ver index.html). Colapsada por defecto. -->
+  <div class="card" id="dash-dailydigest-card" style="margin-bottom:12px;">
+    <div class="sec-fold" onclick="toggleSec('dailydigest')">
+      <div class="sec-title-big" style="margin:0;">🗞️ Resumen diario <span id="dailydigest-summary" style="font-weight:600;color:var(--muted);">cargando…</span></div>
+      <span class="sec-chev" id="chev-dailydigest">▼ mostrar</span>
+    </div>
+    <div id="body-dailydigest" style="display:none;">
+      <div id="dailydigest-list"><!-- JS: resumen --></div>
+    </div>
+  </div>
+
   <!-- ── Noticias del mercado (titulares reales) ── -->
   <!-- Colapsada por defecto (ver _secOpen/toggleSec): arranca cerrada en el HTML y _restoreFold('news')
        la reabre en cada renderDashboard() si el usuario la dejó abierta la última vez. -->
@@ -8359,7 +8372,7 @@ function renderDashboard(){
   renderCrossCompare();   // comparativa cruzada entre tus empresas
   renderStyleCompare();   // comparador Growth vs Value de la cartera
   fetchAllEarnings();     // afina las fechas de resultados con datos reales (Finnhub)
-  _restoreFold('news'); _restoreFold('cal');   // respeta si el usuario dejó abiertas noticias/calendarios
+  _restoreFold('news'); _restoreFold('cal'); _restoreFold('dailydigest');   // respeta si el usuario dejó abiertas noticias/calendarios/resumen diario
 }
 
 
@@ -8560,6 +8573,52 @@ async function _translateNews(heads){
   // (regla: solo noticias en español, nunca mostrar el inglés de respaldo).
   const map={}; heads.forEach(h=>map[h]=cache[h]||null);
   return map;
+}
+
+// ══════ Resumen diario (GitHub Action) — data/daily-news.json, 1 noticia por empresa ══════
+// Generado una vez al día por .github/workflows/daily-news.yml (scripts/daily-news.mjs), con el
+// mismo criterio de relevancia/impacto que fetchDashNews() más abajo. No depende de la clave de
+// Finnhub del usuario ni de que tenga el navegador abierto: vive en el repo y se sirve estático.
+async function loadDailyDigest(){
+  const el=document.getElementById('dailydigest-list'),sumEl=document.getElementById('dailydigest-summary');
+  if(!el) return;
+  try{
+    const r=await fetch('data/daily-news.json?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok) throw new Error('http '+r.status);
+    _paintDailyDigest(await r.json());
+  }catch(e){
+    el.innerHTML='<div style="padding:14px;text-align:center;color:var(--muted);font-size:11px;">No se ha podido cargar el resumen diario (data/daily-news.json). Lo genera la GitHub Action cada mañana.</div>';
+    if(sumEl) sumEl.textContent='sin datos';
+  }
+}
+function _paintDailyDigest(data){
+  const el=document.getElementById('dailydigest-list'),sumEl=document.getElementById('dailydigest-summary');
+  if(!el) return;
+  const items=(data&&data.items)||[];
+  if(sumEl){
+    const d=data&&data.generatedAt?new Date(data.generatedAt):null;
+    sumEl.textContent=d?('generado '+d.toLocaleDateString('es-ES',{day:'2-digit',month:'short'})+' · '+items.length+' empresa'+(items.length===1?'':'s')):'sin datos todavía';
+  }
+  if(!items.length){
+    el.innerHTML='<div style="padding:14px;text-align:center;color:var(--muted);font-size:11px;">Sin noticias relevantes en el último resumen.</div>';
+    return;
+  }
+  const DOT={pos:'news-dot-pos',neu:'news-dot-neu',neg:'news-dot-neg'};
+  const DOTTIP={pos:'Impacto esperado: positivo para la empresa',neu:'Impacto esperado: neutro / incierto',neg:'Impacto esperado: negativo para la empresa'};
+  el.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">'
+    +items.map(it=>{
+      const logo=it.key?logoUrlFor(it.key):'';
+      return '<a href="'+(it.url||'#')+'" target="_blank" rel="noopener" style="display:block;border:1px solid var(--border);border-radius:10px;padding:9px 10px;background:var(--surface2);text-decoration:none;color:inherit;">'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+        +(logo?'<img src="'+logo+'" style="width:16px;height:16px;border-radius:4px;object-fit:contain;" onerror="this.style.display=\'none\'"/>':'')
+        +'<span style="font-size:10px;font-weight:700;color:var(--sub);">'+(it.name||it.ticker)+'</span>'
+        +'<span style="font-size:9px;color:var(--muted);">'+(it.ticker||'')+'</span>'
+        +'</div>'
+        +'<div style="font-size:11px;line-height:1.4;"><span class="news-dot '+(DOT[it.impact]||DOT.neu)+'" title="'+(DOTTIP[it.impact]||DOTTIP.neu)+'"></span>'+(it.headline||'')+'</div>'
+        +(it.stale?'<div style="font-size:9px;color:var(--muted);margin-top:3px;">noticia previa, no de hoy — hace '+(it.staleDays!=null?it.staleDays:'?')+'d</div>':'')
+        +'</a>';
+    }).join('')
+    +'</div>';
 }
 
 const MIN_NEWS_SCORE=12;      // umbral: por debajo se considera ruido y se descarta
@@ -8997,6 +9056,7 @@ function updateDashCoRow(key,price,pct,change){
   if(typeof populateImportCatalog==='function') populateImportCatalog(); // empresas por nombre en el desplegable
   setTimeout(()=>setView('dash'),0);
   setTimeout(()=>{fetchDashPrices();},400);
+  setTimeout(()=>{loadDailyDigest();},900);
   setTimeout(()=>{fetchDashNews();},1400);
   setTimeout(()=>{ if(typeof paintAutoSyncBtn==='function') paintAutoSyncBtn(); if(typeof maybeAutoSync==='function') maybeAutoSync(); },1800);
 })();
