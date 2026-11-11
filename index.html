@@ -616,7 +616,11 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .cartera-ticker{font-size:9.5px;color:var(--muted);font-weight:600;margin-top:0;line-height:1.3;white-space:nowrap;}
 /* Rendimiento junto al peso de la posición: solo visible en móvil (ver media query), donde
    sustituye a la columna «Mi coste» para ganar espacio horizontal. */
-.cartera-ret-inline{display:none;font-weight:700;}
+.cartera-ret-inline{display:inline;font-weight:700;}
+/* «Mi coste» ya no se pinta como columna propia (precio + rendimiento apilados): el
+   rendimiento se muestra junto al peso de la posición, al lado del ticker (.cartera-ret-inline),
+   tanto en escritorio como en móvil. */
+.col-mi-coste{display:none;}
 .cartera-sector{font-size:10px;color:var(--sub);}
 .cartera-price{font-size:13px;font-weight:600;color:var(--blue);}
 .cartera-vi{font-size:14px;font-weight:600;}
@@ -725,11 +729,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   .c-sub{font-size:8.5px !important;}
   .c-sub2{font-size:7.5px !important;margin-left:3px !important;}
   .cartera-price{font-size:11.5px;}
-  /* ── Columnas «Mi coste» y «Sem.» ocultas en móvil: el precio de compra pasa a verse como
-     rendimiento junto al peso de la posición (ticker), y la semanal (a menudo vacía al cargar)
-     no merece una columna propia — así «Obj. precio» entra en pantalla sin hacer scroll ── */
-  .col-mi-coste,.col-sem{display:none !important;}
-  .cartera-ret-inline{display:inline !important;}
+  /* ── «Sem.» oculta en móvil: llega casi siempre vacía mientras carga y no merece una
+     columna propia — así «Obj. precio» entra en pantalla sin hacer scroll ── */
+  .col-sem{display:none !important;}
 }
 @media (max-width:480px){
   .cartera-co-name{max-width:52px;}
@@ -9593,7 +9595,7 @@ function renderCartera(){
     // muestra el icono 📂 de la última columna — no hace falta repetirlo aquí.
     const peso=(m.buyPrice&&m.mktValue!=null&&totalMkt>0)?(m.mktValue/totalMkt*100):null;
     const pesoBadge=!m.buyPrice?'':`<span id="cwt-${k}" class="c-sub2"${peso==null?' style="color:var(--amber);"':''} title="${peso!=null?(privado()?'Peso':(m.shares+' acciones · valor '+fmtBase(m.mktValue)))+' de tu cartera':'Añade el nº de acciones para ver el peso de la posición'}">${peso!=null?peso.toFixed(0)+'%':'+nº'}</span>`;
-    // En móvil la columna «Mi coste» se oculta (ver CSS .col-mi-coste): el rendimiento se
+    // La columna «Mi coste» ya no se pinta (ver CSS .col-mi-coste): el rendimiento se
     // muestra aquí en su lugar, junto al peso, en verde/rojo.
     const retInline=(m.buyPrice&&m.retPct!=null)?` <span id="cretm-${k}" class="c-sub2 cartera-ret-inline" style="color:${m.retPct>=0?'#16a34a':'#dc2626'};" onclick="event.stopPropagation();setCarteraPos('${k}')" title="Rendimiento sobre tu coste medio · pulsa para editarlo">${sp(m.retPct,0)}</span>`:'';
     const posCell=(()=>{
