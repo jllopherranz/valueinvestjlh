@@ -7243,6 +7243,13 @@ function renderMercat(){
 // gratuitos (ya frágiles de por sí) — exactamente el riesgo que avisaba la propuesta original.
 // Los históricos diarios (tendencias/movers/amplitud/radar) solo cambian una vez al día.
 const _MERCAT_TTL_HIST=4*60*60*1000;
+// Mensaje de error compartido para los widgets de Mercado: cuando fallan los proxies CORS
+// gratuitos (se saturan o empiezan a cobrar sin aviso, ver _mercatFetchHist/fetchDailyHistory),
+// sugiere la vía que sí evita esos proxies — una key gratuita de Twelve Data — en vez de dejar al
+// usuario sin ninguna pista de qué hacer.
+function _mercatErrMsg(txt){
+  return txt+' · <a href="javascript:promptTDKey()" style="color:inherit;text-decoration:underline;">prueba con una clave gratuita de Twelve Data</a>';
+}
 function _mercatCacheGet(key,ttlMs){
   try{
     const raw=JSON.parse(localStorage.getItem('vi_mercat_'+key)||'null');
@@ -7302,12 +7309,18 @@ async function _mercatFetchHist(ticker,range){
   const key='h_'+ticker+'_'+range;
   const cached=_mercatCacheGet(key,_MERCAT_TTL_HIST); if(cached) return cached;
   const outputsize=range==='6mo'?130:range==='2y'?520:260;
-  let fresh=ticker.startsWith('^')?null:await _tdFetchHist(ticker,outputsize); // los índices no los cubre el plan gratis de Twelve Data
+  const isIdx=ticker.startsWith('^'); // los índices no los cubre el plan gratis de Twelve Data, solo su ETF de respaldo
+  const etfTicker=_MERCAT_IDX_ETF[ticker];
+  const tryEtf=async()=>{ if(!etfTicker) return null; const etf=await _tdFetchHist(etfTicker,outputsize); return etf?{...etf,viaEtf:true,etfTicker}:null; };
+  let fresh=isIdx?null:await _tdFetchHist(ticker,outputsize);
+  // Con key de Twelve Data puesta, el ETF de respaldo del índice se prueba ANTES que la lenta
+  // cascada de proxies CORS de Yahoo (hasta 6 intentos en serie, 8s cada uno) — una sola llamada
+  // directa, sin proxy. Antes el ETF solo se probaba como último recurso tras agotar esa cascada,
+  // así que tener key no evitaba la espera larga en los 3 índices, el cuello de botella mayor de
+  // Mercado. Sin key, se mantiene el orden anterior (Yahoo primero, ETF de respaldo al final).
+  if(!fresh&&isIdx&&getTDKey()) fresh=await tryEtf();
   if(!fresh) fresh=await fetchDailyHistory(ticker,range);
-  if(!fresh&&_MERCAT_IDX_ETF[ticker]){
-    const etf=await _tdFetchHist(_MERCAT_IDX_ETF[ticker],outputsize);
-    if(etf) fresh={...etf,viaEtf:true,etfTicker:_MERCAT_IDX_ETF[ticker]};
-  }
+  if(!fresh&&isIdx) fresh=await tryEtf();
   if(fresh&&fresh.closes&&fresh.closes.length) _mercatCacheSet(key,fresh);
   else{ const stale=_mercatCacheGet(key,Infinity); if(stale) return stale; }
   return fresh;
@@ -7322,14 +7335,14 @@ async function renderMercatTrends(force){
   if(_mercatTrendsLoaded&&!force) return;
   _mercatTrendsLoaded=true;
   await Promise.allSettled(MERCAT_IDX.map(async(ix,i)=>{
-    await new Promise(r=>setTimeout(r,i*450)); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
+    if(!getTDKey()) await new Promise(r=>setTimeout(r,i*450)); // escalonado para no saturar los proxies gratuitos — innecesario con key de Twelve Data, que ya se autorregula (_tdThrottled)
     // Se pide 2 años aunque solo se muestre 1: la media de 200 sesiones necesita 200 días previos
     // para empezar a calcularse, así que con solo 1 año de datos la línea solo aparecía en el
     // último tramo del gráfico (los primeros ~200 días no tenían suficiente histórico detrás).
     const histFull=await _mercatFetchHist(ix.t,'2y');
     if(ix.id==='sp500'&&histFull) _mercatSp500Hist=histFull; // reutilizado por el Pulso de mercado, sin otra llamada
     const pxEl=document.getElementById('mi-'+ix.id+'-px'), subEl=document.getElementById('mi-'+ix.id+'-sub'), cv=document.getElementById('mi-'+ix.id+'-chart');
-    if(!histFull||!histFull.closes.length){ if(subEl) subEl.textContent='No se pudo cargar el histórico ahora'; return; }
+    if(!histFull||!histFull.closes.length){ if(subEl) subEl.innerHTML=_mercatErrMsg('No se pudo cargar el histórico ahora'); return; }
     const hist=histFull;
     const dispN=Math.min(260,histFull.closes.length), leadIn=histFull.closes.length-dispN;
     const closes=histFull.closes.slice(-dispN); // ventana mostrada: el último año
@@ -7380,7 +7393,7 @@ function computeDistributionDays(closes,volumes,lookback){
 function renderMercatPulse(){
   const valEl=document.getElementById('mercat-pulse-count'), lblEl=document.getElementById('mercat-pulse-lbl'), needle=document.getElementById('mercat-pulse-needle');
   if(!valEl) return;
-  if(!_mercatSp500Hist||!_mercatSp500Hist.closes||!_mercatSp500Hist.volumes){ valEl.textContent='—'; if(lblEl) lblEl.textContent='No se pudo calcular ahora'; return; }
+  if(!_mercatSp500Hist||!_mercatSp500Hist.closes||!_mercatSp500Hist.volumes){ valEl.textContent='—'; if(lblEl) lblEl.innerHTML=_mercatErrMsg('No se pudo calcular ahora'); return; }
   const n=computeDistributionDays(_mercatSp500Hist.closes,_mercatSp500Hist.volumes,25);
   valEl.textContent=n;
   const lvl=n<=2?['Tranquilo','var(--green)']:n<=4?['Cautela','var(--amber)']:['Bajo presión','var(--red)'];
@@ -7409,7 +7422,7 @@ function renderMercatMovers(){
     const c=h.closes, dp=(c[c.length-1]-c[c.length-2])/c[c.length-2]*100;
     return {...s,dp};
   }).filter(Boolean);
-  if(!rows.length){ box.innerHTML='<span style="color:var(--muted);">No se pudo cargar ahora.</span>'; return; }
+  if(!rows.length){ box.innerHTML='<span style="color:var(--muted);">'+_mercatErrMsg('No se pudo cargar ahora.')+'</span>'; return; }
   rows.sort((a,b)=>b.dp-a.dp);
   const maxAbs=Math.max(1,...rows.map(r=>Math.abs(r.dp)));
   box.innerHTML=rows.map(r=>{
@@ -7476,7 +7489,7 @@ async function renderMercatBreadth(force){
   _mercatBreadthLoaded=true;
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const results=await Promise.allSettled(SECTOR_ETFS.map(async(s,i)=>{
-    await sleep(i*500); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
+    if(!getTDKey()) await sleep(i*500); // escalonado para no saturar los proxies gratuitos — innecesario con key de Twelve Data, que ya se autorregula (_tdThrottled)
     const hist=await _mercatFetchHist(s.t,'1y');
     if(!hist||hist.closes.length<2) return null;
     _mercatSectorHist[s.t]=hist; // reutilizado por Movers y por el Radar de fuerza, sin otra llamada
@@ -7486,7 +7499,8 @@ async function renderMercatBreadth(force){
   }));
   const rows=results.map(r=>r.status==='fulfilled'?r.value:null).filter(Boolean);
   renderMercatMovers();
-  if(!rows.length){ box.innerHTML='<span style="color:var(--muted);">No se pudo calcular ahora.</span>'; return; }
+  renderMercatForce(); // siempre se lanza, aunque Amplitud falle: antes solo se llamaba tras pintar Amplitud con éxito, así que un fallo aquí dejaba Radar de fuerza colgado en "cargando..." para siempre
+  if(!rows.length){ box.innerHTML='<span style="color:var(--muted);">'+_mercatErrMsg('No se pudo calcular ahora.')+'</span>'; return; }
   const aboveSMA50=rows.filter(r=>r.sma50!=null&&r.last>=r.sma50).length;
   const aboveSMA200=rows.filter(r=>r.sma200!=null&&r.last>=r.sma200).length;
   const nearHigh=rows.filter(r=>r.fromHigh>=-2).length;   // a menos del 2% de su máximo 52s
@@ -7503,7 +7517,6 @@ async function renderMercatBreadth(force){
         <span><b style="color:var(--green);font-size:14px;">${nearHigh}</b> cerca de máx. 52s (±2%)</span>
         <span><b style="color:var(--red);font-size:14px;">${nearLow}</b> cerca de mín. 52s (±2%)</span>
       </div>`;
-  renderMercatForce();
 }
 
 // Radar de fuerza: fuerza relativa (RS) a 3 meses de los 11 sectores y de tus empresas (cartera +
@@ -7524,7 +7537,7 @@ async function renderMercatForce(){
   let spHist=_mercatSp500Hist;
   if(!spHist) spHist=await _mercatFetchHist('^GSPC','1y');
   const spRS=spHist?_periodReturnPct(spHist.closes,63):null; // ~3 meses de sesiones
-  if(spRS==null){ box.innerHTML='<span style="color:var(--muted);">No se pudo calcular ahora.</span>'; return; }
+  if(spRS==null){ box.innerHTML='<span style="color:var(--muted);">'+_mercatErrMsg('No se pudo calcular ahora.')+'</span>'; return; }
 
   const sectorRows=SECTOR_ETFS.map(s=>{
     const h=_mercatSectorHist[s.t]; if(!h) return null;
@@ -7535,7 +7548,7 @@ async function renderMercatForce(){
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const companies=getAllPortfolioCompanies();
   const coResults=await Promise.allSettled(companies.map(async(c,i)=>{
-    await sleep(i*450); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
+    if(!getTDKey()) await sleep(i*450); // escalonado para no saturar los proxies gratuitos — innecesario con key de Twelve Data, que ya se autorregula (_tdThrottled)
     const sym=yfSymbolForKey(c.key);
     const h=await _mercatFetchHist(sym,'6mo');
     if(!h||!h.closes.length) return null;
