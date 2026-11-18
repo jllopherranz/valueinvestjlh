@@ -805,6 +805,12 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 /* Dark toggle button */
 #dark-toggle{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);transition:all .15s;}
 #dark-toggle:hover{background:var(--border);color:var(--text);}
+/* Mapa de sectores (Mercado): en escritorio hay bastante ancho pero poca alta, así que los
+   bloques pequeños (sectores con pocas empresas, p.ej. Utilities/Real Estate) quedan ilegibles.
+   Más alto solo a partir de tablet/escritorio; en móvil el ancho ya es el límite, así que no
+   se toca (subir la altura ahí no ayuda al mismo problema). */
+#mercat-heatmap-wrap{height:420px;}
+@media(min-width:769px){ #mercat-heatmap-wrap{height:640px;} }
 /* Hardcoded heading colors in static HTML */
 .dark [style*="color:#1a1814"]{color:var(--text) !important;}
 .dark [style*="background:#fffbeb"]{background:#1a1200 !important;border-color:#5c3d00 !important;color:#bfa060 !important;}
@@ -1092,7 +1098,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <div style="font-size:13px;font-weight:600;color:var(--text);">Mapa de sectores (S&amp;P 500)</div>
       <div style="font-size:9px;color:var(--muted);">tamaño = peso · color = variación del día</div>
     </div>
-    <div id="mercat-heatmap-wrap" style="position:relative;width:100%;height:420px;border-radius:10px;overflow:hidden;"></div>
+    <div id="mercat-heatmap-wrap" style="position:relative;width:100%;border-radius:10px;overflow:hidden;"></div>
   </div>
 
   <!-- ── Tendencia de los índices (gráfico real, no solo el número) ── -->
