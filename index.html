@@ -52,6 +52,9 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .co-btn.active:hover{background:var(--amber);color:#0a0e14;filter:brightness(1.08);}
 .co-btn-primary{border-color:var(--blue);color:var(--blue);}
 .co-btn-primary:hover{background:var(--blue);color:#fff;border-color:var(--blue);}
+.co-btn-icon{padding:7px;gap:0;}
+.co-btn-icon.spinning svg{animation:co-spin .9s linear infinite;}
+@keyframes co-spin{to{transform:rotate(360deg);}}
 .coinfo{font-size:11px;color:var(--muted);}
 .coname{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #hdr-co-row{min-width:0;}
@@ -930,15 +933,17 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <div style="font-size:15px;font-weight:600;color:var(--text);letter-spacing:.01em;">Mi cartera</div>
       <span onclick="showCarteraHelp()" title="¿Qué significa cada columna? Pulsa para ver" style="cursor:pointer;font-size:10px;color:var(--blue);border:1px solid var(--border);border-radius:50%;width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">ⓘ</span>
     </div>
-    <!-- Solo la acción que se usa espontáneamente queda fuera; el resto (mantenimiento ocasional:
-         importar, sincronizar, auto-sync, restaurar, copia) vive en el menú "⋯ Gestionar" para no
-         ocupar una fila entera (en móvil, cada botón caía en su propia línea). -->
+    <!-- Solo las acciones de uso espontáneo quedan fuera (añadir empresa, sincronizar); el resto
+         (mantenimiento ocasional: importar, auto-sync, restaurar, copia) vive en el menú de
+         ajustes (engranaje) para no ocupar una fila entera (en móvil, cada botón caía en su
+         propia línea). Gestionar y Sincronizar son icono-solo para reducir texto (petición Jordi). -->
     <div style="display:flex;gap:8px;align-items:center;position:relative;">
       <button class="co-btn co-btn-primary" onclick="openImportModal('NUEVA')"><span id="aic-add"></span>Añadir empresa</button>
-      <button class="co-btn" onclick="toggleCarteraMenu(event)" title="Importar, sincronizar, copia de seguridad…">⋯ Gestionar</button>
+      <button id="btn-sync-all" class="co-btn co-btn-icon" onclick="refreshAllImports()" title="Sincronizar todas las plantillas" aria-label="Sincronizar todas las plantillas"><span id="aic-syncall"></span><span id="sync-check" style="display:inline-flex;align-items:center;margin-left:2px;"></span></button>
+      <button class="co-btn co-btn-icon" onclick="toggleCarteraMenu(event)" title="Gestionar: importar, auto-sync, copia de seguridad…" aria-label="Gestionar"><span id="aic-gestionar"></span></button>
       <div id="cartera-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:130;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:7px;min-width:235px;">
         <button class="co-btn" style="width:100%;justify-content:flex-start;margin-bottom:4px;" onclick="openImportModal(null)"><span id="aic-imp"></span>Importar Excel</button>
-        <button id="btn-refresh-imports" class="co-btn" style="width:100%;justify-content:flex-start;margin-bottom:4px;" onclick="refreshAllImports()"><span id="aic-sync"></span>Sincronizar con hojas<span id="sync-check" style="display:inline-flex;align-items:center;margin-left:2px;"></span></button>
+        <button id="btn-refresh-imports" class="co-btn" style="width:100%;justify-content:flex-start;margin-bottom:4px;" onclick="refreshAllImports()"><span id="aic-sync"></span>Sincronizar con hojas</button>
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
           <button id="btn-autosync" class="cart-chip" style="flex:1;" onclick="toggleAutoSync()">⏱ Auto: no</button>
           <select id="autosync-hour" class="pf-cur" style="display:none;" onchange="setAutoSyncHour(this.value)" title="Hora a la que se sincroniza sola cada día"></select>
@@ -2579,6 +2584,7 @@ const _ICONS={
   database:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v6a9 3 0 0 0 18 0V5"/><path d="M3 11v6a9 3 0 0 0 18 0v-6"/>',
   lock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   unlock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>',
 };
 function svgIcon(name,cls){return `<svg class="ic${cls?' '+cls:''}" viewBox="0 0 24 24" aria-hidden="true">${_ICONS[name]||''}</svg>`;}
 function getLogoKey(c){return Object.keys(DB).find(k=>DB[k]===c)||'';}
@@ -8985,6 +8991,7 @@ function updateDashCoRow(key,price,pct,change){
   const _setIc=(id,name)=>{const e=document.getElementById(id);if(e)e.innerHTML=svgIcon(name,'ic-lg');};
   _setIc('brand-ic','activity'); _setIc('nic-dash','briefcase'); _setIc('nic-watch','eye'); _setIc('nic-mercat','barchart'); _setIc('nic-anly','activity');
   _setIc('aic-add','plus'); _setIc('aic-imp','folder'); _setIc('aic-sync','refresh'); _setIc('aic-restore','refresh'); _setIc('aic-backup','share');
+  _setIc('aic-syncall','refresh'); _setIc('aic-gestionar','settings');
   _paintPrivadoBtn(); document.documentElement.classList.toggle('privado',privado());
   BUILTIN_KEYS=new Set(Object.keys(DB));        // empresas de fábrica
   _BUILTIN_DB={...DB};                            // snapshot para restaurar ocultas
@@ -11385,8 +11392,10 @@ async function refreshAllImports(auto){
   }
   refreshAllImports._running=true;
   const btn=document.getElementById('btn-refresh-imports');
+  const btnAll=document.getElementById('btn-sync-all');
   const origHTML=btn?btn.innerHTML:'';
   if(btn) btn.disabled=true;
+  if(btnAll){ btnAll.disabled=true; btnAll.classList.add('spinning'); }
   const activeKey=coKeyOf(co);
   const t0=Date.now();
   const queue=keys.slice(), done=[], results=[];
@@ -11427,6 +11436,7 @@ async function refreshAllImports(auto){
   rebuildCoButtons(); renderCartera();
   if(typeof curTab!=='undefined' && document.getElementById('cnt')) showTab(curTab);
   if(btn){ btn.innerHTML=origHTML; btn.disabled=false; }
+  if(btnAll){ btnAll.disabled=false; btnAll.classList.remove('spinning'); }
   paintAutoSyncBtn();
   refreshAllImports._running=false;
 
