@@ -6735,6 +6735,13 @@ function rDatosAnalisis(){
   const cx=cxHasHist?cxHistSeries[9]:((co.isD&&co.isD.cx)?co.isD.cx[0]:null);
   const cxT=cxHasHist?_diff(cxHistSeries[9],cxHistSeries[4]):null;
   const capexG5=(co.capex&&co.capex[9]!=null&&co.capex[4]!=null)?cagr(co.capex[9],co.capex[4],5):null;
+  // CapEx / CFO: qué parte del flujo de caja operativo se queda reinvertida en CapEx antes de
+  // llegar al FCF libre. Requiere las dos filas reales de tu Excel (CapEx y Operating Cash Flow en
+  // 2.FCF) — si tu hoja no las trae, esta tarjeta simplemente no aparece (nada de inventar el dato).
+  const eatsCfoSeries=(co.capex&&co.cfo)?co.capex.map((v,i)=>(v!=null&&co.cfo[i]>0)?+(v/co.cfo[i]*100).toFixed(1):null):[];
+  const eatsCfoHasHist=eatsCfoSeries.some(v=>v!=null);
+  const eatsCfo=eatsCfoHasHist?eatsCfoSeries[9]:null;
+  const eatsCfoT=eatsCfoHasHist?_diff(eatsCfoSeries[9],eatsCfoSeries[4]):null;
   const spread=co.roic[9]!=null?co.roic[9]-co.wacc:null, roicT=_diff(co.roic[9],co.roic[4]), roicBelow=cnt(co.roic,v=>v!=null&&v<co.wacc);
   const evfcfAct=Math.round((price*co.shares+co.netDebt[9])/co.fcf[9]);
   const med5evf=co.med5EvFcf||co.medEvFcf, multPrem=med5evf?Math.round((evfcfAct-med5evf)/med5evf*100):null;
@@ -6769,7 +6776,8 @@ function rDatosAnalisis(){
      {icon:'🪙',label:'FCF por acción',value:curSymG()+N(co.fcfps[9],2),series:co.fcfps,color:'#16a34a',status:negFcf>=2?'neg':(co.fcf[9]>0?'pos':'warn'),why:'El FCF repartido entre acciones — compáralo con el EPS: si el FCF/acc. es menor, el beneficio contable no se está convirtiendo del todo en caja.',watch:'FCF/acción '+curSymG()+N(co.fcfps[9],2)+' vs EPS '+curSymG()+N(co.eps[9],2)+': '+(co.fcfps[9]>=co.eps[9]?'convierte el beneficio en caja real (o más).':'convierte menos caja que beneficio contable — vigila la calidad del beneficio.'),bench:'creciente'},
      {icon:'💦',label:'Margen FCF',value:P(co.fcfM[9])+' ('+_pp(fcfMT)+' 5Y)',series:co.fcfM,color:'#16a34a',status:co.fcfM[9]>=15?'pos':co.fcfM[9]>=8?'warn':'neg',why:'Qué % de cada euro de ventas acaba en caja libre. Más alto = más eficiente.',watch:'Tendencia 5Y: '+_pp(fcfMT)+'. Frente al sector ('+s.fcfMg+'%), tu margen FCF está '+((co.fcfM[9]-s.fcfMg)>=0?'+':'')+(co.fcfM[9]-s.fcfMg).toFixed(0)+'pp.',bench:'>15%',sectorField:'fcfMg',sectorValue:co.fcfM[9],sectorUnit:'%'},
      {icon:'💎',label:'Calidad del beneficio (FCF/Bº)',value:(q.ratio*100).toFixed(0)+'% · '+q.label,color:q.color,status:q.ratio>=0.85?'pos':q.ratio>=0.7?'warn':'neg',why:'Cuánto del beneficio contable se convierte en caja real. Si es bajo, el beneficio es "de papel".',watch:'FCF medio 5Y '+curSymG()+N(q.totalFCF)+'M vs beneficio medio 5Y '+curSymG()+N(q.totalNI)+'M → conversión del '+(q.ratio*100).toFixed(0)+'%.',bench:'>85%'},
-     ...(cx!=null?[{icon:'🔨',label:'CapEx / Ventas',value:cx+'%'+(cxT!=null?' ('+_pp(cxT)+' 5Y)':''),series:cxHasHist?cxHistSeries:undefined,color:'#b45309',status:cx<5?'pos':cx<12?'warn':'neg',why:'Cuánto reinvierte en activos para operar. Bajo = negocio "ligero" que retiene más caja.',watch:(cx>=12?('CapEx del '+cx+'% de las ventas — capital intensivo; mira si esa inversión se refleja luego en ROIC/FCF.'):('CapEx del '+cx+'% de las ventas — negocio ligero en activos.'))+(cxHasHist?(' Tendencia 5Y: '+_pp(cxT)+'.'+(capexG5!=null?(' CapEx creció '+(capexG5>=0?'+':'')+capexG5.toFixed(0)+'%/año frente a ventas '+(salesG5>=0?'+':'')+salesG5.toFixed(0)+'%/año.'):'')):' Dato estimado de tu simulador (sin histórico real de CapEx disponible para esta empresa).'),bench:'<5%'}]:[])
+     ...(cx!=null?[{icon:'🔨',label:'CapEx / Ventas',value:cx+'%'+(cxT!=null?' ('+_pp(cxT)+' 5Y)':''),series:cxHasHist?cxHistSeries:undefined,color:'#b45309',status:cx<5?'pos':cx<12?'warn':'neg',why:'Cuánto reinvierte en activos para operar. Bajo = negocio "ligero" que retiene más caja.',watch:(cx>=12?('CapEx del '+cx+'% de las ventas — capital intensivo; mira si esa inversión se refleja luego en ROIC/FCF.'):('CapEx del '+cx+'% de las ventas — negocio ligero en activos.'))+(cxHasHist?(' Tendencia 5Y: '+_pp(cxT)+'.'+(capexG5!=null?(' CapEx creció '+(capexG5>=0?'+':'')+capexG5.toFixed(0)+'%/año frente a ventas '+(salesG5>=0?'+':'')+salesG5.toFixed(0)+'%/año.'):'')):' Dato estimado de tu simulador (sin histórico real de CapEx disponible para esta empresa).'),bench:'<5%'}]:[]),
+     ...(eatsCfo!=null?[{icon:'🕳️',label:'CapEx / Flujo operativo (CFO)',value:eatsCfo+'%'+(eatsCfoT!=null?' ('+_pp(eatsCfoT)+' 5Y)':''),series:eatsCfoSeries,color:'#7c3aed',status:eatsCfo<40?'pos':eatsCfo<70?'warn':'neg',why:'Qué parte del flujo de caja que genera el negocio se queda reinvertida en CapEx antes de convertirse en caja libre. Cerca del 100% = casi todo el FCF desaparece en inversión.',watch:'El CapEx se comió el '+eatsCfo+'% del flujo de caja operativo este año'+(eatsCfoT!=null?' (hace 5 años era '+eatsCfoSeries[4]+'%, '+_pp(eatsCfoT)+' de cambio).':'.')+(eatsCfo>=70?' Casi todo el flujo operativo se reinvierte — vigila si eso se traduce en crecimiento real de ventas/ROIC, o si simplemente se está comiendo el FCF.':''),bench:'<40%'}]:[])
    ]},
    {title:'💰 Balance y valoración',sheet:'4.Valoracion',items:[
      {icon:'🏆',label:'EV/FCF actual vs mediana',value:evfcfAct+'x vs '+Math.round(med5evf)+'x'+(multPrem!=null?' ('+(multPrem>=0?'+':'')+multPrem+'%)':''),color:multPrem!=null&&multPrem<=0?'#16a34a':'#dc2626',status:multPrem==null?'warn':multPrem<=0?'pos':multPrem<=20?'warn':'neg',why:'Cómo de caro cotiza hoy frente a su propia media histórica.',watch:(multPrem>20?('Prima del '+multPrem+'% sobre tu propia mediana ('+Math.round(med5evf)+'x): el mercado descuenta bastante optimismo.'):('A '+(multPrem>=0?'+':'')+multPrem+'% de tu propia mediana ('+Math.round(med5evf)+'x).'))+' Frente al sector (EV/FCF '+s.evfRef+'x), tu múltiplo actual ('+evfcfAct+'x) está '+((evfcfAct-s.evfRef)>=0?'+':'')+(evfcfAct-s.evfRef).toFixed(1)+'x.',bench:'≤ mediana',sectorField:'evfRef',sectorValue:evfcfAct,sectorUnit:'x',sectorInvert:true},
@@ -6850,7 +6858,7 @@ function rDatosAnalisis(){
          </div>
          <div style="font-size:11px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};margin-top:4px;line-height:1.3;">${it.value}</div>
          ${yoyTxt?`<div style="font-size:9.5px;font-weight:700;color:${yoyCol};margin-top:2px;">${yoyTxt} vs año anterior</div>`:''}
-         ${it.series?(()=>{const cu=/Margen|ROIC|Tendencia|CapEx \/ Ventas/.test(it.label)?'%':/EPS|Beneficio|por acción/.test(it.label)?'$':'M';
+         ${it.series?(()=>{const cu=/Margen|ROIC|Tendencia|CapEx \//.test(it.label)?'%':/EPS|Beneficio|por acción/.test(it.label)?'$':'M';
            return`<div style="margin-top:auto;padding-top:6px;" data-cs="${it.series.map(v=>v==null?'':v).join(',')}" data-cu="${cu}" data-cl="${it.label}" data-color="${it.color||m.c}" onclick="event.stopPropagation();openMetricChart(this)" title="Toca para ampliar el gráfico">${sparkFull(it.series,it.color||m.c)}</div>`;})():''}
        </div>`;}).join('')}
      </div>
@@ -10806,7 +10814,10 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
     for(let i=from;i<data.length;i++){
       const c=data[i]?.[0];
       if(!c) continue;
-      const t=String(c).trim().toLowerCase();
+      // Quita el prefijo de signo contable ("(-) ", "(+) ") antes de comparar: si no, una fila
+      // como "(-) CapEx Mantenimiento" no cuenta como "empieza por CapEx" y pierde frente a una
+      // fila de ratio tipo "CapEx Mantenimiento / Ventas", que sí "empieza por" el texto buscado.
+      const t=String(c).trim().toLowerCase().replace(/^\(?[+-]\)?\s*/,'');
       if(t===lc) return data[i];                       // exacta: gana siempre
       if(starts===null&&t.startsWith(lc)) starts=data[i];
       if(has===null&&t.includes(lc)) has=data[i];
