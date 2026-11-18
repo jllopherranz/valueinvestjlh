@@ -7309,12 +7309,18 @@ async function _mercatFetchHist(ticker,range){
   const key='h_'+ticker+'_'+range;
   const cached=_mercatCacheGet(key,_MERCAT_TTL_HIST); if(cached) return cached;
   const outputsize=range==='6mo'?130:range==='2y'?520:260;
-  let fresh=ticker.startsWith('^')?null:await _tdFetchHist(ticker,outputsize); // los índices no los cubre el plan gratis de Twelve Data
+  const isIdx=ticker.startsWith('^'); // los índices no los cubre el plan gratis de Twelve Data, solo su ETF de respaldo
+  const etfTicker=_MERCAT_IDX_ETF[ticker];
+  const tryEtf=async()=>{ if(!etfTicker) return null; const etf=await _tdFetchHist(etfTicker,outputsize); return etf?{...etf,viaEtf:true,etfTicker}:null; };
+  let fresh=isIdx?null:await _tdFetchHist(ticker,outputsize);
+  // Con key de Twelve Data puesta, el ETF de respaldo del índice se prueba ANTES que la lenta
+  // cascada de proxies CORS de Yahoo (hasta 6 intentos en serie, 8s cada uno) — una sola llamada
+  // directa, sin proxy. Antes el ETF solo se probaba como último recurso tras agotar esa cascada,
+  // así que tener key no evitaba la espera larga en los 3 índices, el cuello de botella mayor de
+  // Mercado. Sin key, se mantiene el orden anterior (Yahoo primero, ETF de respaldo al final).
+  if(!fresh&&isIdx&&getTDKey()) fresh=await tryEtf();
   if(!fresh) fresh=await fetchDailyHistory(ticker,range);
-  if(!fresh&&_MERCAT_IDX_ETF[ticker]){
-    const etf=await _tdFetchHist(_MERCAT_IDX_ETF[ticker],outputsize);
-    if(etf) fresh={...etf,viaEtf:true,etfTicker:_MERCAT_IDX_ETF[ticker]};
-  }
+  if(!fresh&&isIdx) fresh=await tryEtf();
   if(fresh&&fresh.closes&&fresh.closes.length) _mercatCacheSet(key,fresh);
   else{ const stale=_mercatCacheGet(key,Infinity); if(stale) return stale; }
   return fresh;
@@ -7329,7 +7335,7 @@ async function renderMercatTrends(force){
   if(_mercatTrendsLoaded&&!force) return;
   _mercatTrendsLoaded=true;
   await Promise.allSettled(MERCAT_IDX.map(async(ix,i)=>{
-    await new Promise(r=>setTimeout(r,i*450)); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
+    if(!getTDKey()) await new Promise(r=>setTimeout(r,i*450)); // escalonado para no saturar los proxies gratuitos — innecesario con key de Twelve Data, que ya se autorregula (_tdThrottled)
     // Se pide 2 años aunque solo se muestre 1: la media de 200 sesiones necesita 200 días previos
     // para empezar a calcularse, así que con solo 1 año de datos la línea solo aparecía en el
     // último tramo del gráfico (los primeros ~200 días no tenían suficiente histórico detrás).
@@ -7483,7 +7489,7 @@ async function renderMercatBreadth(force){
   _mercatBreadthLoaded=true;
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const results=await Promise.allSettled(SECTOR_ETFS.map(async(s,i)=>{
-    await sleep(i*500); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
+    if(!getTDKey()) await sleep(i*500); // escalonado para no saturar los proxies gratuitos — innecesario con key de Twelve Data, que ya se autorregula (_tdThrottled)
     const hist=await _mercatFetchHist(s.t,'1y');
     if(!hist||hist.closes.length<2) return null;
     _mercatSectorHist[s.t]=hist; // reutilizado por Movers y por el Radar de fuerza, sin otra llamada
@@ -7542,7 +7548,7 @@ async function renderMercatForce(){
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const companies=getAllPortfolioCompanies();
   const coResults=await Promise.allSettled(companies.map(async(c,i)=>{
-    await sleep(i*450); // escalonado más holgado: los proxies gratuitos (allorigins) se limitan rápido con ráfagas
+    if(!getTDKey()) await sleep(i*450); // escalonado para no saturar los proxies gratuitos — innecesario con key de Twelve Data, que ya se autorregula (_tdThrottled)
     const sym=yfSymbolForKey(c.key);
     const h=await _mercatFetchHist(sym,'6mo');
     if(!h||!h.closes.length) return null;
