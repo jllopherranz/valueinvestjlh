@@ -10162,11 +10162,16 @@ function renderTodayPanel(rows){
   // así sale "lo más importante de los últimos días", no un titular suelto de cada empresa.
   const NEWS_DESTACADAS_H=96;
   const _nHrs=c=>c.n.datetime?(Date.now()-c.n.datetime*1000)/3600000:1e9;
-  const newsToday=(typeof _dashAllNews!=='undefined'?_dashAllNews:[])
+  // Reserva de hasta 18 candidatas (se muestran como mucho 6): antes, si el titular nº1 o 2 por
+  // relevancia no tenía traducción en caché todavía, la tarjeta lo mostraba en inglés como
+  // respaldo. Ahora se descarta y se rellena con el siguiente de la reserva, para no perder
+  // noticias importantes solo porque su traducción tarde o falle.
+  const newsPool=(typeof _dashAllNews!=='undefined'?_dashAllNews:[])
     .flatMap(g=>g.items.map(c=>({co:g.co,n:c.n,impact:c.impact,score:c.score})))
     .filter(c=>_nHrs(c)<=NEWS_DESTACADAS_H)
     .sort((a,b)=>(b.score||0)-(a.score||0)||(b.n.datetime||0)-(a.n.datetime||0))
-    .slice(0,6);
+    .slice(0,18);
+  const newsToday=newsPool.filter(c=>trCache[c.n.headline]).slice(0,6);
   const dLblShort=d=>{const diff=Math.ceil((d-now)/86400000);return diff<=0?'HOY':diff===1?'mañana':'en '+diff+'d';};
   const IMPACT_COL={pos:'var(--green)',neg:'var(--red)',neu:'var(--muted)'};
   // Igual que Caídas/Subidas: plegable con toggleSec, por si no quieres verlas siempre — pero
@@ -10186,15 +10191,18 @@ function renderTodayPanel(rows){
   // titular a 40 caracteres para caber en la misma columna estrecha que Caídas/Subidas.
   const earnCard=foldCard('earnsoon','Próximos resultados',earnSoon.length,'en los próximos 7 días',
     earnSoon.length?earnSoon.map(e=>item({co:e.co},'Reporta '+dLblShort(new Date(e.date)),'var(--blue)')).join(''):`<div class="today-empty">Nadie reporta esta semana.</div>`);
-  const newsBody=(newsToday.length?newsToday.map(c=>{
-        const head=trCache[c.n.headline]||c.n.headline;
-        return `<a class="today-news-item" onclick="setView('analysis');setTimeout(()=>{if(DB['${c.co.key}'])switchCo('${c.co.key}');},80);">
-          <span class="today-nh-head"><span class="today-k" style="color:${c.co.color};">${c.co.key}</span>
-          <span class="today-n" style="flex:0;white-space:nowrap;" title="${c.co.name}">${shortCoName(c.co.name)}</span></span>
-          <span class="today-nh" style="color:${IMPACT_COL[c.impact]||'var(--muted)'};">${head}</span></a>`;
-      }).join(''):`<div class="today-empty">Nada destacado por ahora.</div>`)
+  const newsItemHtml=c=>{
+    const head=trCache[c.n.headline];
+    return `<a class="today-news-item" onclick="setView('analysis');setTimeout(()=>{if(DB['${c.co.key}'])switchCo('${c.co.key}');},80);">
+      <span class="today-nh-head"><span class="today-k" style="color:${c.co.color};">${c.co.key}</span>
+      <span class="today-n" style="flex:0;white-space:nowrap;" title="${c.co.name}">${shortCoName(c.co.name)}</span></span>
+      <span class="today-nh" style="color:${IMPACT_COL[c.impact]||'var(--muted)'};">${head}</span></a>`;
+  };
+  const newsEmptyHtml=newsPool.length?'<div class="today-empty">Traduciendo…</div>':'<div class="today-empty">Nada destacado por ahora.</div>';
+  const newsBodyInner=(newsToday.length?newsToday.map(newsItemHtml).join(''):newsEmptyHtml)
     +`<span class="val-expand" onclick="scrollToMarketNews()">ver todas las noticias del mercado →</span>`;
-  const newsCard=foldCard('newsdestacadas','Noticias destacadas',newsToday.length,'lo más relevante de los últimos días',newsBody,true);
+  const newsBody=`<div id="newsdestacadas-items">${newsBodyInner}</div>`;
+  const newsCard=foldCard('newsdestacadas','Noticias destacadas','<span id="newsdestacadas-count">'+newsToday.length+'</span>','lo más relevante de los últimos días',newsBody,true);
   const valMapHtml=buildValuationMap(rows);
   const open=_secOpen('today',false);
   const totalItems=caidas.length+subidas.length+earnSoon.length+newsToday.length;
@@ -10212,6 +10220,34 @@ function renderTodayPanel(rows){
       ${newsCard}
     </div>
   </div>`;
+  // La traducción de lo que faltaba en caché es asíncrona (red); si al terminar cambia qué
+  // titulares se pueden mostrar (alguno se tradujo, o definitivamente no se pudo tras los
+  // reintentos de _translateNews), se repinta solo esta tarjeta — nunca el inglés de respaldo.
+  _refreshNewsDestacadas(newsPool,newsToday);
+}
+// Traduce en segundo plano la reserva completa de "Noticias destacadas" y, si el resultado
+// (hasta 6 titulares traducidos, por relevancia) difiere de lo que ya se pintó, repinta solo
+// esa tarjeta. Así una noticia importante que tarda en traducirse no se pierde ni se muestra en
+// inglés: aparece en cuanto está lista, sacada de la misma reserva de hasta 18 candidatas.
+async function _refreshNewsDestacadas(pool,shownBefore){
+  if(!pool.length) return;
+  const needsWork=pool.some(c=>{let cache={};try{cache=JSON.parse(localStorage.getItem('vi_news_es')||'{}');}catch(e){} return !cache[c.n.headline];});
+  if(!needsWork) return;
+  const tr=await _translateNews(pool.map(c=>c.n.headline));
+  const shownAfter=pool.filter(c=>tr[c.n.headline]).slice(0,6);
+  const same=shownAfter.length===shownBefore.length&&shownAfter.every((c,i)=>c.n.headline===shownBefore[i].n.headline);
+  if(same) return;
+  const itemsEl=document.getElementById('newsdestacadas-items');
+  if(!itemsEl) return;   // la portada ya no está pintada (cambio de vista, etc.)
+  const IMPACT_COL={pos:'var(--green)',neg:'var(--red)',neu:'var(--muted)'};
+  const itemHtml=c=>`<a class="today-news-item" onclick="setView('analysis');setTimeout(()=>{if(DB['${c.co.key}'])switchCo('${c.co.key}');},80);">
+    <span class="today-nh-head"><span class="today-k" style="color:${c.co.color};">${c.co.key}</span>
+    <span class="today-n" style="flex:0;white-space:nowrap;" title="${c.co.name}">${shortCoName(c.co.name)}</span></span>
+    <span class="today-nh" style="color:${IMPACT_COL[c.impact]||'var(--muted)'};">${tr[c.n.headline]}</span></a>`;
+  itemsEl.innerHTML=(shownAfter.length?shownAfter.map(itemHtml).join(''):'<div class="today-empty">Nada destacado por ahora.</div>')
+    +`<span class="val-expand" onclick="scrollToMarketNews()">ver todas las noticias del mercado →</span>`;
+  const cntEl=document.getElementById('newsdestacadas-count');
+  if(cntEl) cntEl.textContent=String(shownAfter.length);
 }
 
 // ── Multiple sliders ──
