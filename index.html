@@ -6834,6 +6834,20 @@ function rDatosAnalisis(){
        </div>
      </div>
    </div>`;})()}
+   ${(()=>{
+     // Gráfico aparte (no por tarjeta): ventas + EBIT, histórico y proyección de analistas en el
+     // mismo gráfico — mismo patrón que ya usa Gráficos (barras más claras para lo proyectado).
+     // El EBIT proyectado no viene directo del Excel (solo trae EBITDA proyectado): se estima
+     // aplicando el ratio EBIT/EBITDA actual, igual que ya hace el gráfico de márgenes de Gráficos.
+     const hasProjD=co.pS&&co.pEB&&co.pY;
+     const ebRatioD=co.ebitda[9]>0?(co.ebit[9]/co.ebitda[9]):0.85;
+     return`<div class="card" style="margin-bottom:10px;">
+       <div class="ctitle">Proyección de ventas y EBIT${hasProjD?' <span style="font-size:9px;font-weight:600;color:var(--muted);">tu Excel / consenso de analistas</span>':''}</div>
+       <div style="position:relative;height:220px;"><canvas id="c-dan-proj"></canvas></div>
+       <div style="font-size:9.5px;color:var(--muted);margin-top:6px;line-height:1.4;">${hasProjD
+         ?('Barras claras = años proyectados (del año '+co.pY[0]+'). El EBIT proyectado se estima aplicando el ratio EBIT/EBITDA actual ('+(ebRatioD*100).toFixed(0)+'%) sobre el EBITDA proyectado de tu Excel — no viene como dato directo.')
+         :'Esta empresa no tiene ventas/EBITDA proyectados en tu Excel — se muestra solo el histórico.'}</div>
+     </div>`;})()}
    ${(()=>{_danItems=[];return blocks.map(b=>`<div class="card" style="margin-bottom:10px;">
      <div class="ctitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">${b.title}<span style="font-size:9px;font-weight:600;color:var(--muted);background:#f0ede8;padding:2px 7px;border-radius:8px;white-space:nowrap;">hoja ${b.sheet}</span></div>
      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
@@ -6959,6 +6973,20 @@ function buildCharts(tab){
   }
   if(tab==='datos'){
     setTimeout(()=>renderCentroDatosLive(),80);   // ratios adicionales en vivo (Finnhub)
+    const c5=document.getElementById('c-dan-proj');
+    if(c5){
+      const hasProjD=co.pS&&co.pEB&&co.pY;
+      const histND=co.years.length;
+      const ebRatioD=co.ebitda[9]>0?(co.ebit[9]/co.ebitda[9]):0.85;
+      const dLabels=[...co.years.map(String),...(hasProjD?co.pY.map(y=>y+'e'):[])];
+      const dSales=[...co.sales,...(hasProjD?co.pS:[])];
+      const dEbit=[...co.ebit,...(hasProjD?co.pEB.map(v=>v!=null?+(v*ebRatioD).toFixed(0):null):[])];
+      const barShadeD=(base,n)=>Array.from({length:n},(_,i)=>i<histND?base:base+'80');
+      charts.danProj=new Chart(c5,{type:'bar',data:{labels:dLabels,datasets:[
+        {label:'Ventas ('+cs+'M)',data:dSales,backgroundColor:barShadeD('#2563eb',dSales.length),borderRadius:4},
+        {label:'EBIT ('+cs+'M)',data:dEbit,backgroundColor:barShadeD('#d97706',dEbit.length),borderRadius:4},
+      ]},options:{...baseOpts,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v>=1000||v<=-1000?cs+(v/1000).toFixed(0)+'K':cs+v}}}}});
+    }
   }
   if(tab==='valoracion'){
     setTimeout(()=>buildMultHistChart(),60);
