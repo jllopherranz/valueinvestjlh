@@ -10230,7 +10230,7 @@ function renderTodayPanel(rows){
     earnSoon.length?earnSoon.map(e=>item({co:e.co},'Reporta '+dLblShort(new Date(e.date)),'var(--blue)')).join(''):`<div class="today-empty">Nadie reporta esta semana.</div>`);
   const newsItemHtml=c=>{
     const head=trCache[c.n.headline];
-    return `<a class="today-news-item" onclick="setView('analysis');setTimeout(()=>{if(DB['${c.co.key}'])switchCo('${c.co.key}');},80);">
+    return `<a class="today-news-item" href="${c.n.url||'#'}" target="_blank" rel="noopener">
       <span class="today-nh-head"><span class="today-k" style="color:${c.co.color};">${c.co.key}</span>
       <span class="today-n" style="flex:0;white-space:nowrap;" title="${c.co.name}">${shortCoName(c.co.name)}</span></span>
       <span class="today-nh" style="color:${IMPACT_COL[c.impact]||'var(--muted)'};">${head}</span></a>`;
@@ -10277,7 +10277,7 @@ async function _refreshNewsDestacadas(pool,shownBefore){
   const itemsEl=document.getElementById('newsdestacadas-items');
   if(!itemsEl) return;   // la portada ya no está pintada (cambio de vista, etc.)
   const IMPACT_COL={pos:'var(--green)',neg:'var(--red)',neu:'var(--muted)'};
-  const itemHtml=c=>`<a class="today-news-item" onclick="setView('analysis');setTimeout(()=>{if(DB['${c.co.key}'])switchCo('${c.co.key}');},80);">
+  const itemHtml=c=>`<a class="today-news-item" href="${c.n.url||'#'}" target="_blank" rel="noopener">
     <span class="today-nh-head"><span class="today-k" style="color:${c.co.color};">${c.co.key}</span>
     <span class="today-n" style="flex:0;white-space:nowrap;" title="${c.co.name}">${shortCoName(c.co.name)}</span></span>
     <span class="today-nh" style="color:${IMPACT_COL[c.impact]||'var(--muted)'};">${tr[c.n.headline]}</span></a>`;
