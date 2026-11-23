@@ -10323,8 +10323,13 @@ function _parseYF(data){
   const meta=q.meta;
   let c=meta.regularMarketPrice||meta.previousClose;
   let pc=meta.previousClose||meta.chartPreviousClose;
-  const closes=(q.indicators?.quote?.[0]?.close||[]);
-  let oldest=closes.find(v=>v!=null);
+  // "Semana" = 5 SESIONES de mercado hacia atrás, no 5 días naturales (con fin de semana/festivo
+  // de por medio, un rango de 5 días naturales puede traer solo 3-4 sesiones reales y
+  // subestimar la caída/subida real — justo el fallo que hacía que "Caídas de la semana" se
+  // quedara vacía con movimientos reales de sobra). Con closesRaw ya filtrado de nulos, el cierre
+  // de hace 5 sesiones es el 6º empezando por el final.
+  const closesRaw=(q.indicators?.quote?.[0]?.close||[]).filter(v=>v!=null);
+  let oldest=closesRaw.length>=6?closesRaw[closesRaw.length-6]:null;
   // Divisa DECLARADA POR LA FUENTE: es la única forma fiable de saber en qué moneda
   // está el precio (Londres cotiza en peniques, 'GBp' → se pasa a libras).
   let cur=meta.currency||null, div=1;
@@ -10335,7 +10340,10 @@ function _parseYF(data){
   return (c>0)?{c,dp,wp,cur,sym:meta.symbol||null,exch:meta.fullExchangeName||meta.exchangeName||null}:null;
 }
 async function fetchQuoteYF(ticker){
-  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
+  // range=1mo (no 5d): 5 días NATURALES a veces solo traía 3-4 sesiones reales con un festivo o
+  // fin de semana de por medio, y _parseYF necesita al menos 6 cierres para calcular la variación
+  // de 5 sesiones completas (ver _parseYF). 1 mes da margen de sobra en cualquier calendario.
+  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1mo`;
   // Orden verificado en navegador real (10-nov-2026): corsproxy.io exige API key de pago desde 2026
   // (401 inmediato) y codetabs se queda colgado sin responder — probarlos primero solo añadía
   // segundos muertos antes de llegar al único que de verdad responde. allorigins/get va primero.
