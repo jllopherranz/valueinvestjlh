@@ -985,9 +985,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
           <th style="text-align:right;" data-sort="price" onclick="sortCartera('price')">Precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','precio',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
           <th class="col-mi-coste" style="text-align:right;" data-sort="retPct" onclick="sortCartera('retPct')">Mi coste <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','coste',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">rdto.</span></th>
           <th class="col-sem" style="text-align:right;" data-sort="weeklyPct" onclick="sortCartera('weeklyPct')">Sem. <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','sem',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span></th>
-          <th style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));" data-sort="mds" onclick="sortCartera('mds')">Obj. precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
+          <th style="text-align:center;background:color-mix(in srgb, var(--amber) 5%, var(--surface));" data-sort="mds" onclick="sortCartera('mds')">Obj. precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
           <th style="text-align:right;" data-sort="mds15" onclick="sortCartera('mds15')">Entrada <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','entrada',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
-          <th style="text-align:right;" data-sort="cagr5" onclick="sortCartera('cagr5')">Obj. 5Y <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj5',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">promedio · ret. anual</span></th>
+          <th style="text-align:center;background:color-mix(in srgb, var(--amber) 5%, var(--surface));" data-sort="cagr5" onclick="sortCartera('cagr5')">Obj. 5Y <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj5',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">promedio · ret. anual</span></th>
           <th style="text-align:center;" data-sort="peg" onclick="sortCartera('peg')">PEG <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','peg',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span></th>
           <th style="text-align:center;" data-sort="score" onclick="sortCartera('score')">Veredicto <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','veredicto',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">score /100</span></th>
           <th class="col-cal" style="text-align:right;" data-sort="roic5" onclick="sortCartera('roic5')">ROIC 5Y <span class="sort-ind"></span></th>
@@ -9711,7 +9711,7 @@ function renderCartera(){
   <td class="col-sem" style="text-align:right;">
     <div id="cweek-${k}" style="font-size:11.5px;font-weight:600;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
   </td>
-  <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">
+  <td style="text-align:center;background:color-mix(in srgb, var(--amber) 5%, var(--surface));">
     <div id="cobjevf-${k}" style="font-size:13px;font-weight:600;color:var(--text);">${fmt(m.objEVF,k)}</div>
     <div class="c-sub" id="cmds-${k}" style="color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</div>
   </td>
@@ -9719,7 +9719,7 @@ function renderCartera(){
     <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'var(--text)'};">${fmt(m.price15,k)}</div>
     <div class="c-sub" id="cmds15-${k}" style="color:${mdsCol(m.mds15)};">${m.mds15!=null?sp(m.mds15,0)+' MdS':'—'}</div>
   </td>
-  <td style="text-align:right;">
+  <td style="text-align:center;background:color-mix(in srgb, var(--amber) 5%, var(--surface));">
     <div id="cobj5-${k}" style="font-size:12.5px;font-weight:700;color:var(--navy);">${fmt(m.obj5,k)}</div>
     <div class="c-sub" id="cret-${k}" style="color:${retCol(m.cagr5)};">${m.cagr5!=null?sp(m.cagr5,0)+'/año':''}</div>
   </td>
@@ -10626,28 +10626,48 @@ function renderSeasonality(closes,times){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:9}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:9},callback:v=>v+'%'}}}}});
 }
 
+// Descarga precio/%diario/%semanal de una empresa y actualiza su fila. Devuelve si quedó
+// sin %diario (dp==null), para poder reintentarla aparte — ver fetchCarteraPrices.
+async function _fetchOneCarteraPrice(co,fhKey){
+  const yfT=yfSymbolForKey(co.key);
+  // Yahoo (gratis) da el último CIERRE diario, la variación semanal y —clave— LA DIVISA
+  let yq=null; try{ yq=await fetchQuoteYF(yfT); }catch(e){}
+  const curNueva=!!(yq&&yq.cur&&setDetectedCur(co.key,yq.cur,yq.sym));
+  let c=yq?yq.c:null, dp=yq?yq.dp:null, wp=yq?yq.wp:null;
+  // Finnhub da el precio en TIEMPO REAL → prevalece para el precio y el % diario (Yahoo suele ir
+  // un día por detrás). Solo se pide cuando la cotización de referencia es de EE. UU.: para una
+  // bolsa extranjera Finnhub devolvería otro listado en dólares y falsearía precio y divisa.
+  const fhT=fhSymbolForKey(co.key);
+  if(fhKey&&fhT){
+    try{
+      const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(fhT)}&token=${fhKey}`,{signal:AbortSignal.timeout(7000)});
+      const j=await r.json();
+      if(j&&j.c>0){ c=j.c; dp=(j.dp??dp); }   // precio en vivo de Finnhub (wp semanal sigue siendo de Yahoo)
+    }catch(e){}
+  }
+  if(c>0){ _carteraPrices[co.key]={c,dp,wp}; _saveLastPx(co.key,c); updateCarteraRow(co.key); }
+  return {curNueva,dp};
+}
 async function fetchCarteraPrices(){
   const fhKey=getFinnhubKey();
   let curNuevas=false;                       // ¿alguna divisa ha quedado confirmada en esta pasada?
+  const sinDiario=[];                        // empresas que se quedaron sin %diario en el primer intento
   for(const co of getAllPortfolioCompanies()){
-    const yfT=yfSymbolForKey(co.key);
-    // Yahoo (gratis) da el último CIERRE diario, la variación semanal y —clave— LA DIVISA
-    let yq=null; try{ yq=await fetchQuoteYF(yfT); }catch(e){}
-    if(yq&&yq.cur&&setDetectedCur(co.key,yq.cur,yq.sym)) curNuevas=true;
-    let c=yq?yq.c:null, dp=yq?yq.dp:null, wp=yq?yq.wp:null;
-    // Finnhub da el precio en TIEMPO REAL → prevalece para el precio y el % diario (Yahoo suele ir
-    // un día por detrás). Solo se pide cuando la cotización de referencia es de EE. UU.: para una
-    // bolsa extranjera Finnhub devolvería otro listado en dólares y falsearía precio y divisa.
-    const fhT=fhSymbolForKey(co.key);
-    if(fhKey&&fhT){
-      try{
-        const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(fhT)}&token=${fhKey}`,{signal:AbortSignal.timeout(7000)});
-        const j=await r.json();
-        if(j&&j.c>0){ c=j.c; dp=(j.dp??dp); }   // precio en vivo de Finnhub (wp semanal sigue siendo de Yahoo)
-      }catch(e){}
-    }
-    if(c>0){ _carteraPrices[co.key]={c,dp,wp}; _saveLastPx(co.key,c); updateCarteraRow(co.key); }
+    const res=await _fetchOneCarteraPrice(co,fhKey);
+    if(res.curNueva) curNuevas=true;
+    if(res.dp==null) sinDiario.push(co);
     await new Promise(r=>setTimeout(r,260));
+  }
+  // Reintento: con 13+ empresas el ritmo de peticiones (Yahoo vía proxy + Finnhub) agota el límite
+  // gratuito de alguna de las dos fuentes a mitad de la pasada, y esas quedan sin %diario aunque el
+  // precio sí haya llegado. Una segunda pasada, más espaciada y solo para las que fallaron, suele
+  // traerlo sin que el usuario tenga que recargar la página.
+  if(sinDiario.length){
+    await new Promise(r=>setTimeout(r,2000));
+    for(const co of sinDiario){
+      await _fetchOneCarteraPrice(co,fhKey);
+      await new Promise(r=>setTimeout(r,650));
+    }
   }
   if(typeof renderStyleCompare==='function') renderStyleCompare(); // refresca comparador con precios live
   if(curNuevas){
