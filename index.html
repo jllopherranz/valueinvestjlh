@@ -10626,28 +10626,53 @@ function renderSeasonality(closes,times){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:9}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:9},callback:v=>v+'%'}}}}});
 }
 
+// Descarga precio/%diario/%semanal de una empresa y actualiza su fila. Devuelve si el %diario o
+// el %semanal quedaron sin dato, para poder reintentarla aparte — ver fetchCarteraPrices.
+async function _fetchOneCarteraPrice(co,fhKey){
+  const yfT=yfSymbolForKey(co.key);
+  // Yahoo (gratis) da el último CIERRE diario, la variación semanal y —clave— LA DIVISA
+  let yq=null; try{ yq=await fetchQuoteYF(yfT); }catch(e){}
+  const curNueva=!!(yq&&yq.cur&&setDetectedCur(co.key,yq.cur,yq.sym));
+  let c=yq?yq.c:null, dp=yq?yq.dp:null, wp=yq?yq.wp:null;
+  // Finnhub da el precio en TIEMPO REAL → prevalece para el precio y el % diario (Yahoo suele ir
+  // un día por detrás). Solo se pide cuando la cotización de referencia es de EE. UU.: para una
+  // bolsa extranjera Finnhub devolvería otro listado en dólares y falsearía precio y divisa.
+  const fhT=fhSymbolForKey(co.key);
+  if(fhKey&&fhT){
+    try{
+      const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(fhT)}&token=${fhKey}`,{signal:AbortSignal.timeout(7000)});
+      const j=await r.json();
+      if(j&&j.c>0){ c=j.c; dp=(j.dp??dp); }   // precio en vivo de Finnhub (wp semanal sigue siendo de Yahoo)
+    }catch(e){}
+  }
+  if(c>0){ _carteraPrices[co.key]={c,dp,wp}; _saveLastPx(co.key,c); updateCarteraRow(co.key); }
+  // El %semanal SOLO lo da Yahoo (sin respaldo de Finnhub, a diferencia del %diario) → es el dato
+  // que más fácilmente se queda sin valor si el proxy CORS falla o Yahoo limita peticiones a mitad
+  // de la pasada. Si falta cualquiera de los dos, se marca como incompleta para reintentar aparte.
+  return {curNueva,incompleto:(dp==null||wp==null)};
+}
 async function fetchCarteraPrices(){
   const fhKey=getFinnhubKey();
   let curNuevas=false;                       // ¿alguna divisa ha quedado confirmada en esta pasada?
+  const pendientes=[];                       // empresas que se quedaron sin %diario o %semanal
   for(const co of getAllPortfolioCompanies()){
-    const yfT=yfSymbolForKey(co.key);
-    // Yahoo (gratis) da el último CIERRE diario, la variación semanal y —clave— LA DIVISA
-    let yq=null; try{ yq=await fetchQuoteYF(yfT); }catch(e){}
-    if(yq&&yq.cur&&setDetectedCur(co.key,yq.cur,yq.sym)) curNuevas=true;
-    let c=yq?yq.c:null, dp=yq?yq.dp:null, wp=yq?yq.wp:null;
-    // Finnhub da el precio en TIEMPO REAL → prevalece para el precio y el % diario (Yahoo suele ir
-    // un día por detrás). Solo se pide cuando la cotización de referencia es de EE. UU.: para una
-    // bolsa extranjera Finnhub devolvería otro listado en dólares y falsearía precio y divisa.
-    const fhT=fhSymbolForKey(co.key);
-    if(fhKey&&fhT){
-      try{
-        const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(fhT)}&token=${fhKey}`,{signal:AbortSignal.timeout(7000)});
-        const j=await r.json();
-        if(j&&j.c>0){ c=j.c; dp=(j.dp??dp); }   // precio en vivo de Finnhub (wp semanal sigue siendo de Yahoo)
-      }catch(e){}
-    }
-    if(c>0){ _carteraPrices[co.key]={c,dp,wp}; _saveLastPx(co.key,c); updateCarteraRow(co.key); }
+    const res=await _fetchOneCarteraPrice(co,fhKey);
+    if(res.curNueva) curNuevas=true;
+    if(res.incompleto) pendientes.push(co);
     await new Promise(r=>setTimeout(r,260));
+  }
+  // Reintento: con varias empresas en cartera, el ritmo de peticiones (Yahoo vía proxy + Finnhub)
+  // agota el límite gratuito de alguna fuente a mitad de la pasada, y el %semanal —que depende
+  // solo de Yahoo, sin respaldo— se queda sin dato aunque el precio sí haya llegado. Justo el
+  // fallo que dejaba "Subidas/Caídas de la semana" vacía con movimientos reales de sobra. Una
+  // segunda pasada, más espaciada y solo para las que fallaron, suele traerlo sin recargar la página.
+  if(pendientes.length){
+    await new Promise(r=>setTimeout(r,2000));
+    for(const co of pendientes){
+      const res=await _fetchOneCarteraPrice(co,fhKey);
+      if(res.curNueva) curNuevas=true;
+      await new Promise(r=>setTimeout(r,650));
+    }
   }
   if(typeof renderStyleCompare==='function') renderStyleCompare(); // refresca comparador con precios live
   if(curNuevas){
