@@ -10679,8 +10679,8 @@ function renderSeasonality(closes,times){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:9}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:9},callback:v=>v+'%'}}}}});
 }
 
-// Descarga precio/%diario/%semanal de una empresa y actualiza su fila. Devuelve si quedó
-// sin %diario (dp==null), para poder reintentarla aparte — ver fetchCarteraPrices.
+// Descarga precio/%diario/%semanal de una empresa y actualiza su fila. Devuelve si el %diario o
+// el %semanal quedaron sin dato, para poder reintentarla aparte — ver fetchCarteraPrices.
 async function _fetchOneCarteraPrice(co,fhKey){
   const yfT=yfSymbolForKey(co.key);
   // Yahoo (gratis) da el último CIERRE diario, la variación semanal y —clave— LA DIVISA
@@ -10699,26 +10699,31 @@ async function _fetchOneCarteraPrice(co,fhKey){
     }catch(e){}
   }
   if(c>0){ _carteraPrices[co.key]={c,dp,wp}; _saveLastPx(co.key,c); updateCarteraRow(co.key); }
-  return {curNueva,dp};
+  // El %semanal SOLO lo da Yahoo (sin respaldo de Finnhub, a diferencia del %diario) → es el dato
+  // que más fácilmente se queda sin valor si el proxy CORS falla o Yahoo limita peticiones a mitad
+  // de la pasada. Si falta cualquiera de los dos, se marca como incompleta para reintentar aparte.
+  return {curNueva,incompleto:(dp==null||wp==null)};
 }
 async function fetchCarteraPrices(){
   const fhKey=getFinnhubKey();
   let curNuevas=false;                       // ¿alguna divisa ha quedado confirmada en esta pasada?
-  const sinDiario=[];                        // empresas que se quedaron sin %diario en el primer intento
+  const pendientes=[];                       // empresas que se quedaron sin %diario o %semanal
   for(const co of getAllPortfolioCompanies()){
     const res=await _fetchOneCarteraPrice(co,fhKey);
     if(res.curNueva) curNuevas=true;
-    if(res.dp==null) sinDiario.push(co);
+    if(res.incompleto) pendientes.push(co);
     await new Promise(r=>setTimeout(r,260));
   }
-  // Reintento: con 13+ empresas el ritmo de peticiones (Yahoo vía proxy + Finnhub) agota el límite
-  // gratuito de alguna de las dos fuentes a mitad de la pasada, y esas quedan sin %diario aunque el
-  // precio sí haya llegado. Una segunda pasada, más espaciada y solo para las que fallaron, suele
-  // traerlo sin que el usuario tenga que recargar la página.
-  if(sinDiario.length){
+  // Reintento: con varias empresas en cartera, el ritmo de peticiones (Yahoo vía proxy + Finnhub)
+  // agota el límite gratuito de alguna fuente a mitad de la pasada, y el %semanal —que depende
+  // solo de Yahoo, sin respaldo— se queda sin dato aunque el precio sí haya llegado. Justo el
+  // fallo que dejaba "Subidas/Caídas de la semana" vacía con movimientos reales de sobra. Una
+  // segunda pasada, más espaciada y solo para las que fallaron, suele traerlo sin recargar la página.
+  if(pendientes.length){
     await new Promise(r=>setTimeout(r,2000));
-    for(const co of sinDiario){
-      await _fetchOneCarteraPrice(co,fhKey);
+    for(const co of pendientes){
+      const res=await _fetchOneCarteraPrice(co,fhKey);
+      if(res.curNueva) curNuevas=true;
       await new Promise(r=>setTimeout(r,650));
     }
   }
