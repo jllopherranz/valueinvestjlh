@@ -9540,6 +9540,9 @@ function toggleSec(id){
   try{localStorage.setItem('vi_sec_'+id,open?'1':'0');}catch(e){}
   if(body){ body.style.display=open?(body.classList.contains('today-grid')?'grid':'block'):'none'; body.style.marginTop=open?'10px':'0'; }
   if(chev) chev.textContent=open?'▲ ocultar':'▼ mostrar';
+  // Si la sección abierta trae el mapa de valoración, estaba oculta (display:none ⇒ ancho 0) cuando
+  // se pintó, así que los carriles no se pudieron calcular entonces — se recalculan ahora que mide.
+  if(open&&body&&body.querySelector('.val-track-outer')) requestAnimationFrame(_valFixAllDotRows);
 }
 // Sincroniza una sección que arranca colapsada en el HTML estático (noticias, calendarios) con lo que
 // el usuario eligió la última vez — se llama tras pintar su contenido, en cada renderDashboard().
@@ -10113,6 +10116,55 @@ function _valTrackHtml(list,lbl,sub){
       <div class="val-track"></div>${laid.map(({r,row})=>_valDotHtml(r,row)).join('')}
     </div>`;
 }
+// _valLayout solo decide arriba/abajo (2 filas) según el score, a una altura (tallo) fija —
+// con 3+ empresas de score parecido en la misma fila (p.ej. WDC/GOOGL/MSFT muy juntas) sus
+// logos de ancho fijo caen en el mismo sitio y se pisan, por mucho que el score difiera un poco.
+// _valFixDotRows resuelve esto DESPUÉS de insertar el HTML (necesita el ancho real en px del
+// track, que solo se conoce ya montado en el DOM): reparte cada logo en el primer "carril"
+// (tallo más largo = más lejos de la línea) de su lado donde no choca con el anterior; si no
+// cabe en ninguno de los carriles ya abiertos, abre uno nuevo. Así nunca quedan dos logos
+// solapados, sea cual sea el nº de empresas o lo juntos que estén sus scores, y el punto (.pt)
+// sigue anclado en su posición exacta sobre la línea — solo se alarga el tallo.
+function _valFixDotRows(outerEl){
+  if(!outerEl) return;
+  const dots=[...outerEl.querySelectorAll('.val-dot')];
+  if(!dots.length) return;
+  const width=outerEl.clientWidth; if(!width) return;
+  const icon=dots[0].querySelector('.ic,.ic-fb');
+  const iconRect=icon?icon.getBoundingClientRect():null;
+  const iconW=(iconRect&&iconRect.width)||19, iconH=(iconRect&&iconRect.height)||19;
+  const stemEl=dots[0].querySelector('.stem');
+  const baseStem=(stemEl&&stemEl.getBoundingClientRect().height)||13;
+  const ptEl=dots[0].querySelector('.pt');
+  const ptH=(ptEl&&ptEl.getBoundingClientRect().height)||9;
+  const minGap=iconW+5, laneStep=iconH+4;
+  const packSide=up=>{
+    const laneLastX=[];
+    dots.filter(d=>d.classList.contains('up')===up)
+      .map(d=>({d,x:(parseFloat(d.style.left)||0)/100*width}))
+      .sort((a,b)=>a.x-b.x)
+      .forEach(({d,x})=>{
+        let lane=laneLastX.findIndex(lx=>x-lx>=minGap);
+        if(lane===-1){ lane=laneLastX.length; laneLastX.push(x); } else { laneLastX[lane]=x; }
+        const stem=d.querySelector('.stem');
+        if(stem) stem.style.height=(baseStem+lane*laneStep)+'px';
+      });
+    return laneLastX.length;
+  };
+  const lanesUp=packSide(true), lanesDown=packSide(false);
+  // Espacio real desde el centro de la línea hasta el borde del icono más lejano (el del último
+  // carril), +8px de margen — no una aproximación fija: con "28px" fijo (como antes) el icono del
+  // carril más alejado se salía del padding y pisaba la caja de debajo (p.ej. "Mejor oportunidad
+  // de tu cartera hoy"). Sin dots en ese lado, se deja el padding por defecto del CSS (28px).
+  const padFor=lanes=>lanes?Math.ceil(ptH/2+baseStem+(lanes-1)*laneStep+iconH+8)+'px':'';
+  outerEl.style.paddingTop=padFor(lanesUp);
+  outerEl.style.paddingBottom=padFor(lanesDown);
+}
+let _valResizeT=null;
+function _valFixAllDotRows(){
+  document.querySelectorAll('.val-track-outer').forEach(_valFixDotRows);
+}
+window.addEventListener('resize',()=>{ clearTimeout(_valResizeT); _valResizeT=setTimeout(_valFixAllDotRows,150); });
 let _valMapOpen=false;
 function toggleValMapDetail(){
   _valMapOpen=!_valMapOpen;
@@ -10257,6 +10309,7 @@ function renderTodayPanel(rows){
       ${newsCard}
     </div>
   </div>`;
+  requestAnimationFrame(_valFixAllDotRows);
   // La traducción de lo que faltaba en caché es asíncrona (red); si al terminar cambia qué
   // titulares se pueden mostrar (alguno se tradujo, o definitivamente no se pudo tras los
   // reintentos de _translateNews), se repinta solo esta tarjeta — nunca el inglés de respaldo.
