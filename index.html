@@ -10098,6 +10098,8 @@ function _valFixDotRows(outerEl){
   const iconW=(iconRect&&iconRect.width)||19, iconH=(iconRect&&iconRect.height)||19;
   const stemEl=dots[0].querySelector('.stem');
   const baseStem=(stemEl&&stemEl.getBoundingClientRect().height)||13;
+  const ptEl=dots[0].querySelector('.pt');
+  const ptH=(ptEl&&ptEl.getBoundingClientRect().height)||9;
   const minGap=iconW+5, laneStep=iconH+4;
   const packSide=up=>{
     const laneLastX=[];
@@ -10113,9 +10115,13 @@ function _valFixDotRows(outerEl){
     return laneLastX.length;
   };
   const lanesUp=packSide(true), lanesDown=packSide(false);
-  const padFor=lanes=>lanes<=1?28:28+(lanes-1)*laneStep;
-  outerEl.style.paddingTop=padFor(lanesUp)+'px';
-  outerEl.style.paddingBottom=padFor(lanesDown)+'px';
+  // Espacio real desde el centro de la línea hasta el borde del icono más lejano (el del último
+  // carril), +8px de margen — no una aproximación fija: con "28px" fijo (como antes) el icono del
+  // carril más alejado se salía del padding y pisaba la caja de debajo (p.ej. "Mejor oportunidad
+  // de tu cartera hoy"). Sin dots en ese lado, se deja el padding por defecto del CSS (28px).
+  const padFor=lanes=>lanes?Math.ceil(ptH/2+baseStem+(lanes-1)*laneStep+iconH+8)+'px':'';
+  outerEl.style.paddingTop=padFor(lanesUp);
+  outerEl.style.paddingBottom=padFor(lanesDown);
 }
 let _valResizeT=null;
 function _valFixAllDotRows(){
