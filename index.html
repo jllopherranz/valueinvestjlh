@@ -985,9 +985,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
           <th style="text-align:right;" data-sort="price" onclick="sortCartera('price')">Precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','precio',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
           <th class="col-mi-coste" style="text-align:right;" data-sort="retPct" onclick="sortCartera('retPct')">Mi coste <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','coste',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">rdto.</span></th>
           <th class="col-sem" style="text-align:right;" data-sort="weeklyPct" onclick="sortCartera('weeklyPct')">Sem. <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','sem',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span></th>
-          <th style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));" data-sort="mds" onclick="sortCartera('mds')">Obj. precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
+          <th style="text-align:center;background:color-mix(in srgb, var(--amber) 5%, var(--surface));" data-sort="mds" onclick="sortCartera('mds')">Obj. precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
           <th style="text-align:right;" data-sort="mds15" onclick="sortCartera('mds15')">Entrada <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','entrada',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
-          <th style="text-align:right;" data-sort="cagr5" onclick="sortCartera('cagr5')">Obj. 5Y <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj5',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">promedio · ret. anual</span></th>
+          <th style="text-align:center;background:color-mix(in srgb, var(--amber) 5%, var(--surface));" data-sort="cagr5" onclick="sortCartera('cagr5')">Obj. 5Y <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj5',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">promedio · ret. anual</span></th>
           <th style="text-align:center;" data-sort="peg" onclick="sortCartera('peg')">PEG <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','peg',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span></th>
           <th style="text-align:center;" data-sort="score" onclick="sortCartera('score')">Veredicto <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','veredicto',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">score /100</span></th>
           <th class="col-cal" style="text-align:right;" data-sort="roic5" onclick="sortCartera('roic5')">ROIC 5Y <span class="sort-ind"></span></th>
@@ -9540,6 +9540,9 @@ function toggleSec(id){
   try{localStorage.setItem('vi_sec_'+id,open?'1':'0');}catch(e){}
   if(body){ body.style.display=open?(body.classList.contains('today-grid')?'grid':'block'):'none'; body.style.marginTop=open?'10px':'0'; }
   if(chev) chev.textContent=open?'▲ ocultar':'▼ mostrar';
+  // Si la sección abierta trae el mapa de valoración, estaba oculta (display:none ⇒ ancho 0) cuando
+  // se pintó, así que los carriles no se pudieron calcular entonces — se recalculan ahora que mide.
+  if(open&&body&&body.querySelector('.val-track-outer')) requestAnimationFrame(_valFixAllDotRows);
 }
 // Sincroniza una sección que arranca colapsada en el HTML estático (noticias, calendarios) con lo que
 // el usuario eligió la última vez — se llama tras pintar su contenido, en cada renderDashboard().
@@ -9711,7 +9714,7 @@ function renderCartera(){
   <td class="col-sem" style="text-align:right;">
     <div id="cweek-${k}" style="font-size:11.5px;font-weight:600;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
   </td>
-  <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">
+  <td style="text-align:center;background:color-mix(in srgb, var(--amber) 5%, var(--surface));">
     <div id="cobjevf-${k}" style="font-size:13px;font-weight:600;color:var(--text);">${fmt(m.objEVF,k)}</div>
     <div class="c-sub" id="cmds-${k}" style="color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</div>
   </td>
@@ -9719,7 +9722,7 @@ function renderCartera(){
     <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'var(--text)'};">${fmt(m.price15,k)}</div>
     <div class="c-sub" id="cmds15-${k}" style="color:${mdsCol(m.mds15)};">${m.mds15!=null?sp(m.mds15,0)+' MdS':'—'}</div>
   </td>
-  <td style="text-align:right;">
+  <td style="text-align:center;background:color-mix(in srgb, var(--amber) 5%, var(--surface));">
     <div id="cobj5-${k}" style="font-size:12.5px;font-weight:700;color:var(--navy);">${fmt(m.obj5,k)}</div>
     <div class="c-sub" id="cret-${k}" style="color:${retCol(m.cagr5)};">${m.cagr5!=null?sp(m.cagr5,0)+'/año':''}</div>
   </td>
@@ -10113,6 +10116,55 @@ function _valTrackHtml(list,lbl,sub){
       <div class="val-track"></div>${laid.map(({r,row})=>_valDotHtml(r,row)).join('')}
     </div>`;
 }
+// _valLayout solo decide arriba/abajo (2 filas) según el score, a una altura (tallo) fija —
+// con 3+ empresas de score parecido en la misma fila (p.ej. WDC/GOOGL/MSFT muy juntas) sus
+// logos de ancho fijo caen en el mismo sitio y se pisan, por mucho que el score difiera un poco.
+// _valFixDotRows resuelve esto DESPUÉS de insertar el HTML (necesita el ancho real en px del
+// track, que solo se conoce ya montado en el DOM): reparte cada logo en el primer "carril"
+// (tallo más largo = más lejos de la línea) de su lado donde no choca con el anterior; si no
+// cabe en ninguno de los carriles ya abiertos, abre uno nuevo. Así nunca quedan dos logos
+// solapados, sea cual sea el nº de empresas o lo juntos que estén sus scores, y el punto (.pt)
+// sigue anclado en su posición exacta sobre la línea — solo se alarga el tallo.
+function _valFixDotRows(outerEl){
+  if(!outerEl) return;
+  const dots=[...outerEl.querySelectorAll('.val-dot')];
+  if(!dots.length) return;
+  const width=outerEl.clientWidth; if(!width) return;
+  const icon=dots[0].querySelector('.ic,.ic-fb');
+  const iconRect=icon?icon.getBoundingClientRect():null;
+  const iconW=(iconRect&&iconRect.width)||19, iconH=(iconRect&&iconRect.height)||19;
+  const stemEl=dots[0].querySelector('.stem');
+  const baseStem=(stemEl&&stemEl.getBoundingClientRect().height)||13;
+  const ptEl=dots[0].querySelector('.pt');
+  const ptH=(ptEl&&ptEl.getBoundingClientRect().height)||9;
+  const minGap=iconW+5, laneStep=iconH+4;
+  const packSide=up=>{
+    const laneLastX=[];
+    dots.filter(d=>d.classList.contains('up')===up)
+      .map(d=>({d,x:(parseFloat(d.style.left)||0)/100*width}))
+      .sort((a,b)=>a.x-b.x)
+      .forEach(({d,x})=>{
+        let lane=laneLastX.findIndex(lx=>x-lx>=minGap);
+        if(lane===-1){ lane=laneLastX.length; laneLastX.push(x); } else { laneLastX[lane]=x; }
+        const stem=d.querySelector('.stem');
+        if(stem) stem.style.height=(baseStem+lane*laneStep)+'px';
+      });
+    return laneLastX.length;
+  };
+  const lanesUp=packSide(true), lanesDown=packSide(false);
+  // Espacio real desde el centro de la línea hasta el borde del icono más lejano (el del último
+  // carril), +8px de margen — no una aproximación fija: con "28px" fijo (como antes) el icono del
+  // carril más alejado se salía del padding y pisaba la caja de debajo (p.ej. "Mejor oportunidad
+  // de tu cartera hoy"). Sin dots en ese lado, se deja el padding por defecto del CSS (28px).
+  const padFor=lanes=>lanes?Math.ceil(ptH/2+baseStem+(lanes-1)*laneStep+iconH+8)+'px':'';
+  outerEl.style.paddingTop=padFor(lanesUp);
+  outerEl.style.paddingBottom=padFor(lanesDown);
+}
+let _valResizeT=null;
+function _valFixAllDotRows(){
+  document.querySelectorAll('.val-track-outer').forEach(_valFixDotRows);
+}
+window.addEventListener('resize',()=>{ clearTimeout(_valResizeT); _valResizeT=setTimeout(_valFixAllDotRows,150); });
 let _valMapOpen=false;
 function toggleValMapDetail(){
   _valMapOpen=!_valMapOpen;
@@ -10257,6 +10309,7 @@ function renderTodayPanel(rows){
       ${newsCard}
     </div>
   </div>`;
+  requestAnimationFrame(_valFixAllDotRows);
   // La traducción de lo que faltaba en caché es asíncrona (red); si al terminar cambia qué
   // titulares se pueden mostrar (alguno se tradujo, o definitivamente no se pudo tras los
   // reintentos de _translateNews), se repinta solo esta tarjeta — nunca el inglés de respaldo.
