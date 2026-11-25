@@ -10690,6 +10690,19 @@ async function _fetchOneCarteraPrice(co,fhKey){
   let yq=null; try{ yq=await fetchQuoteYF(yfT); }catch(e){}
   const curNueva=!!(yq&&yq.cur&&setDetectedCur(co.key,yq.cur,yq.sym));
   let c=yq?yq.c:null, dp=yq?yq.dp:null, wp=yq?yq.wp:null;
+  // Red de seguridad para el %semanal: los 3 proxies CORS gratuitos de fetchQuoteYF (allorigins,
+  // codetabs, corsproxy.io) fallan a menudo en 2026 — mismo problema ya resuelto para "Mercado"
+  // con Twelve Data (ver PR #41-43). Si hay key de Twelve Data puesta (misma de Mercado), se
+  // reutiliza _tdFetchHist para sacar el cierre de hace 5 sesiones — datos reales, nunca inventados.
+  if(wp==null&&getTDKey()){
+    try{
+      const h=await _tdFetchHist(co.ticker||co.key,10);
+      if(h&&h.closes&&h.closes.length>=6){
+        const cl=h.closes, cur=cl[cl.length-1], old=cl[cl.length-6];
+        if(old) wp=(cur-old)/old*100;
+      }
+    }catch(e){}
+  }
   // Finnhub da el precio en TIEMPO REAL → prevalece para el precio y el % diario (Yahoo suele ir
   // un día por detrás). Solo se pide cuando la cotización de referencia es de EE. UU.: para una
   // bolsa extranjera Finnhub devolvería otro listado en dólares y falsearía precio y divisa.
@@ -10702,9 +10715,9 @@ async function _fetchOneCarteraPrice(co,fhKey){
     }catch(e){}
   }
   if(c>0){ _carteraPrices[co.key]={c,dp,wp}; _saveLastPx(co.key,c); updateCarteraRow(co.key); }
-  // El %semanal SOLO lo da Yahoo (sin respaldo de Finnhub, a diferencia del %diario) → es el dato
-  // que más fácilmente se queda sin valor si el proxy CORS falla o Yahoo limita peticiones a mitad
-  // de la pasada. Si falta cualquiera de los dos, se marca como incompleta para reintentar aparte.
+  // El %semanal no tiene respaldo de Finnhub (a diferencia del %diario) → sin key de Twelve Data
+  // puesta, sigue dependiendo solo de Yahoo+proxy y es el dato que más fácilmente se queda sin
+  // valor. Si falta cualquiera de los dos, se marca como incompleta para reintentar aparte.
   return {curNueva,incompleto:(dp==null||wp==null)};
 }
 async function fetchCarteraPrices(){
