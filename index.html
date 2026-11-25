@@ -10303,7 +10303,7 @@ function renderTodayPanel(rows){
     +earnCard;
   el.innerHTML=`<div class="card" style="padding:10px 14px;">
     <div class="sec-fold" onclick="toggleSec('today')">
-      <div class="dash-sec-title" style="margin:0;">Qué mirar hoy <span style="font-weight:600;color:var(--muted);font-size:10px;">${totalItems} señal${totalItems===1?'':'es'}</span> <span onclick="event.stopPropagation();showWeeklyDiag();" style="font-size:10px;color:var(--muted);cursor:pointer;" title="Diagnóstico temporal del %semanal">🔧 diagnóstico</span></div>
+      <div class="dash-sec-title" style="margin:0;">Qué mirar hoy <span style="font-weight:600;color:var(--muted);font-size:10px;">${totalItems} señal${totalItems===1?'':'es'}</span></div>
       <span class="sec-chev" id="chev-today">${open?'▲ ocultar':'▼ mostrar'}</span>
     </div>
     <div id="body-today" style="display:${open?'block':'none'};margin-top:${open?'10px':'0'};">
@@ -10682,44 +10682,6 @@ function renderSeasonality(closes,times){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:9}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:9},callback:v=>v+'%'}}}}});
 }
 
-// ── Diagnóstico TEMPORAL del %semanal (sin consola — para probar desde el móvil) ──
-// Pulsa "🔧 diagnóstico" junto a "Qué mirar hoy". Muestra, para tus primeras empresas, si hay key
-// de Twelve Data puesta y qué devuelve _tdFetchHist exactamente (datos, vacío o el error). Quitar
-// este botón y esta función en cuanto esté confirmado que el %semanal ya funciona bien.
-async function showWeeklyDiag(){
-  let box=document.getElementById('weekly-diag-box');
-  if(box) box.remove();
-  box=document.createElement('div');
-  box.id='weekly-diag-box';
-  box.style='position:fixed;inset:0;background:#0b0f14;color:#9ae6b4;z-index:99999;padding:14px;font:11px/1.5 ui-monospace,monospace;overflow:auto;white-space:pre-wrap;';
-  box.innerHTML='<div onclick="document.getElementById(\'weekly-diag-box\').remove()" style="position:sticky;top:-14px;background:#1a2230;color:#fff;padding:12px;text-align:center;font-weight:bold;margin:-14px -14px 10px -14px;">✕ Cerrar (toca aquí)</div><div id="weekly-diag-out">Cargando… (puede tardar, Twelve Data va con pausas de ~8s entre empresa)</div>';
-  document.body.appendChild(box);
-  const out=document.getElementById('weekly-diag-out');
-  const lines=[];
-  const print=()=>{ if(document.getElementById('weekly-diag-out')) out.textContent=lines.join('\n'); };
-  const tdKey=getTDKey();
-  lines.push('Twelve Data key: '+(tdKey?('puesta, '+tdKey.length+' caracteres'):'NO HAY KEY GUARDADA'));
-  print();
-  if(!tdKey){ return; }
-  const cos=getAllPortfolioCompanies().slice(0,6);
-  for(const co of cos){
-    const tkr=co.ticker||co.key;
-    let r;
-    try{
-      const h=await _tdFetchHist(tkr,10);
-      if(h&&h.closes&&h.closes.length>=6){
-        const cl=h.closes,c=cl[cl.length-1],o=cl[cl.length-6];
-        r='OK — '+cl.length+' cierres, wp='+((c-o)/o*100).toFixed(1)+'%';
-      }else{
-        r='SIN DATOS — respuesta: '+JSON.stringify(h).slice(0,150);
-      }
-    }catch(e){ r='ERROR — '+(e&&e.message||e); }
-    lines.push(co.key+' (símbolo pedido: '+tkr+'): '+r);
-    print();
-  }
-  lines.push('— fin —');
-  print();
-}
 // Descarga precio/%diario/%semanal de una empresa y actualiza su fila. Devuelve si el %diario o
 // el %semanal quedaron sin dato, para poder reintentarla aparte — ver fetchCarteraPrices.
 async function _fetchOneCarteraPrice(co,fhKey){
