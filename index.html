@@ -11374,15 +11374,30 @@ function rebuildCoButtons(){
 function saveHidden(){try{localStorage.setItem('vi_hidden',JSON.stringify([...HIDDEN]));}catch(e){}}
 function _refreshRestoreBtn(){const b=document.getElementById('btn-restore-hidden');if(b)b.style.display=HIDDEN.size?'inline-block':'none';}
 
+// Añade (sin duplicar) una empresa a seguimiento a partir de sus datos en DB — usado al
+// eliminarla de la cartera (p.ej. tras venderla), para no perderla de vista.
+function _addToWatchlistFromCo(key,coSnapshot){
+  const wl=getWatchlist();
+  if(wl.some(x=>x.id===key)) return;
+  const name=(coSnapshot&&coSnapshot.name)||key;
+  const ticker=(coSnapshot&&coSnapshot.ticker)||key;
+  const fhTicker=(coSnapshot&&(coSnapshot.finnhubTicker||coSnapshot.ticker))||key;
+  const sector=(coSnapshot&&coSnapshot.sector)||'';
+  wl.push({id:key,name,ticker,fhTicker,sector});
+  saveWatchlist(wl);
+}
+
 // Elimina una empresa de la cartera. De fábrica → se oculta (restaurable). Añadida por el usuario → se borra.
+// En ambos casos pasa a seguimiento (si no estaba ya) para no perderla de vista tras venderla.
 function deleteCompanyFull(key){
   const nm=(DB[key]&&DB[key].name)||key;
   const builtin=BUILTIN_KEYS.has(key);
   const msg=builtin
-    ? '¿Ocultar "'+nm+'" de tu cartera?\n\nPodrás restaurarla con el botón «Restaurar ocultas».'
-    : '¿Eliminar "'+nm+'" de tu cartera?\n\nSe borrarán sus datos de este navegador (tu Google Sheet no se toca).';
+    ? '¿Ocultar "'+nm+'" de tu cartera?\n\nPasará a tu lista de seguimiento y podrás restaurarla con el botón «Restaurar ocultas».'
+    : '¿Eliminar "'+nm+'" de tu cartera?\n\nPasará a tu lista de seguimiento. Se borrarán sus datos de este navegador (tu Google Sheet no se toca).';
   if(!confirm(msg)) return;
   const wasActive=co&&DB[key]===co;
+  _addToWatchlistFromCo(key,DB[key]);
   localStorage.removeItem('vi_import_'+key);
   localStorage.removeItem('vi_drive_'+key);
   localStorage.removeItem('vi_mults_'+key);
@@ -11393,16 +11408,21 @@ function deleteCompanyFull(key){
   delete DB[key];
   if(builtin){HIDDEN.add(key);saveHidden();}
   rebuildCoButtons();renderCartera();_refreshRestoreBtn();
+  if(typeof renderWatchlist==='function') renderWatchlist();
   if(wasActive){const first=Object.keys(DB)[0];if(first)switchCo(first);}
 }
 
 // Restaura todas las empresas de fábrica ocultadas.
 function restoreHidden(){
   if(!HIDDEN.size) return;
+  const restoredKeys=[...HIDDEN];
   HIDDEN.forEach(k=>{ if(!DB[k]&&_BUILTIN_DB[k]) DB[k]=_BUILTIN_DB[k]; });
   HIDDEN.clear();saveHidden();
   Object.values(DB).forEach(computeMediansFor);
+  // Si estaban en seguimiento (añadidas ahí al ocultarlas), las quitamos: ya vuelven a la cartera.
+  saveWatchlist(getWatchlist().filter(x=>!restoredKeys.includes(x.id)));
   rebuildCoButtons();renderCartera();_refreshRestoreBtn();
+  if(typeof renderWatchlist==='function') renderWatchlist();
 }
 
 // Importa una empresa directamente desde el enlace de Google Sheets (descarga el .xlsx y lo procesa).
