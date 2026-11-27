@@ -1,0 +1,27 @@
+{
+  "_comment": "Lista de empresas para el resumen diario (scripts/daily-news.mjs). Edítala a mano cuando cambie la cartera o el seguimiento — no se deriva automáticamente de localStorage porque la Action corre fuera del navegador del usuario.",
+  "cartera": [
+    { "key": "NBIS", "name": "Nebius", "ticker": "NBIS", "finnhubSymbol": "NBIS" },
+    { "key": "AMD", "name": "AMD", "ticker": "AMD", "finnhubSymbol": "AMD" },
+    { "key": "NVDA", "name": "Nvidia", "ticker": "NVDA", "finnhubSymbol": "NVDA" },
+    { "key": "TSM", "name": "Taiwan Semiconductor", "ticker": "2330.TW", "finnhubSymbol": "TSM" },
+    { "key": "AMZN", "name": "Amazon", "ticker": "AMZN", "finnhubSymbol": "AMZN" },
+    { "key": "META", "name": "Meta", "ticker": "META", "finnhubSymbol": "META" },
+    { "key": "MSFT", "name": "Microsoft", "ticker": "MSFT", "finnhubSymbol": "MSFT" },
+    { "key": "GOOGL", "name": "Alphabet", "ticker": "GOOGL", "finnhubSymbol": "GOOGL" },
+    { "key": "STX", "name": "Seagate", "ticker": "STX", "finnhubSymbol": "STX" },
+    { "key": "WDC", "name": "Western Digital", "ticker": "WDC", "finnhubSymbol": "WDC" },
+    { "key": "MU", "name": "Micron", "ticker": "MU", "finnhubSymbol": "MU" },
+    { "key": "AAPL", "name": "Apple", "ticker": "AAPL", "finnhubSymbol": "AAPL" },
+    { "key": "DELL", "name": "Dell", "ticker": "DELL", "finnhubSymbol": "DELL" }
+  ],
+  "seguimiento": [
+    { "key": "BAC", "name": "Bank of America", "ticker": "BAC", "finnhubSymbol": "BAC" },
+    { "key": "RTX", "name": "RTX Corp", "ticker": "RTX", "finnhubSymbol": "RTX" },
+    { "key": "VST", "name": "Vistra", "ticker": "VST", "finnhubSymbol": "VST" },
+    { "key": "AVGO", "name": "Broadcom", "ticker": "AVGO", "finnhubSymbol": "AVGO" },
+    { "key": "CSU", "name": "Constellation Software", "ticker": "CSU.TO", "finnhubSymbol": "CNSWF" },
+    { "key": "ASML", "name": "ASML Holding", "ticker": "ASML", "finnhubSymbol": "ASML" },
+    { "key": "TDG", "name": "TransDigm", "ticker": "TDG", "finnhubSymbol": "TDG" }
+  ]
+}

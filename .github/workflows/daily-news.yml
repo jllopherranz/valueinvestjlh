@@ -1,0 +1,41 @@
+name: Resumen diario de noticias
+
+on:
+  schedule:
+    # 06:37 UTC = 07:37 en Madrid en horario de invierno (CET, UTC+1). En horario de verano
+    # (CEST, UTC+2, de finales de marzo a finales de octubre) esto equivale a las 08:37 Madrid;
+    # GitHub Actions no admite cron con zona horaria, así que se queda fijo en UTC.
+    - cron: '37 6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-news
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generar resumen diario
+        env:
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        run: node scripts/daily-news.mjs
+
+      - name: Commitear data/daily-news.json si cambió
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/daily-news.json
+          git diff --staged --quiet || git commit -m "Resumen diario de noticias $(date -u +%Y-%m-%d)"
+          git push
