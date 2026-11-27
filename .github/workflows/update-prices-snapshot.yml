@@ -1,0 +1,34 @@
+name: Actualizar snapshot de precios
+
+# Precalcula los precios de las 9 empresas de fábrica cada 30 min en horario de mercado de
+# EE. UU. (13:30-21:30 UTC, lunes a viernes) para que la web abra ya con datos recientes en vez
+# de esperar a las peticiones en vivo del navegador. Ver scripts/fetch-prices-snapshot.mjs y,
+# en index.html, loadPriceSnapshot().
+on:
+  schedule:
+    - cron: '*/30 13-21 * * 1-5'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/fetch-prices-snapshot.mjs
+      - name: Publicar si ha cambiado
+        run: |
+          if git diff --quiet -- data/prices-snapshot.json; then
+            echo "Sin cambios, no hace falta publicar."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/prices-snapshot.json
+          git commit -m "chore: actualiza snapshot de precios"
+          git push

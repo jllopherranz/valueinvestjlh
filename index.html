@@ -9075,6 +9075,7 @@ function updateDashCoRow(key,price,pct,change){
   resetIS();
   switchCo(DB.MSFT?'MSFT':Object.keys(DB)[0]);
   startPriceRefresh();
+  loadPriceSnapshot();                            // precios de ayer/hoy precalculados — ver arriba
   // Abrir siempre en dashboard como pantalla principal
   // ── API KEY FINNHUB — DEBE IR PRIMERO ──
   localStorage.setItem('finnhub_api_key','d82roc1r01qvkevnlkt0d82roc1r01qvkevnlktg');
@@ -10746,6 +10747,27 @@ async function _fetchOneCarteraPrice(co,fhKey){
   // valor. Si falta cualquiera de los dos, se marca como incompleta para reintentar aparte (aunque,
   // al resolverse ambas fuentes en segundo plano, suelen rellenarse solas antes de ese reintento).
   return {curNueva,incompleto:(dp==null||wp==null)};
+}
+// Snapshot precalculado por GitHub Actions cada 30 min (ver scripts/fetch-prices-snapshot.mjs),
+// solo de las 9 empresas de fábrica. Se carga al arrancar para que la cartera se vea con cifras
+// recientes de inmediato en vez de "—"/"Cargando…", sin esperar a fetchCarteraPrices() (que sigue
+// corriendo igual después y sustituye estos valores por los realmente en vivo en cuanto llegan).
+let _snapshotAt=null;
+async function loadPriceSnapshot(){
+  try{
+    const r=await fetch('data/prices-snapshot.json',{cache:'no-store',signal:AbortSignal.timeout(5000)});
+    if(!r.ok) return;
+    const j=await r.json();
+    if(!j||!j.prices) return;
+    let huboAlguna=false;
+    Object.keys(j.prices).forEach(k=>{
+      if(_carteraPrices[k]) return;   // no pisa un precio en vivo que ya haya llegado antes
+      const p=j.prices[k]; if(!p||!(p.c>0)) return;
+      _carteraPrices[k]=p; huboAlguna=true;
+    });
+    _snapshotAt=j.generatedAt||null;
+    if(huboAlguna&&(_curView==='dash'||_curView==='cartera')) renderCartera();
+  }catch(e){}
 }
 async function fetchCarteraPrices(){
   const fhKey=getFinnhubKey();
