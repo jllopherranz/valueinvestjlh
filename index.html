@@ -9646,10 +9646,17 @@ function toggleCarteraGrupo(gid){
 }
 
 // ── Estado de la tabla: orden y filtro (se recuerdan) ──
-let _cartSort=(()=>{try{return JSON.parse(localStorage.getItem('vi_cart_sort')||'null')||{col:'cagr5',dir:-1};}catch(e){return{col:'cagr5',dir:-1};}})();
+let _cartSort=(()=>{try{return JSON.parse(localStorage.getItem('vi_cart_sort')||'null')||{col:'score',dir:-1};}catch(e){return{col:'score',dir:-1};}})();
 let _cartFilter=(()=>{try{return localStorage.getItem('vi_cart_filter')||'all';}catch(e){return 'all';}})();
 let _cartCalidad=(()=>{try{return localStorage.getItem('vi_cart_calidad')==='1';}catch(e){return false;}})();
 const CART_COLS=15;   // nº de columnas de la tabla (para los colspan)
+const CART_LIMIT=5;   // filas visibles por grupo antes de pulsar "ver todas" (también con filtro activo)
+// Listado reducido por defecto (no se recuerda entre sesiones: siempre arranca compacto).
+let _cartExpand={inv:false,seg:false};
+function toggleCarteraExpand(gid){
+  _cartExpand[gid]=!_cartExpand[gid];
+  renderCartera();
+}
 
 function sortCartera(col){
   if(_cartSort.col===col) _cartSort.dir=-_cartSort.dir;
@@ -9717,6 +9724,9 @@ function renderCartera(){
   let ranked=companies.map(co=>({co,m:carteraMetrics(co)}));
   // Veredicto por empresa (score 0-100) — se calcula una vez por render
   ranked.forEach(r=>{ const v=verdictFor(r.co.key,r.m.price); r.v=v; r.m.score=v?v.totalScore:null; r.m.verdict=v?v.verdict:null; r.m.vcolor=v?v.verdictColor:null; });
+  // Copia SIN filtrar (con el veredicto ya calculado) para el resumen de arriba: esas tarjetas
+  // son la foto fija de TODA la cartera y no deben moverse al filtrar, ordenar o reducir la tabla.
+  const rankedAll=ranked;
 
   // ── Filtros rápidos ──
   const FILTERS={
@@ -9736,7 +9746,7 @@ function renderCartera(){
     cagr5:r=>nz(r.m.cagr5), peg:r=>r.m.peg==null?1e9:r.m.peg, score:r=>nz(r.m.score),
     roic5:r=>nz(r.m.roic5), fcfM:r=>nz(r.m.fcfM), ndEbitda:r=>r.m.ndEbitda==null?1e9:r.m.ndEbitda, salesG5:r=>nz(r.m.salesG5),
   };
-  const getv=SORTV[_cartSort.col]||SORTV.cagr5;
+  const getv=SORTV[_cartSort.col]||SORTV.score;
   ranked.sort((a,b)=>{
     const x=getv(a),y=getv(b);
     if(typeof x==='string') return _cartSort.dir*x.localeCompare(y,'es');
@@ -9839,6 +9849,17 @@ function renderCartera(){
   const grpHtml=(gid,title,sub,rows)=>{
     if(!rows.length) return '';
     const open=carteraGrupoAbierto(gid);
+    // Listado reducido a las CART_LIMIT mejores (ya vienen ordenadas por el criterio activo,
+    // por defecto el veredicto) con un enlace para desplegar el resto — se aplica también con
+    // un filtro activo, para que la tabla nunca se vea sobrecargada.
+    const expanded=_cartExpand[gid]||rows.length<=CART_LIMIT;
+    const shown=expanded?rows:rows.slice(0,CART_LIMIT);
+    const moreRow=rows.length>CART_LIMIT
+      ? `<tr class="cart-r cart-r-${gid}"${open?'':' style="display:none;"'}><td colspan="${CART_COLS}" style="text-align:center;padding:9px;">`
+        +`<a href="#" onclick="event.preventDefault();toggleCarteraExpand('${gid}')" style="color:var(--blue);font-weight:700;font-size:11.5px;">`
+        +(expanded?'▲ Ver solo las 5 mejores':`▾ Ver todas (${rows.length})`)
+        +`</a></td></tr>`
+      : '';
     return `<tr class="cart-grp"><td colspan="${CART_COLS}"><div class="cart-grp-inner" onclick="toggleCarteraGrupo('${gid}')" title="Pulsa para plegar o desplegar esta lista">`
       +`<span class="cart-grp-lead">`
       +`<span class="cart-grp-caret" id="cgc-${gid}">${open?'▾':'▸'}</span>`
@@ -9847,7 +9868,8 @@ function renderCartera(){
       +`</span>`
       +(sub?`<span class="cart-grp-sub">${sub}</span>`:'')
       +`</div></td></tr>`
-      +rows.map(r=>rowFor(r,gid,open)).join('');
+      +shown.map(r=>rowFor(r,gid,open)).join('')
+      +moreRow;
   };
   // Rentabilidad media de lo invertido (ponderada por el valor de cada posición)
   let invSub='';
@@ -9873,7 +9895,7 @@ function renderCartera(){
     ||vacio;
   _refreshRestoreBtn();
   _paintFilterChips(FILTERS,hidden);
-  renderPortfolioSummary(ranked);   // reutiliza el veredicto ya calculado arriba, no lo repite
+  renderPortfolioSummary(rankedAll);   // SIEMPRE con todas las posiciones: no debe moverse al filtrar/ordenar/reducir la tabla
 
   // Estado de importación resumido en el botón Sincronizar: check verde si todo OK, aviso si faltan
   const chk=document.getElementById('sync-check');
