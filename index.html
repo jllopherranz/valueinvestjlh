@@ -2883,12 +2883,81 @@ function curOf(key){
   return 'USD';
 }
 // Si no tenemos símbolo para esa divisa se muestra el código ISO (mejor que un '$' falso)
-function curSymOf(key){const c=curOf(key);return CUR_SYM[c]||(c+' ');}
+function curSymOf(key){return curSymFor(curOf(key));}
+function curSymFor(cur){return CUR_SYM[cur]||(cur+' ');}
 
 // Cambiar la bolsa de referencia de una empresa (y con ella su divisa)
 // Acciones ordinarias que representa cada ADR (un ADR de TSM = 5 acciones de Taiwán).
 // Solo informativo: sirve para explicar por qué los dos precios no coinciden.
 const ADR_RATIO={TSM:5,'TSM.US':5,BABA:8,'PDD':4,'INFY':1,'HDB':3};
+
+// ══════════════════════════════════════════════════════════════════
+// COTIZACIÓN DE «MI POSICIÓN» — puede ser distinta de la de valoración
+// ══════════════════════════════════════════════════════════════════
+// La bolsa de referencia (yfSymbolForKey) decide precio Y divisa de la VALORACIÓN, y debe
+// coincidir con la moneda de las cuentas del Excel (ver arriba) para que el margen de
+// seguridad no salga falseado. Pero lo que TÚ compraste puede ser otro listado: el caso típico
+// es un ADR (p.ej. TSM en dólares) de una empresa cuyas cuentas oficiales están en otra moneda
+// (TWD para TSMC). Mezclar las dos cosas rompía «Mi coste»/«Mi posición»: el precio de compra
+// se interpretaba en la moneda de las cuentas, no en la que realmente pagaste.
+// Por eso «Mi posición» puede usar su PROPIA cotización ('vi_possym_<key>'), independiente de
+// la de valoración. Si no se ha fijado ninguna, se sigue usando la misma de siempre (sin cambios
+// para el resto de empresas).
+let _posQuotes={}, _posFetching={};
+function posSymFor(key){
+  let ov=null; try{ov=localStorage.getItem('vi_possym_'+key);}catch(e){}
+  return (ov&&ov.trim())?ov.trim().toUpperCase():null;
+}
+// Precio y divisa a usar para "Mi posición" (coste, P&L, rendimiento). Sin override, es
+// exactamente el mismo precio/divisa que la valoración — cero cambios para la mayoría.
+function posPriceCur(key){
+  const sym=posSymFor(key);
+  if(!sym) return {price:priceForKey(key),cur:curOf(key),sym:yfSymbolForKey(key),own:false};
+  const q=_posQuotes[key];
+  if(q&&q.c>0) return {price:q.c,cur:q.cur||'USD',sym,own:true};
+  return {price:priceForKey(key),cur:curOf(key),sym,own:true}; // aún sin descargar: mejor esto que nada
+}
+function priceForKey(key){
+  const pe=_carteraPrices[key];
+  const d=DB[key],imp=getImportedData(key);
+  return (pe&&typeof pe==='object'?pe.c:pe)||imp?.price||d?.price||null;
+}
+// Descarga (una vez, con caché de 15 min) la cotización propia de la posición cuando hay override.
+async function fetchPosQuoteIfNeeded(key){
+  const sym=posSymFor(key); if(!sym) return;
+  const cached=_posQuotes[key];
+  if(cached&&Date.now()-cached.ts<15*60*1000) return;
+  if(_posFetching[key]) return;
+  _posFetching[key]=true;
+  try{
+    const q=await fetchQuoteYF(sym);
+    if(q&&q.c>0){
+      _posQuotes[key]={c:q.c,cur:q.cur||'USD',ts:Date.now()};
+      if(typeof renderCartera==='function'&&(_curView==='dash'||_curView==='cartera')) renderCartera();
+      if(typeof curTab!=='undefined'&&curTab==='resumen'&&typeof showTab==='function') showTab('resumen');
+    }
+  }catch(e){} finally{ delete _posFetching[key]; }
+}
+// Diálogo: ¿compraste en otra bolsa/divisa (típicamente un ADR en dólares)?
+function editPosListing(key){
+  const d=DB[key]||{}, nm=d.name||key;
+  const cat=(typeof catalogFor==='function')?catalogFor(key):null;
+  const sugerido=(cat&&cat.tv)?cat.tv.split(':').pop():'';
+  const actual=posSymFor(key)||'';
+  const valSym=yfSymbolForKey(key), valCur=curOf(key);
+  const v=prompt('Si compraste '+nm+' en otra bolsa o divisa (p.ej. el ADR en dólares, en vez de la acción local que usa la valoración), escribe aquí ese ticker de Yahoo Finance'+(sugerido?' (sugerido: "'+sugerido+'")':'')+'.\n\nDéjalo vacío para usar la misma cotización que la valoración ('+valSym+', '+valCur+').',actual);
+  if(v===null) return;
+  const t=v.trim().toUpperCase();
+  try{
+    if(t) localStorage.setItem('vi_possym_'+key,t);
+    else localStorage.removeItem('vi_possym_'+key);
+  }catch(e){}
+  delete _posQuotes[key];
+  fetchPosQuoteIfNeeded(key).then(()=>{
+    if(typeof showTab==='function'&&curTab) showTab(curTab);
+    if(typeof renderCartera==='function') renderCartera();
+  });
+}
 
 // Cotizaciones candidatas de una empresa (bolsa local, ADR estadounidense, ticker base…)
 function listingCandidates(key){
@@ -5093,7 +5162,7 @@ function getPositionFor(key){try{const r=localStorage.getItem('pos_'+key);return
 // ══ COPIA DE SEGURIDAD / PASAR A OTRO DISPOSITIVO ══
 // Los datos (empresas importadas, precios de compra, ajustes) viven en localStorage → son locales
 // de este navegador. Esto permite exportar un código y restaurarlo en el móvil.
-const _BACKUP_PREFIXES=['vi_import_','pos_','vi_drive_','vi_mults_','vi_yf_','vi_domain_'];
+const _BACKUP_PREFIXES=['vi_import_','pos_','vi_drive_','vi_mults_','vi_yf_','vi_domain_','vi_possym_'];
 const _BACKUP_KEYS=['vi_watchlist','vi_hidden','finnhub_api_key','fmp_api_key','td_api_key','vi_base_cur'];
 function _collectBackup(){
   const out={};
@@ -5183,8 +5252,10 @@ function openBackupModal(){
 function setCarteraPos(key){
   if(privado()){ alert('Modo privado activado.\n\nDesactívalo (botón «Privado» arriba) para ver o editar tus importes.'); return; }
   const nm=(DB[key]&&DB[key].name)||key, prev=getPositionFor(key)||{};
-  const sym=(typeof curSymOf==='function')?curSymOf(key):'';
-  const bp=prompt('Precio de compra MEDIO de '+nm+' (en '+sym.trim()+'):\n(deja vacío y pulsa Aceptar para borrar tu posición)', prev.buyPrice||'');
+  const posPC=(typeof posPriceCur==='function')?posPriceCur(key):null;
+  const sym=posPC?curSymFor(posPC.cur):((typeof curSymOf==='function')?curSymOf(key):'');
+  const nota=posPC&&posPC.own?' (cotización propia de tu posición: '+posPC.sym+' — distinta pulsa del botón «🏳️ Divisa» de «Mi posición» para cambiarla)':'';
+  const bp=prompt('Precio de compra MEDIO de '+nm+' (en '+sym.trim()+')'+nota+':\n(deja vacío y pulsa Aceptar para borrar tu posición)', prev.buyPrice||'');
   if(bp===null) return;                                   // canceló
   if(String(bp).trim()===''){ localStorage.removeItem('pos_'+key); if(typeof renderCartera==='function')renderCartera(); return; }
   const p=parseFloat(String(bp).replace(',','.'));
@@ -5315,6 +5386,7 @@ function editarDominioLogo(key){
 
 function rMiPosicion(vd,fv5){
   const pos=getMiPosicion();
+  const _key=coKeyOf(co);
   // Sin posición todavía → call to action
   if(!pos){
     return`
@@ -5328,9 +5400,14 @@ function rMiPosicion(vd,fv5){
       </div>
     </div>`;
   }
+  // Cotización propia de la posición (p.ej. el ADR en dólares), si se ha fijado una distinta
+  // a la de valoración — ver posPriceCur(). Por defecto es la misma de siempre.
+  if(posSymFor(_key)) fetchPosQuoteIfNeeded(_key);
+  const posPC=posPriceCur(_key);
+  const posPrice=posPC.price, posSym=curSymFor(posPC.cur);
   // Con posición → análisis completo
   const cost=pos.buyPrice*pos.shares;
-  const valNow=price*pos.shares;
+  const valNow=posPrice*pos.shares;
   const pnl=valNow-cost;
   const pnlPct=(pnl/cost)*100;
   const pnlAnnual=pos.buyDate?(()=>{
@@ -5355,35 +5432,39 @@ function rMiPosicion(vd,fv5){
   } else {
     avgAdvice='No promedies. Si la pérdida es estructural, evaluar tesis. Si es cíclica, paciencia.';avgColor=_dm()?'#f78166':'#dc2626';avgBg=_dm()?'#200a0a':'#fef2f2';avgIcon='⚠️';
   }
-  // Target a 5Y desde tu coste
-  const upside5Y=fv5?((fv5-pos.buyPrice)/pos.buyPrice*100):null;
-  const upside5YFromNow=fv5?((fv5-price)/price*100):null;
+  // Target a 5Y desde tu coste — solo tiene sentido cuando «Mi posición» usa la MISMA
+  // cotización que la valoración (sin ello, fv5 y pos.buyPrice estarían en monedas distintas).
+  const fv5Comparable=fv5&&!posSymFor(_key);
+  const upside5Y=fv5Comparable?((fv5-pos.buyPrice)/pos.buyPrice*100):null;
+  const upside5YFromNow=fv5Comparable?((fv5-price)/price*100):null;
 
   return`
   <div class="card" style="margin-bottom:10px;border-left:4px solid ${co.color};">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div class="ctitle" style="margin-bottom:0;">Mi posición en ${co.ticker}</div>
       <div style="display:flex;gap:6px;">
+        <button onclick="editPosListing('${_key}')" title="Si compraste en otra bolsa o divisa (p.ej. un ADR en dólares), fija aquí la cotización de tu posición" style="font-size:10px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-weight:600;">🏳️ Divisa</button>
         <button onclick="openMiPosicionForm()" style="font-size:10px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-weight:600;">✏️ Editar</button>
         <button onclick="if(confirm('¿Borrar tu posición?'))clearMiPosicion()" style="font-size:10px;padding:4px 10px;border-radius:8px;border:1px solid #fecaca;background:#fff;cursor:pointer;color:#dc2626;font-weight:600;">🗑️</button>
       </div>
     </div>
+    ${posSymFor(_key)?`<div style="font-size:10px;color:var(--muted);margin:-4px 0 10px;">Mi posición se cotiza en ${posPC.sym} (${posPC.cur}) — distinta de la cotización usada para la valoración (${yfSymbolForKey(_key)}, ${curOf(_key)}).</div>`:''}
 
     <!-- Bloque principal: P&L grande -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
       <div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:10px;padding:10px 12px;">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Precio compra · Acciones</div>
-        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${mny(curSymG()+N(pos.buyPrice,2)+' × '+N(pos.shares))}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Coste total: ${mny(curSymG()+N(Math.round(cost)))}</div>
+        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${mny(posSym+N(pos.buyPrice,2)+' × '+N(pos.shares))}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Coste total: ${mny(posSym+N(Math.round(cost)))}</div>
       </div>
       <div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:10px;padding:10px 12px;">
-        <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Valor hoy · Precio ${curSymG()}${N(price,2)}</div>
-        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${mny(curSymG()+N(Math.round(valNow)))}</div>
+        <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Valor hoy · Precio ${posSym}${N(posPrice,2)}</div>
+        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${mny(posSym+N(Math.round(valNow)))}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:2px;">${pos.buyDate?'Comprado: '+pos.buyDate:'Sin fecha'}</div>
       </div>
       <div style="background:${pnl>=0?'#f0fdf4':'#fef2f2'};border:1.5px solid ${pnl>=0?'#bbf7d0':'#fecaca'};border-radius:10px;padding:10px 12px;text-align:center;">
         <div style="font-size:8px;color:${pnl>=0?'#16a34a':'#dc2626'};text-transform:uppercase;letter-spacing:.07em;font-weight:700;margin-bottom:2px;">P&amp;L total</div>
-        <div style="font-size:22px;font-weight:600;color:${pnl>=0?'#16a34a':'#dc2626'};line-height:1;">${privado()?(pnlPct>=0?'+':'')+pnlPct.toFixed(1)+'%':(pnl>=0?'+':'')+curSymG()+N(Math.round(Math.abs(pnl)))}</div>
+        <div style="font-size:22px;font-weight:600;color:${pnl>=0?'#16a34a':'#dc2626'};line-height:1;">${privado()?(pnlPct>=0?'+':'')+pnlPct.toFixed(1)+'%':(pnl>=0?'+':'')+posSym+N(Math.round(Math.abs(pnl)))}</div>
         <div style="font-size:11px;font-weight:700;color:${pnl>=0?'#16a34a':'#dc2626'};margin-top:3px;">${pnlPct>=0?'+':''}${pnlPct.toFixed(1)}%${pnlAnnual!==null?' · '+(pnlAnnual>=0?'+':'')+pnlAnnual.toFixed(1)+'% anual':''}</div>
       </div>
     </div>
@@ -5396,7 +5477,7 @@ function rMiPosicion(vd,fv5){
         <div style="font-size:15px;font-weight:600;color:${spComp>=0?'#16a34a':'#dc2626'};">${spComp>=0?'+':''}${spComp.toFixed(1)}pp</div>
         <div style="font-size:9px;color:var(--muted);">Tú: ${pnlPct>=0?'+':''}${pnlPct.toFixed(1)}% · S&amp;P: ${pos.spReturn>=0?'+':''}${(+pos.spReturn).toFixed(1)}%</div>
       </div>`:''}
-      ${fv5?`
+      ${fv5Comparable?`
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 11px;">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px;">Target 5Y desde tu coste</div>
         <div style="font-size:15px;font-weight:600;color:${upside5Y>=0?'#16a34a':'#dc2626'};">${upside5Y>=0?'+':''}${upside5Y.toFixed(0)}%</div>
@@ -5424,7 +5505,7 @@ function rMiPosicion(vd,fv5){
       <div style="font-size:14px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};margin-bottom:14px;">Mi posición en ${co.ticker}</div>
       <div style="display:grid;gap:10px;">
         <div>
-          <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:700;">Precio de compra (USD)</label>
+          <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:700;">Precio de compra (${posSym.trim()})</label>
           <input id="mp-form-buyPrice" type="number" step="0.01" placeholder="ej: 75.50" style="width:100%;font-size:14px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;margin-top:3px;outline:none;" />
         </div>
         <div>
@@ -9275,10 +9356,15 @@ function carteraMetrics(co){
   const pos=getPositionFor(key);
   const shares=(pos&&pos.shares>0)?pos.shares:null;
   const buyPrice=(pos&&pos.buyPrice>0)?pos.buyPrice:null;
-  const retPct=(buyPrice&&price!=null)?((price-buyPrice)/buyPrice*100):null;
-  const fxOk=fxRate(cur)!=null;                                         // ¿sabemos convertir su divisa?
-  const mktValue=(shares&&price!=null)?toBase(shares*price,cur):null;   // valor de mercado hoy
-  const costValue=(shares&&buyPrice)?toBase(shares*buyPrice,cur):null;  // lo que te costó
+  // «Mi posición» puede tener su propia cotización (p.ej. el ADR en dólares de una empresa
+  // cuyas cuentas, y por tanto la valoración, están en otra moneda) — ver posPriceCur().
+  if(posSymFor(key)) fetchPosQuoteIfNeeded(key);
+  const posPC=posPriceCur(key);
+  const posPrice=posPC.price, posCur=posPC.cur;
+  const retPct=(buyPrice&&posPrice!=null)?((posPrice-buyPrice)/buyPrice*100):null;
+  const fxOk=fxRate(posCur)!=null;                                         // ¿sabemos convertir su divisa?
+  const mktValue=(shares&&posPrice!=null)?toBase(shares*posPrice,posCur):null;   // valor de mercado hoy
+  const costValue=(shares&&buyPrice)?toBase(shares*buyPrice,posCur):null;  // lo que te costó
   const pnl=(mktValue!=null&&costValue!=null)?mktValue-costValue:null;
 
   // ── Calidad del negocio (lo primero que mira un value: el negocio, no el precio) ──
@@ -9304,6 +9390,7 @@ function carteraMetrics(co){
   return {key,imp,d,price,dailyPct,weeklyPct,objEVF,mds,obj5,cagr5,price15,mds15,per,g,peg,
           objCons,mdsCons,obj5Cons,cagr5Cons,
           cur,curDet,yfSym,escala,escalaMal,fxOk,pos,shares,buyPrice,retPct,mktValue,costValue,pnl,
+          posPrice,posCur,
           roic5,fcfM,ndEbitda,salesG5,origen,impAge};
 }
 function pegColor(peg){return peg==null?'#9a958e':peg<1?'#16a34a':peg<=2?'#eab308':'#dc2626';}
@@ -9776,7 +9863,7 @@ function renderCartera(){
     const posCell=(()=>{
       if(m.buyPrice){
         const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
-        return `<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(fmt(m.buyPrice,k))}</div>`
+        return `<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(curSymFor(m.posCur)+N(m.buyPrice,2))}</div>`
           +`<div class="c-sub" style="color:${rc};">${sp(m.retPct)}</div>`;
       }
       return `<span style="font-size:10px;color:#2563eb;font-weight:700;border:1px dashed #2563eb66;border-radius:8px;padding:2px 7px;white-space:nowrap;">+ coste</span>`;
@@ -10932,7 +11019,7 @@ function updateCarteraRow(key){
   // sobre la cartera vive junto al ticker, no aquí — ver rowFor en renderCartera).
   if(p('cpos-'+key)&&m.buyPrice){
     const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
-    p('cpos-'+key).innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(fmt(m.buyPrice))}</div>`
+    p('cpos-'+key).innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(curSymFor(m.posCur)+N(m.buyPrice,2))}</div>`
       +`<div class="c-sub" style="color:${rc};">${sp(m.retPct)}</div>`;
   }
   // Rendimiento en línea junto al ticker (sustituye a «Mi coste» en móvil — ver rowFor)
