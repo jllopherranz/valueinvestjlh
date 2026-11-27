@@ -4039,6 +4039,45 @@ function renderAnalystRecs(){
   }).catch(()=>{});
 }
 
+// ── Señal de mercado para el MOAT: consenso de analistas (Finnhub, dato real de
+// internet, no de tu Excel). Se cachea 7 días por empresa en localStorage para no
+// disparar una petición en cada fila de Cartera o de la comparativa cruzada.
+let _moatRecsCache={};
+function _moatRecsKey(k){ return 'vi_moatrecs_'+k; }
+function _loadMoatRecsCache(k){
+  if(_moatRecsCache[k]!==undefined) return _moatRecsCache[k];
+  try{
+    const c=JSON.parse(localStorage.getItem(_moatRecsKey(k))||'null');
+    if(c&&Date.now()-c.ts<7*86400000){ _moatRecsCache[k]=c; return c; }
+  }catch(e){}
+  return undefined;
+}
+// Lee de caché (sin red) — para usar dentro de calcMoat(), que es síncrono.
+function moatRecsFor(k){
+  const c=_loadMoatRecsCache(k);
+  return (c&&c!=='pending')?c:null;
+}
+// Dispara la petición en segundo plano si hace falta, y repinta la pestaña MOAT cuando llegue.
+function ensureMoatRecs(k){
+  if(!getFinnhubKey()) return;
+  const c=_loadMoatRecsCache(k);
+  if(c!==undefined) return;             // ya en caché (o ya pendiente)
+  _moatRecsCache[k]='pending';
+  fetchAnalystRecs(k).then(d=>{
+    const total=d?((d.strongBuy||0)+(d.buy||0)+(d.hold||0)+(d.sell||0)+(d.strongSell||0)):0;
+    let entry=null;
+    if(d&&total){
+      const buyPct=Math.round((d.strongBuy+d.buy)/total*100);
+      const sellPct=Math.round((d.sell+d.strongSell)/total*100);
+      const score=buyPct>=80?90:buyPct>=60?75:buyPct>=40?55:buyPct>=20?35:15;
+      entry={ts:Date.now(),score,buyPct,sellPct,total,period:d.period||''};
+    }
+    _moatRecsCache[k]=entry;
+    try{ if(entry) localStorage.setItem(_moatRecsKey(k),JSON.stringify(entry)); }catch(e){}
+    if(typeof curTab!=='undefined'&&curTab==='moat'&&coKeyOf(co)===k) showTab(curTab);
+  }).catch(()=>{ _moatRecsCache[k]=null; });
+}
+
 // ══ FASE 3 · ESCENARIOS, SENSIBILIDAD Y SEGUIMIENTO ═══════════════════
 
 // ── Escenarios con probabilidad ────────────────────────────────────────
@@ -4261,6 +4300,13 @@ function calcMoat(){
   const key=Object.keys(DB).find(k=>DB[k]===co)||co.ticker;
   const q=moatQual(key);
   const cxI=capexIntensity(co), wcI=workingCapIntensity(co), dil=dilutionFor(co);
+  const recs=moatRecsFor(key);
+  ensureMoatRecs(key);   // pide el dato en segundo plano si no está en caché (no bloquea este cálculo)
+  // Referencia de SU sector (mediana de tus propias empresas del mismo sector si tienes
+  // 3+, si no la tabla de referencia) — para no exigirle a un banco el margen de un SaaS.
+  const sref=sectorRefFor(co);
+  const fmRatio=(fm!=null&&sref.fcfMg>0)?fm/sref.fcfMg:null;
+  const sgRatio=(sg!=null&&sref.cagr>0)?sg/sref.cagr:null;
 
   // Cada criterio puede quedar "sin evaluar" (s:null): entonces NO puntúa y su
   // peso se reparte entre los demás, en vez de colar un valor por defecto.
@@ -4278,12 +4324,16 @@ function calcMoat(){
      flojo:!wcI.ok},
     {n:"ROIC vs coste de capital",w:15,
      s:r9==null?null:(r9>=50?100:r9>=30?92:r9>=20?82:r9>=15?68:r9>=10?50:25),
-     why:r9==null?'Sin dato de ROIC para el último año.':`ROIC ${P(r9)} vs WACC ~${co.wacc}%. Spread ${(r9-co.wacc).toFixed(0)}pp.`},
+     why:r9==null?'Sin dato de ROIC para el último año.':`ROIC ${P(r9)} vs WACC ~${co.wacc}%. Spread ${(r9-co.wacc).toFixed(0)}pp · su sector (${sref.fuente}) está en ~${Math.round(sref.roicRef)}%.`},
     {n:"Tendencia ROIC 10 años",w:8,
      s:rt==null?null:(rt>=0?85:rt>=-10?55:rt>=-20?30:15),
      why:rt==null?'Sin dato de ROIC de hace 10 años o del último año.':`De ${co.roic[0]}% (${_y0()}) a ${r9}% (${_y9()}).`},
-    {n:"Margen FCF consistente",w:12,s:fm>=35?95:fm>=25?85:fm>=20?75:fm>=15?60:fm>=10?42:25,why:`Margen FCF ${P(fm)}.`},
-    {n:"CAGR Ventas 10 años",w:12,s:sg>=40?98:sg>=25?90:sg>=20?82:sg>=15?70:sg>=10?55:35,why:`CAGR ${P(sg)}.`},
+    {n:"Margen FCF vs su sector",w:12,
+     s:fmRatio==null?null:(fmRatio>=1.8?95:fmRatio>=1.3?85:fmRatio>=1.0?75:fmRatio>=0.7?55:30),
+     why:fmRatio==null?'Sin margen FCF o sin referencia de sector.':`Margen FCF ${P(fm)} vs su sector (${sref.fuente}: ~${Math.round(sref.fcfMg)}%).`},
+    {n:"CAGR Ventas vs su sector",w:12,
+     s:sgRatio==null?null:(sgRatio>=2.5?98:sgRatio>=1.6?88:sgRatio>=1.0?75:sgRatio>=0.6?55:30),
+     why:sgRatio==null?'Sin CAGR de ventas o sin referencia de sector.':`CAGR ${P(sg)} vs su sector (${sref.fuente}: ~${Math.round(sref.cagr)}%).`},
     {n:"Capital allocation / reinversión FCF",w:10,
      s:q&&q.capital!=null?q.capital:null,
      why:q&&q.capital!=null?(q.capitalWhy||'Valoración cualitativa guardada.'):'Sin evaluar — pulsa «Valorar el foso» para puntuarlo tú.'},
@@ -4291,6 +4341,10 @@ function calcMoat(){
      s:dil.pct==null?null:(dil.pct<=0?Math.min(100,92+Math.min(8,Math.abs(dil.pct)*4)):Math.max(0,100-dil.pct*15)),
      why:dilutionLabel(co), flojo:!dil.real},
     {n:"Solidez balance (Deuda/EBITDA)",w:10,s:dd<0?100:dd<1?88:dd<2?68:dd<3?42:12,why:`Deuda/EBITDA ${dd.toFixed(1)}x.`},
+    {n:"Consenso de analistas (Finnhub, en vivo)",w:8,
+     s:recs?recs.score:null,
+     why:recs?`${recs.buyPct}% compra/compra fuerte de ${recs.total} analistas (${recs.sellPct}% venta) · periodo ${recs.period||'—'}.`
+        :(getFinnhubKey()?'Consultando Finnhub…':'Sin API key de Finnhub — añade una en Ajustes para activar esta señal.')},
   ];
   // Media ponderada solo sobre lo que SÍ se ha podido evaluar
   let tot=0,w=0;
@@ -4304,17 +4358,29 @@ function calcMoat(){
 }
 
 // Editor del juicio cualitativo del foso
+// Borrador de apoyo para los dos criterios subjetivos del foso, hecho solo de datos
+// que ya están en la app (FICHA que escribiste tú, cifras de tu hoja) — nunca inventado.
+// No pone nota: solo rellena la "razón" para no partir de un cuadro vacío. Tú decides el número.
+function _moatQualDraft(key,c){
+  const ficha=FICHA[key];
+  const switchWhy=(ficha&&ficha.rival&&ficha.rival.why&&ficha.rival.why.length)
+    ? `Borrador desde tu ficha — revísalo: rival principal ${ficha.rival.name}. ${ficha.rival.why.join(' · ')}`
+    : '';
+  const capitalWhy=`Borrador desde tus cuentas — revísalo: ${dilutionLabel(c)}.`;
+  return {switchWhy,capitalWhy};
+}
 function editMoatQual(){
   const key=Object.keys(DB).find(k=>DB[k]===co)||co.ticker;
   const cur=moatQual(key)||{};
+  const draft=_moatQualDraft(key,co);
   const s1=prompt('Costes de cambio / ventaja tecnológica de '+co.name+' (0-100)\n\n¿Cuánto le cuesta a un cliente irse con la competencia?\n90+ = prácticamente imposible · 70 = caro y lento · 40 = molesto · 20 = trivial\n\nDéjalo vacío para no evaluarlo.',
     cur.switch!=null?String(cur.switch):'');
   if(s1===null) return;
-  const w1=s1.trim()===''?null:prompt('En una frase, ¿por qué esa nota?',cur.switchWhy||'')||'';
+  const w1=s1.trim()===''?null:prompt('En una frase, ¿por qué esa nota? (puedes editar el borrador)',cur.switchWhy||draft.switchWhy||'')||'';
   const s2=prompt('Asignación de capital de '+co.name+' (0-100)\n\n¿Reinvierte bien el dinero que gana?\n90+ = historial excelente · 70 = razonable · 40 = irregular · 20 = destruye valor\n\nDéjalo vacío para no evaluarlo.',
     cur.capital!=null?String(cur.capital):'');
   if(s2===null) return;
-  const w2=s2.trim()===''?null:prompt('En una frase, ¿por qué esa nota?',cur.capitalWhy||'')||'';
+  const w2=s2.trim()===''?null:prompt('En una frase, ¿por qué esa nota? (puedes editar el borrador)',cur.capitalWhy||draft.capitalWhy||'')||'';
   const num=v=>{const n=parseInt(v,10);return (isFinite(n)&&n>=0&&n<=100)?n:null;};
   saveMoatQual(key,{switch:s1.trim()===''?null:num(s1),switchWhy:w1,
                     capital:s2.trim()===''?null:num(s2),capitalWhy:w2});
@@ -4458,11 +4524,12 @@ function calcVerdict(){
 
   const moat=calcMoat();
 
-  // ─── PESO REBALANCEADO v2: Retorno 5Y 35 · MOAT 30 · ROIC 20 · MdS próx.año 15 ───
-  // El componente principal pasa a ser el RETORNO ESPERADO ANUALIZADO a 5 años (CAGR hasta
-  // tu objetivo PROMEDIO 5Y — el mismo número del dashboard). Antes el MdS de PRÓXIMO año
-  // pesaba 50 y hundía a compounders de crecimiento (caros a 1 año pero con gran CAGR 5Y,
-  // ej. NVIDIA). El MdS a 1 año sigue contando (15) como control de no sobrepagar a corto.
+  // ─── PESO REBALANCEADO v3 (a petición de Jordi): Retorno 5Y 30 · MOAT 25 ·
+  // MdS 20 · ROIC 20 · Coherencia 5. Antes la Coherencia DCF/múltiplos pesaba
+  // más (15) que el ROIC (18→ahora 20) y el MdS (12→ahora 20): subían de peso
+  // los dos ejes que Jordi usa de verdad para decidir (margen de seguridad y
+  // calidad del negocio vía ROIC) y baja el de "¿coinciden DCF y múltiplos?",
+  // que es un chequeo de consistencia, no una señal de calidad o precio.
   const _avgT5=avgTargetsFor(co);
   const fair5=(_avgT5&&_avgT5[4]!=null)?_avgT5[4]:(_evfT&&_evfT[4]!=null?_evfT[4]:fairBase);
   const cagr5e=(fair5&&price>0)?(Math.pow(Math.max(fair5,1)/Math.max(price,1),0.2)-1)*100:0;
@@ -4472,17 +4539,22 @@ function calcVerdict(){
     cagr5e>=0  ? cagr5e/12*19 :           // 0%→0 ... 12%→19
     0
   );
-  // MdS próximo año (curva continua, escalada a 0-15)
+  // MdS próximo año (curva continua, escalada a 0-20)
   const _mdsRaw=( msBase>=30?50: msBase>=15?42+(msBase-15)/15*8 : msBase>=0?30+msBase/15*12 : msBase>=-20?30+msBase/20*30 : 0 );
-  const mdsScore=Math.round(_mdsRaw*12/50);
+  const mdsScore=Math.round(_mdsRaw*20/50);
   // El MOAT puede quedar sin evaluar: entonces no puntúa y su peso se reparte
   const moatScore=(moat.overall==null)?null:Math.round(moat.overall*25/100);
 
-  // ─── ROIC: tendencia 5Y + nivel absoluto + momentum ───
+  // ─── ROIC: SIEMPRE relativo al sector, no a un umbral único para toda empresa ───
+  // Un 15% de ROIC es excelente en un banco y mediocre en software. sectorRefFor()
+  // da la referencia real: mediana de TUS propias empresas del mismo sector si
+  // tienes 3+ (dato real, no inventado), si no la tabla de referencia por sector.
+  const sref=sectorRefFor(co);
   const roicTrend10=_diff(co.roic[9],co.roic[0]);
   const roicTrend5=_diff(co.roic[9],co.roic[4]);
   const roicTrend=roicTrend5;
   const roicAbs=co.roic[9];
+  const roicVsSector=(roicAbs!=null&&sref.roicRef>0)?roicAbs/sref.roicRef:null;
   // Regresión lineal sobre los 5 últimos años — solo con los años que sí tienen ROIC real
   // (antes un año sin ROIC calculable contaba como "0%" en la suma, torciendo la pendiente).
   const roicLast5Pts=co.roic.slice(5).map((v,i)=>({i,v})).filter(p=>p.v!=null);
@@ -4495,32 +4567,31 @@ function calcVerdict(){
     roicSlope=denom?(n5*sumXY-sumX*sumY)/denom:0;
   }
   const roicMomentum=roicSlope>1.5?'acelerando ↑↑':roicSlope>0.3?'estable o creciendo →':roicSlope>-1.5?'ralentizando ↓':'cayendo ↓↓';
-  // Sin ROIC del último año no hay con qué puntuar este eje — se reparte el peso, igual que ya
-  // se hace con el MOAT cuando no se ha podido evaluar (ver maxPosible más abajo).
+  // Sin ROIC del último año (o sin referencia de sector) no hay con qué puntuar este eje —
+  // se reparte el peso, igual que ya se hace con el MOAT (ver maxPosible más abajo).
   let roicScore=null;
-  if(roicAbs!=null){
-    if(roicAbs>=40) roicScore=16;
-    else if(roicAbs>=25) roicScore=13;
-    else if(roicAbs>=18) roicScore=10;
-    else if(roicAbs>=12) roicScore=5;
+  if(roicVsSector!=null){
+    if(roicVsSector>=2.0) roicScore=18;        // el doble que su sector
+    else if(roicVsSector>=1.4) roicScore=15;
+    else if(roicVsSector>=1.0) roicScore=11;   // en línea con su sector
+    else if(roicVsSector>=0.7) roicScore=6;
     else roicScore=2;
     if(roicTrend5!=null){
-      if(roicTrend5<-15) roicScore=Math.max(0,roicScore-6);
+      if(roicTrend5<-15) roicScore=Math.max(0,roicScore-7);
       else if(roicTrend5<-7) roicScore=Math.max(0,roicScore-3);
-      else if(roicTrend5>=5) roicScore=Math.min(18,roicScore+2);
+      else if(roicTrend5>=5) roicScore=Math.min(20,roicScore+2);
     }
   }
 
-  // ─── COHERENCIA ENTRE MÉTODOS (15 pts) ───
+  // ─── COHERENCIA ENTRE MÉTODOS (5 pts) ───
   // El DCF era la única valoración independiente de tus múltiplos y se
-  // calculaba para tirarla: no entraba en la nota. Ahora sí. Si el DCF y el
-  // objetivo por múltiplos apuntan al mismo sitio, la tesis se sostiene por dos
-  // caminos distintos; si divergen mucho, uno de los dos está equivocado.
+  // calculaba para tirarla: no entraba en la nota. Ahora sí, pero como chequeo
+  // de consistencia (poco peso) y no como señal de calidad o de precio.
   const cohRef=Math.abs(fairBase)>0.01?fairBase:null;
   let cohGap=null,cohScore=0;
   if(cohRef&&dcf>0){
     cohGap=Math.abs(dcf-cohRef)/Math.abs(cohRef)*100;
-    cohScore=Math.round(cohGap<=15?15:cohGap<=30?15-(cohGap-15)/15*5:cohGap<=60?10-(cohGap-30)/30*7:Math.max(0,3-(cohGap-60)/40*3));
+    cohScore=Math.round(cohGap<=15?5:cohGap<=30?5-(cohGap-15)/15*1.7:cohGap<=60?3.3-(cohGap-30)/30*2.3:Math.max(0,1-(cohGap-60)/40));
   }
   const cohLabel=cohGap==null?'DCF no evaluable con estas hipótesis'
     :cohGap<=15?'DCF y múltiplos coinciden — la tesis se sostiene por dos caminos'
@@ -4530,7 +4601,7 @@ function calcVerdict(){
 
   // Si el MOAT o el ROIC no se han podido evaluar, sus puntos no cuentan y la nota se
   // reescala sobre lo evaluado, en vez de dar un cero encubierto.
-  const maxPosible=30+12+15+(moatScore==null?0:25)+(roicScore==null?0:18);
+  const maxPosible=30+20+5+(moatScore==null?0:25)+(roicScore==null?0:20);
   let totalScore=Math.round((retScore+mdsScore+(roicScore||0)+cohScore+(moatScore||0))/maxPosible*100);
 
   // ─── PENALIZACIÓN POR EUFORIA: precio por encima del múltiplo más alto razonable ───
@@ -4553,12 +4624,13 @@ function calcVerdict(){
     verdict='EVITAR';verdictColor=dark?'#f78166':'#dc2626';verdictBg=dark?'#200a0a':'#fef2f2';
   }
 
-  const reasoning=`Score ${totalScore}/100 — Retorno 5Y(${retScore}/30) + ${moatScore==null?'MOAT(sin evaluar)':`MOAT(${moatScore}/25)`} + ROIC(${roicScore}/18) + Coherencia(${cohScore}/15) + MdS(${mdsScore}/12)${euforiaPenalty>0?` − Euforia(-${euforiaPenalty})`:''}. Retorno esperado ~${cagr5e>=0?'+':''}${cagr5e.toFixed(0)}%/año · Precio justo 1Y ${curSymG()}${N(Math.round(fairBase))} (MdS ${msBase>=0?'+':''}${msBase.toFixed(0)}%)`;
+  const reasoning=`Score ${totalScore}/100 — Retorno 5Y(${retScore}/30) + ${moatScore==null?'MOAT(sin evaluar)':`MOAT(${moatScore}/25)`} + MdS(${mdsScore}/20) + ROIC(${roicScore}/20) + Coherencia(${cohScore}/5)${euforiaPenalty>0?` − Euforia(-${euforiaPenalty})`:''}. Retorno esperado ~${cagr5e>=0?'+':''}${cagr5e.toFixed(0)}%/año · Precio justo 1Y ${curSymG()}${N(Math.round(fairBase))} (MdS ${msBase>=0?'+':''}${msBase.toFixed(0)}%)${roicVsSector!=null?` · ROIC ${roicVsSector>=1?(roicVsSector.toFixed(1)+'x'):Math.round(roicVsSector*100)+'%'} de su sector (${sref.fuente})`:''}`;
 
   return{verdict,verdictColor,verdictBg,totalScore,retScore,cagr5e:+cagr5e.toFixed(1),mdsScore,moatScore,roicScore,
     cohScore,cohGap:cohGap==null?null:+cohGap.toFixed(0),cohLabel,dcfVal:Math.round(dcf),
     ms:+ms.toFixed(1),msBase:+msBase.toFixed(1),fairBase:Math.round(fairBase),
     roicTrend,roicTrend5,roicTrend10,roicSlope:+roicSlope.toFixed(1),roicMomentum,
+    roicVsSector:roicVsSector==null?null:+roicVsSector.toFixed(2),sectorRef:sref,
     euforiaEVF,euforiaPER,euforiaPenalty,
     evfcfActual,perActual,med5_evf,med5_per,
     reasoning,moat};
@@ -9699,6 +9771,10 @@ function renderCartera(){
       }
       return `<span style="font-size:10px;color:#2563eb;font-weight:700;border:1px dashed #2563eb66;border-radius:8px;padding:2px 7px;white-space:nowrap;">+ coste</span>`;
     })();
+    // Referencia de SU sector (mediana de tus propias empresas del mismo sector si tienes
+    // 3+, si no la tabla de referencia) — un 15% de ROIC es excelente en un banco y
+    // mediocre en software, así que el verde/rojo ya no usa el mismo corte para todas.
+    const sref=sectorRefFor(DB[k]);
     const qual=(v,fmtF,good,bad,tip)=>{
       if(v==null) return `<td class="col-cal" style="text-align:right;color:#9a958e;font-size:11px;">—</td>`;
       const c=good(v)?'#16a34a':bad(v)?'#dc2626':'#d97706';
@@ -9740,10 +9816,10 @@ function renderCartera(){
   <td style="text-align:center;">${m.verdict
       ? `<span class="verd-pill-sm" style="background:${m.vcolor}15;color:${m.vcolor};" title="Score ${m.score}/100 — mismo veredicto que la pestaña Análisis">${m.verdict}</span><div style="font-size:9px;color:var(--muted);font-weight:700;">${m.score}/100</div>`
       : '<span style="color:#9a958e;font-size:11px;">—</span>'}</td>
-  ${qual(m.roic5,v=>v.toFixed(0)+'%',v=>v>=15,v=>v<8,'ROIC medio de los últimos 5 años · >15% excelente, <8% flojo')}
-  ${qual(m.fcfM,v=>v.toFixed(0)+'%',v=>v>=15,v=>v<5,'Margen de caja libre del último año · >15% muy bueno')}
-  ${qual(m.ndEbitda,v=>v.toFixed(1)+'x',v=>v<1,v=>v>3,'Deuda neta / EBITDA · <1x sólida, >3x apalancada')}
-  ${qual(m.salesG5,v=>(v>=0?'+':'')+v.toFixed(0)+'%',v=>v>=10,v=>v<3,'Crecimiento anual de ventas de los últimos 5 años')}
+  ${qual(m.roic5,v=>v.toFixed(0)+'%',v=>v>=sref.roicRef,v=>v<sref.roicRef*0.6,`ROIC medio de los últimos 5 años vs su sector (${sref.fuente}: ~${Math.round(sref.roicRef)}%)`)}
+  ${qual(m.fcfM,v=>v.toFixed(0)+'%',v=>v>=sref.fcfMg,v=>v<sref.fcfMg*0.6,`Margen de caja libre del último año vs su sector (${sref.fuente}: ~${Math.round(sref.fcfMg)}%)`)}
+  ${qual(m.ndEbitda,v=>v.toFixed(1)+'x',v=>v<1,v=>v>3,'Deuda neta / EBITDA · <1x sólida, >3x apalancada (umbral absoluto: la deuda se paga en la misma moneda en cualquier sector)')}
+  ${qual(m.salesG5,v=>(v>=0?'+':'')+v.toFixed(0)+'%',v=>v>=sref.cagr,v=>v<sref.cagr*0.6,`Crecimiento anual de ventas de los últimos 5 años vs su sector (${sref.fuente}: ~${Math.round(sref.cagr)}%)`)}
   <td style="text-align:center;" onclick="event.stopPropagation();">
     <div style="display:flex;gap:2px;justify-content:center;align-items:center;">
       ${driveUrl
