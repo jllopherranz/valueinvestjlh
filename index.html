@@ -4039,6 +4039,45 @@ function renderAnalystRecs(){
   }).catch(()=>{});
 }
 
+// ── Señal de mercado para el MOAT: consenso de analistas (Finnhub, dato real de
+// internet, no de tu Excel). Se cachea 7 días por empresa en localStorage para no
+// disparar una petición en cada fila de Cartera o de la comparativa cruzada.
+let _moatRecsCache={};
+function _moatRecsKey(k){ return 'vi_moatrecs_'+k; }
+function _loadMoatRecsCache(k){
+  if(_moatRecsCache[k]!==undefined) return _moatRecsCache[k];
+  try{
+    const c=JSON.parse(localStorage.getItem(_moatRecsKey(k))||'null');
+    if(c&&Date.now()-c.ts<7*86400000){ _moatRecsCache[k]=c; return c; }
+  }catch(e){}
+  return undefined;
+}
+// Lee de caché (sin red) — para usar dentro de calcMoat(), que es síncrono.
+function moatRecsFor(k){
+  const c=_loadMoatRecsCache(k);
+  return (c&&c!=='pending')?c:null;
+}
+// Dispara la petición en segundo plano si hace falta, y repinta la pestaña MOAT cuando llegue.
+function ensureMoatRecs(k){
+  if(!getFinnhubKey()) return;
+  const c=_loadMoatRecsCache(k);
+  if(c!==undefined) return;             // ya en caché (o ya pendiente)
+  _moatRecsCache[k]='pending';
+  fetchAnalystRecs(k).then(d=>{
+    const total=d?((d.strongBuy||0)+(d.buy||0)+(d.hold||0)+(d.sell||0)+(d.strongSell||0)):0;
+    let entry=null;
+    if(d&&total){
+      const buyPct=Math.round((d.strongBuy+d.buy)/total*100);
+      const sellPct=Math.round((d.sell+d.strongSell)/total*100);
+      const score=buyPct>=80?90:buyPct>=60?75:buyPct>=40?55:buyPct>=20?35:15;
+      entry={ts:Date.now(),score,buyPct,sellPct,total,period:d.period||''};
+    }
+    _moatRecsCache[k]=entry;
+    try{ if(entry) localStorage.setItem(_moatRecsKey(k),JSON.stringify(entry)); }catch(e){}
+    if(typeof curTab!=='undefined'&&curTab==='moat'&&coKeyOf(co)===k) showTab(curTab);
+  }).catch(()=>{ _moatRecsCache[k]=null; });
+}
+
 // ══ FASE 3 · ESCENARIOS, SENSIBILIDAD Y SEGUIMIENTO ═══════════════════
 
 // ── Escenarios con probabilidad ────────────────────────────────────────
@@ -4261,6 +4300,8 @@ function calcMoat(){
   const key=Object.keys(DB).find(k=>DB[k]===co)||co.ticker;
   const q=moatQual(key);
   const cxI=capexIntensity(co), wcI=workingCapIntensity(co), dil=dilutionFor(co);
+  const recs=moatRecsFor(key);
+  ensureMoatRecs(key);   // pide el dato en segundo plano si no está en caché (no bloquea este cálculo)
 
   // Cada criterio puede quedar "sin evaluar" (s:null): entonces NO puntúa y su
   // peso se reparte entre los demás, en vez de colar un valor por defecto.
@@ -4291,6 +4332,10 @@ function calcMoat(){
      s:dil.pct==null?null:(dil.pct<=0?Math.min(100,92+Math.min(8,Math.abs(dil.pct)*4)):Math.max(0,100-dil.pct*15)),
      why:dilutionLabel(co), flojo:!dil.real},
     {n:"Solidez balance (Deuda/EBITDA)",w:10,s:dd<0?100:dd<1?88:dd<2?68:dd<3?42:12,why:`Deuda/EBITDA ${dd.toFixed(1)}x.`},
+    {n:"Consenso de analistas (Finnhub, en vivo)",w:8,
+     s:recs?recs.score:null,
+     why:recs?`${recs.buyPct}% compra/compra fuerte de ${recs.total} analistas (${recs.sellPct}% venta) · periodo ${recs.period||'—'}.`
+        :(getFinnhubKey()?'Consultando Finnhub…':'Sin API key de Finnhub — añade una en Ajustes para activar esta señal.')},
   ];
   // Media ponderada solo sobre lo que SÍ se ha podido evaluar
   let tot=0,w=0;
@@ -4304,17 +4349,29 @@ function calcMoat(){
 }
 
 // Editor del juicio cualitativo del foso
+// Borrador de apoyo para los dos criterios subjetivos del foso, hecho solo de datos
+// que ya están en la app (FICHA que escribiste tú, cifras de tu hoja) — nunca inventado.
+// No pone nota: solo rellena la "razón" para no partir de un cuadro vacío. Tú decides el número.
+function _moatQualDraft(key,c){
+  const ficha=FICHA[key];
+  const switchWhy=(ficha&&ficha.rival&&ficha.rival.why&&ficha.rival.why.length)
+    ? `Borrador desde tu ficha — revísalo: rival principal ${ficha.rival.name}. ${ficha.rival.why.join(' · ')}`
+    : '';
+  const capitalWhy=`Borrador desde tus cuentas — revísalo: ${dilutionLabel(c)}.`;
+  return {switchWhy,capitalWhy};
+}
 function editMoatQual(){
   const key=Object.keys(DB).find(k=>DB[k]===co)||co.ticker;
   const cur=moatQual(key)||{};
+  const draft=_moatQualDraft(key,co);
   const s1=prompt('Costes de cambio / ventaja tecnológica de '+co.name+' (0-100)\n\n¿Cuánto le cuesta a un cliente irse con la competencia?\n90+ = prácticamente imposible · 70 = caro y lento · 40 = molesto · 20 = trivial\n\nDéjalo vacío para no evaluarlo.',
     cur.switch!=null?String(cur.switch):'');
   if(s1===null) return;
-  const w1=s1.trim()===''?null:prompt('En una frase, ¿por qué esa nota?',cur.switchWhy||'')||'';
+  const w1=s1.trim()===''?null:prompt('En una frase, ¿por qué esa nota? (puedes editar el borrador)',cur.switchWhy||draft.switchWhy||'')||'';
   const s2=prompt('Asignación de capital de '+co.name+' (0-100)\n\n¿Reinvierte bien el dinero que gana?\n90+ = historial excelente · 70 = razonable · 40 = irregular · 20 = destruye valor\n\nDéjalo vacío para no evaluarlo.',
     cur.capital!=null?String(cur.capital):'');
   if(s2===null) return;
-  const w2=s2.trim()===''?null:prompt('En una frase, ¿por qué esa nota?',cur.capitalWhy||'')||'';
+  const w2=s2.trim()===''?null:prompt('En una frase, ¿por qué esa nota? (puedes editar el borrador)',cur.capitalWhy||draft.capitalWhy||'')||'';
   const num=v=>{const n=parseInt(v,10);return (isFinite(n)&&n>=0&&n<=100)?n:null;};
   saveMoatQual(key,{switch:s1.trim()===''?null:num(s1),switchWhy:w1,
                     capital:s2.trim()===''?null:num(s2),capitalWhy:w2});
